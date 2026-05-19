@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Producto {
+  id           String   @id @default(uuid())
+  nombre       String
+  categoria    String
+  stockActual  Int      @default(0)
+  stockMinimo  Int      @default(10)
+  unidad       String
+  costo        Float
+  movimientos  Movimiento[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Movimiento {
+  id          String   @id @default(uuid())
+  productoId  String
+  producto    Producto @relation(fields: [productoId], references: [id])
+  tipo        String   // ENTRADA, SALIDA, RESERVA
+  cantidad    Int
+  motivo      String
+  timestamp   DateTime @default(now())
+}

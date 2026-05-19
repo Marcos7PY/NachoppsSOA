@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Notificacion {
+  id          String   @id @default(uuid())
+  eventoOrigen String
+  destinatario String
+  canal       String   // SMS, WHATSAPP, UI
+  contenido   String
+  estado      String   @default("PENDIENTE") // PENDIENTE, ENVIADO, FALLIDO
+  intentos    Int      @default(0)
+  timestamp   DateTime @default(now())
+}

@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Mesa {
+  id             String   @id @default(uuid())
+  numero         Int      @unique
+  capacidad      Int
+  ubicacion      String
+  estado         String   @default("LIBRE") // LIBRE, OCUPADA, RESERVADA
+  cuentaAsociada String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model MovimientoCaja {
+  id       String   @id @default(uuid())
+  tipo     String   // INGRESO, EGRESO
+  monto    Float
+  medio    String   // EFECTIVO, TARJETA, QR
+  cuentaRef String?
+  turnoId  String?
+  timestamp DateTime @default(now())
+}
+
+model Arqueo {
+  id       String   @id @default(uuid())
+  turnoId  String   @unique
+  montoReal Float
+  diferencia Float
+  timestamp DateTime @default(now())
+}

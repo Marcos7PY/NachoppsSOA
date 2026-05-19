@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Snapshot {
+  id        String   @id @default(uuid())
+  tipo      String   // VENTAS, STOCK, OCUPACION
+  periodo   String   // DIA, SEMANA, MES
+  datos     Json
+  timestamp DateTime @default(now())
+}

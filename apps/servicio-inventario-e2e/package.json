@@ -1,0 +1,27 @@
+{
+  "name": "@org/servicio-inventario-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "servicio-inventario-e2e",
+    "implicitDependencies": [
+      "servicio-inventario"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-inventario-e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "servicio-inventario:build",
+          "servicio-inventario:serve"
+        ]
+      }
+    }
+  }
+}

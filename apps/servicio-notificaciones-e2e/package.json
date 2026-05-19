@@ -1,0 +1,27 @@
+{
+  "name": "@org/servicio-notificaciones-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "servicio-notificaciones-e2e",
+    "implicitDependencies": [
+      "servicio-notificaciones"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-notificaciones-e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "servicio-notificaciones:build",
+          "servicio-notificaciones:serve"
+        ]
+      }
+    }
+  }
+}

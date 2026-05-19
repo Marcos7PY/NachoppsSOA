@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Cuenta {
+  id        String   @id @default(uuid())
+  mesaId    String
+  pedidos   Json
+  total     Float    @default(0)
+  estado    String   @default("ABIERTA") // ABIERTA, CERRADA, PAGADA
+  ticket    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,76 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/servicio-reservas-e2e"
+    },
+    {
+      "path": "./apps/servicio-reservas"
+    },
+    {
+      "path": "./apps/servicio-mesas-e2e"
+    },
+    {
+      "path": "./apps/servicio-mesas"
+    },
+    {
+      "path": "./apps/servicio-pedidos-e2e"
+    },
+    {
+      "path": "./apps/servicio-pedidos"
+    },
+    {
+      "path": "./apps/servicio-cuentas-e2e"
+    },
+    {
+      "path": "./apps/servicio-cuentas"
+    },
+    {
+      "path": "./apps/servicio-inventario-e2e"
+    },
+    {
+      "path": "./apps/servicio-inventario"
+    },
+    {
+      "path": "./apps/servicio-caja-e2e"
+    },
+    {
+      "path": "./apps/servicio-caja"
+    },
+    {
+      "path": "./apps/servicio-reportes-e2e"
+    },
+    {
+      "path": "./apps/servicio-reportes"
+    },
+    {
+      "path": "./apps/servicio-notificaciones-e2e"
+    },
+    {
+      "path": "./apps/servicio-notificaciones"
+    },
+    {
+      "path": "./apps/servicio-identidad-e2e"
+    },
+    {
+      "path": "./apps/servicio-identidad"
+    },
+    {
+      "path": "./apps/pwa-cliente-e2e"
+    },
+    {
+      "path": "./apps/pwa-cliente"
+    },
+    {
+      "path": "./libs/contracts"
+    },
+    {
+      "path": "./libs/shared-rabbitmq"
+    },
+    {
+      "path": "./libs/shared-prisma"
+    }
+  ]
+}

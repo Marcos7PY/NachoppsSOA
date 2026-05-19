@@ -1,0 +1,27 @@
+{
+  "name": "@org/servicio-identidad-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "servicio-identidad-e2e",
+    "implicitDependencies": [
+      "servicio-identidad"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-identidad-e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "servicio-identidad:build",
+          "servicio-identidad:serve"
+        ]
+      }
+    }
+  }
+}

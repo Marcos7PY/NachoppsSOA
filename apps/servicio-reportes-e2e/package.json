@@ -1,0 +1,27 @@
+{
+  "name": "@org/servicio-reportes-e2e",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "name": "servicio-reportes-e2e",
+    "implicitDependencies": [
+      "servicio-reportes"
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "@nx/jest:jest",
+        "outputs": [
+          "{projectRoot}/test-output/jest/coverage"
+        ],
+        "options": {
+          "jestConfig": "apps/servicio-reportes-e2e/jest.config.cts",
+          "passWithNoTests": true
+        },
+        "dependsOn": [
+          "servicio-reportes:build",
+          "servicio-reportes:serve"
+        ]
+      }
+    }
+  }
+}
