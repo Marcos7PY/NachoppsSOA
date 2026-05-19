@@ -60,7 +60,6 @@
   "sync": {
     "applyChanges": true
   },
-  "nxCloudId": "6a0a8b949cd8ea9164d56c34",
   "analytics": false,
   "generators": {
     "@nx/react": {
