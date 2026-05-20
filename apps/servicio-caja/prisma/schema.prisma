@@ -1,26 +1,32 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-model MovimientoCaja {
-  id       String   @id @default(uuid())
-  tipo     String   // INGRESO, EGRESO
-  monto    Float
-  medio    String   // EFECTIVO, TARJETA, QR
-  cuentaRef String?
-  turnoId  String?
-  timestamp DateTime @default(now())
+model Transaccion {
+  id          String   @id @default(uuid())
+  pedidoId    String
+  monto       Decimal  @db.Decimal(10, 2)
+  metodo      String   // EFECTIVO, TARJETA, etc.
+  referencia  String?
+  notas       String?
+  createdAt   DateTime @default(now())
+
+  @@map("transacciones")
 }
 
-model Arqueo {
-  id       String   @id @default(uuid())
-  turnoId  String   @unique
-  montoReal Float
-  diferencia Float
-  timestamp DateTime @default(now())
+model CierreCaja {
+  id           String   @id @default(uuid())
+  montoEsperado Decimal  @db.Decimal(10, 2)
+  montoReal     Decimal  @db.Decimal(10, 2)
+  diferencia    Decimal  @db.Decimal(10, 2)
+  usuarioId     String
+  createdAt     DateTime @default(now())
+
+  @@map("cierres_caja")
 }

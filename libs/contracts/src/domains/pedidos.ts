@@ -3,6 +3,7 @@ export const PedidoEstado = {
   EnPreparacion: 'EN_PREPARACION',
   Listo: 'LISTO',
   Entregado: 'ENTREGADO',
+  Pagado: 'PAGADO',
 } as const;
 
 export type PedidoEstado = (typeof PedidoEstado)[keyof typeof PedidoEstado];
@@ -14,9 +15,17 @@ export const ItemArea = {
 
 export type ItemArea = (typeof ItemArea)[keyof typeof ItemArea];
 
+export interface ModificadorItem {
+  nombre: string;
+  precioExtra?: number;
+}
+
 export interface PedidoItemDto {
-  producto: string;
+  productoId: string;
+  nombre: string;
   cantidad: number;
+  precioUnitario: number;
+  modificadores?: ModificadorItem[];
   area?: ItemArea;
   notas?: string;
 }
@@ -24,14 +33,26 @@ export interface PedidoItemDto {
 export interface PedidoDto {
   id: string;
   mesaId: string;
+  numeroMesa?: number;
   items: PedidoItemDto[];
+  total: number;
   estado: PedidoEstado;
   createdAt: string;
 }
 
 export interface CrearPedidoCommand {
   mesaId: string;
-  items: PedidoItemDto[];
+  items: (Omit<PedidoItemDto, 'nombre' | 'precioUnitario'> & { identificadorComensal?: number })[];
+}
+
+export interface DividirCuentaCommand {
+  metodo: 'IGUALES' | 'POR_ITEMS';
+  numPartes?: number;
+  itemsPorParte?: { parte: number; productoId: string; cantidad: number }[];
+}
+
+export interface ActualizarEstadoPedidoCommand {
+  estado: PedidoEstado;
 }
 
 export interface PedidoCreadoPayload {

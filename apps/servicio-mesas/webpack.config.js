@@ -1,4 +1,5 @@
 const { NxAppWebpackPlugin } = require('@nx/webpack/app-plugin');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const { join } = require('path');
 
 module.exports = {
@@ -9,6 +10,10 @@ module.exports = {
       devtoolModuleFilenameTemplate: '[absolute-resource-path]',
     }),
   },
+  ignoreWarnings: [
+    /Critical dependency: the request of a dependency is an expression/,
+    /Failed to parse source map/,
+  ],
   plugins: [
     new NxAppWebpackPlugin({
       target: 'node',
@@ -20,6 +25,25 @@ module.exports = {
       outputHashing: 'none',
       generatePackageJson: false,
       sourceMap: true,
+      externalDependencies: [
+        'bcrypt',
+        'kafkajs',
+        'mqtt',
+        'nats',
+        'ioredis',
+        '@grpc/grpc-js',
+        '@grpc/proto-loader',
+        'class-validator',
+        'class-transformer',
+        '@nestjs/websockets',
+        '@nestjs/websockets/socket-module',
+        'file-type',
+        'amqp-connection-manager',
+        'amqplib'
+      ],
     }),
   ],
+  resolve: {
+    plugins: [new TsconfigPathsPlugin()],
+  },
 };

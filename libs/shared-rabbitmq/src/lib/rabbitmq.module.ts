@@ -1,6 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import * as amqp from 'amqp-connection-manager';
 import { RABBITMQ_CONNECTION } from './rabbitmq.constants';
+import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
 
 @Module({})
 export class RabbitMQModule {
@@ -12,8 +13,8 @@ export class RabbitMQModule {
 
     return {
       module: RabbitMQModule,
-      providers: [connectionProvider],
-      exports: [connectionProvider],
+      providers: [connectionProvider, RabbitMQPublisherService],
+      exports: [connectionProvider, RabbitMQPublisherService],
       global: true,
     };
   }

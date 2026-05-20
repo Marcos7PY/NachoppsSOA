@@ -26,19 +26,20 @@ module.exports = {
       generatePackageJson: false,
       sourceMap: true,
       externalDependencies: [
-        // Dependencias opcionales de @nestjs/microservices no instaladas
+        'bcrypt',
         'kafkajs',
         'mqtt',
         'nats',
         'ioredis',
         '@grpc/grpc-js',
         '@grpc/proto-loader',
-        // Otras opcionales de NestJS
         'class-validator',
         'class-transformer',
         '@nestjs/websockets',
         '@nestjs/websockets/socket-module',
         'file-type',
+        'amqp-connection-manager',
+        'amqplib'
       ],
     }),
   ],

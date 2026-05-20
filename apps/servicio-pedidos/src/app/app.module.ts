@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
-import { RabbitMQModule, RabbitMQPublisherService } from '@org/shared-rabbitmq';
-import { PrismaModule } from '../prisma/prisma.module';
 import { AppController } from './app.controller';
+import { EventsController } from './events.controller';
 import { AppService } from './app.service';
+import { PrismaModule } from '../prisma/prisma.module';
+import { RabbitMQModule } from '@org/shared-rabbitmq';
 
 @Module({
   imports: [
     PrismaModule,
-    RabbitMQModule.forRoot(process.env.RABBITMQ_URI ?? 'amqp://nachopps:nachopps_secret@localhost:5672'),
+    RabbitMQModule.forRoot(
+      process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672'
+    ),
   ],
-  controllers: [AppController],
-  providers: [AppService, RabbitMQPublisherService],
+  controllers: [AppController, EventsController],
+  providers: [AppService],
 })
 export class AppModule {}

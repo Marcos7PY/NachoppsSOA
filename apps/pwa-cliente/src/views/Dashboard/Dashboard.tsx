@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Utensils, LayoutDashboard, CalendarDays } from 'lucide-react';
+import { LogOut, Utensils, LayoutDashboard, CalendarDays, Package, LayoutGrid, Banknote } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
 import styles from './Dashboard.module.css';
 
@@ -48,6 +48,34 @@ export const Dashboard = () => {
         <div 
           className={styles.card} 
           style={{ cursor: 'pointer', borderLeft: '4px solid var(--color-accent)' }}
+          onClick={() => navigate('/caja')}
+        >
+          <h2 className={styles.cardTitle}>
+            <Banknote size={20} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            Caja y Facturación
+          </h2>
+          <p className={styles.cardText}>
+            Registra pagos, realiza arqueos y visualiza las ventas del día.
+          </p>
+        </div>
+
+        <div 
+          className={styles.card} 
+          style={{ cursor: 'pointer', borderLeft: '4px solid var(--color-accent)' }}
+          onClick={() => navigate('/pedidos')}
+        >
+          <h2 className={styles.cardTitle}>
+            <Utensils size={20} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            Comandas y Pedidos
+          </h2>
+          <p className={styles.cardText}>
+            Toma pedidos, añade modificadores y gestiona las cuentas de las mesas.
+          </p>
+        </div>
+
+        <div 
+          className={styles.card} 
+          style={{ cursor: 'pointer', borderLeft: '4px solid var(--color-accent)' }}
           onClick={() => navigate('/reservas')}
         >
           <h2 className={styles.cardTitle}>
@@ -56,6 +84,34 @@ export const Dashboard = () => {
           </h2>
           <p className={styles.cardText}>
             Gestiona las reservaciones, confirma asistencias y crea nuevos apartados de mesa.
+          </p>
+        </div>
+
+        <div 
+          className={styles.card} 
+          style={{ cursor: 'pointer', borderLeft: '4px solid var(--color-accent)' }}
+          onClick={() => navigate('/inventario')}
+        >
+          <h2 className={styles.cardTitle}>
+            <Package size={20} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            Menú e Inventario
+          </h2>
+          <p className={styles.cardText}>
+            Gestiona los productos, categorías, precios y controla el stock.
+          </p>
+        </div>
+
+        <div 
+          className={styles.card} 
+          style={{ cursor: 'pointer', borderLeft: '4px solid var(--color-accent)' }}
+          onClick={() => navigate('/mesas')}
+        >
+          <h2 className={styles.cardTitle}>
+            <LayoutGrid size={20} style={{ display: 'inline', marginRight: '8px', verticalAlign: 'middle' }} />
+            Mesas y Salón
+          </h2>
+          <p className={styles.cardText}>
+            Visualiza el mapa de mesas y gestiona su estado en tiempo real.
           </p>
         </div>
         

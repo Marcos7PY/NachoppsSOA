@@ -23,3 +23,14 @@ export interface MesaAsignadaPayload {
 export interface MesaLiberadaPayload {
   mesaId: string;
 }
+
+export interface CrearMesaCommand {
+  numero: number;
+  capacidad: number;
+  ubicacion?: string;
+}
+
+export interface ActualizarEstadoMesaCommand {
+  estado: MesaEstado;
+  cuentaAsociada?: string;
+}

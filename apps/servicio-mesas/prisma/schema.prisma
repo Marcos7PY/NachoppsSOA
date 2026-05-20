@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
 }
 
 datasource db {
@@ -11,9 +12,11 @@ model Mesa {
   id             String   @id @default(uuid())
   numero         Int      @unique
   capacidad      Int
-  ubicacion      String
+  ubicacion      String   @default("Salon Principal")
   estado         String   @default("LIBRE") // LIBRE, OCUPADA, RESERVADA
   cuentaAsociada String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@map("mesas")
 }

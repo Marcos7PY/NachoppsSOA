@@ -3,12 +3,20 @@
   "compilerOptions": {
     "outDir": "dist",
     "types": ["node"],
-    "rootDir": "src",
+    "rootDir": "../../",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "target": "es2021"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": []
+  "include": ["src/**/*.ts", "../../libs/**/*.ts"],
+  "exclude": [],
+  "references": [
+    {
+      "path": "../../libs/shared-rabbitmq"
+    },
+    {
+      "path": "../../libs/contracts/tsconfig.lib.json"
+    }
+  ]
 }
