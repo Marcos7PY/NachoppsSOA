@@ -1,12 +1,26 @@
-// Uncomment this line to use CSS modules
-// import styles from './app.module.css';
-import NxWelcome from './nx-welcome';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Login } from '../views/Login/Login';
+import { Dashboard } from '../views/Dashboard/Dashboard';
+import { Reservas } from '../views/Reservas/Reservas';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 
 export function App() {
   return (
-    <div>
-      <NxWelcome title="pwa-cliente" />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        {/* Rutas Públicas */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Rutas Protegidas */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/reservas" element={<Reservas />} />
+        </Route>
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

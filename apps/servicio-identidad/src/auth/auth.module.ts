@@ -1,0 +1,25 @@
+import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
+import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
+import { JwtStrategy } from './jwt.strategy';
+
+@Module({
+  imports: [
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET ?? 'nachopps_jwt_secret_dev',
+      signOptions: {
+        expiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
+        issuer: 'nachopps-identidad',
+      },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, RabbitMQPublisherService],
+  exports: [AuthService, JwtModule],
+})
+export class AuthModule {}
+

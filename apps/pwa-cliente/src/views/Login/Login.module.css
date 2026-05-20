@@ -1,0 +1,180 @@
+.loginContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background decorative circles */
+.loginContainer::before,
+.loginContainer::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+}
+
+.loginContainer::before {
+  top: -10%;
+  left: -10%;
+  width: 40vw;
+  height: 40vw;
+  background: var(--color-primary-light);
+  opacity: 0.5;
+}
+
+.loginContainer::after {
+  bottom: -10%;
+  right: -10%;
+  width: 30vw;
+  height: 30vw;
+  background: var(--color-accent);
+  opacity: 0.15;
+}
+
+.loginCard {
+  width: 100%;
+  max-width: 420px;
+  padding: 3rem;
+  z-index: 1;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-inverse);
+}
+
+.logoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.logoIcon {
+  color: var(--color-accent);
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: rgba(249, 246, 240, 0.7);
+  font-size: 0.875rem;
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: rgba(249, 246, 240, 0.9);
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 1rem;
+  color: rgba(249, 246, 240, 0.5);
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  color: var(--color-text-inverse);
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.input::placeholder {
+  color: rgba(249, 246, 240, 0.3);
+}
+
+.errorText {
+  color: #ff8a8a;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: rgba(229, 62, 62, 0.1);
+  border-left: 3px solid var(--color-error);
+  border-radius: 4px;
+  text-align: left;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 0.875rem;
+  background: var(--color-accent);
+  color: var(--color-primary-dark);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  transition: var(--transition);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.submitButton:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submitButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
