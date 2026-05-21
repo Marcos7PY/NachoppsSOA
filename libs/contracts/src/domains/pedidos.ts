@@ -21,6 +21,7 @@ export interface ModificadorItem {
 }
 
 export interface PedidoItemDto {
+  id?: string;
   productoId: string;
   nombre: string;
   cantidad: number;
@@ -28,6 +29,7 @@ export interface PedidoItemDto {
   modificadores?: ModificadorItem[];
   area?: ItemArea;
   notas?: string;
+  estado?: PedidoEstado;
 }
 
 export interface PedidoDto {
@@ -45,11 +47,7 @@ export interface CrearPedidoCommand {
   items: (Omit<PedidoItemDto, 'nombre' | 'precioUnitario'> & { identificadorComensal?: number })[];
 }
 
-export interface DividirCuentaCommand {
-  metodo: 'IGUALES' | 'POR_ITEMS';
-  numPartes?: number;
-  itemsPorParte?: { parte: number; productoId: string; cantidad: number }[];
-}
+
 
 export interface ActualizarEstadoPedidoCommand {
   estado: PedidoEstado;

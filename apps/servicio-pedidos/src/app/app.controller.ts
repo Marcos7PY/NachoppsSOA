@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
+import { EventPattern, Payload, Ctx, RmqContext } from '@nestjs/microservices';
 import { AppService } from './app.service';
-import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, DividirCuentaCommand } from '@org/contracts';
+import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
 
 @Controller()
 export class AppController {
@@ -21,8 +22,17 @@ export class AppController {
     return this.appService.actualizarEstado(id, body);
   }
 
-  @Post('pedidos/:id/dividir')
-  dividirCuenta(@Param('id') id: string, @Body() body: DividirCuentaCommand) {
-    return this.appService.dividirCuenta(id, body);
+  @Patch('pedidos/items/:itemId/estado')
+  actualizarEstadoItem(@Param('itemId') itemId: string, @Body() body: ActualizarEstadoPedidoCommand) {
+    return this.appService.actualizarEstadoItem(itemId, body);
+  }
+
+  @EventPattern(RoutingKeys.PagoRegistrado)
+  async procesarPago(@Payload() payload: PagoRegistradoPayload) {
+    try {
+      await this.appService.procesarPagoRecibido(payload);
+    } catch (error) {
+      console.error('Error procesando pago:', error);
+    }
   }
 }

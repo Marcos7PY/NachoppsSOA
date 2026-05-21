@@ -2,8 +2,7 @@ import { apiClient } from './client';
 import { 
   PedidoDto, 
   CrearPedidoCommand, 
-  ActualizarEstadoPedidoCommand, 
-  DividirCuentaCommand 
+  ActualizarEstadoPedidoCommand
 } from '@org/contracts';
 
 const BASE_URL = '/pedidos/pedidos';
@@ -25,8 +24,8 @@ export const PedidosApi = {
     return response.data.pedido;
   },
 
-  dividirCuenta: async (id: string, command: DividirCuentaCommand): Promise<any> => {
-    const response = await apiClient.post(`${BASE_URL}/${id}/dividir`, command);
-    return response.data;
-  },
+  actualizarEstadoItem: async (itemId: string, command: ActualizarEstadoPedidoCommand): Promise<PedidoDto> => {
+    const response = await apiClient.patch<{ pedido: PedidoDto }>(`${BASE_URL}/items/${itemId}/estado`, command);
+    return response.data.pedido;
+  }
 };

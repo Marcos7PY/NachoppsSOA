@@ -6,7 +6,9 @@ import { Inventario } from '../views/Inventario/Inventario';
 import { Mesas } from '../views/Mesas/Mesas';
 import { Pedidos } from '../views/Pedidos/Pedidos';
 import { Caja } from '../views/Caja/Caja';
+import { Cocina } from '../views/Cocina/Cocina';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { AppLayout } from '../components/layout/AppLayout';
 
 export function App() {
   return (
@@ -17,12 +19,15 @@ export function App() {
 
         {/* Rutas Protegidas */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/reservas" element={<Reservas />} />
-          <Route path="/inventario" element={<Inventario />} />
-          <Route path="/mesas" element={<Mesas />} />
-          <Route path="/pedidos" element={<Pedidos />} />
-          <Route path="/caja" element={<Caja />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/reservas" element={<Reservas />} />
+            <Route path="/inventario" element={<Inventario />} />
+            <Route path="/mesas" element={<Mesas />} />
+            <Route path="/pedidos" element={<Pedidos />} />
+            <Route path="/caja" element={<Caja />} />
+            <Route path="/cocina" element={<Cocina />} />
+          </Route>
         </Route>
 
         {/* Fallback */}

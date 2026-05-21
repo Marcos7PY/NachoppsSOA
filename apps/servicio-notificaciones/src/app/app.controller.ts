@@ -7,12 +7,16 @@ import {
   RoutingKeys,
 } from '@org/contracts';
 import { AppService } from './app.service';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Controller()
 export class AppController {
   private readonly logger = new Logger(AppController.name);
 
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly gateway: NotificationsGateway
+  ) {}
 
   @Get()
   getData() {
@@ -26,6 +30,15 @@ export class AppController {
   ) {
     const data = 'data' in payload && payload.data ? payload.data : payload;
     await this.handleEvent(RoutingKeys.PedidoCreado, data, context);
+  }
+
+  @EventPattern(RoutingKeys.PedidoActualizado)
+  async handlePedidoActualizado(
+    @Payload() payload: DomainEventEnvelope<any> | any,
+    @Ctx() context: RmqContext,
+  ) {
+    const data = payload?.data ?? payload;
+    await this.handleEvent(RoutingKeys.PedidoActualizado, data, context);
   }
 
   @EventPattern(RoutingKeys.ReservaCreada)
@@ -57,6 +70,10 @@ export class AppController {
     try {
       this.logger.log(`✅ Evento recibido: ${pattern}`);
       this.logger.log(` Datos: ${JSON.stringify(data)}`);
+      
+      // Emitir WebSocket a la PWA Cliente (KDS, Mesas, etc)
+      this.gateway.emitPedidoUpdate({ pattern, data });
+
       channel.ack(originalMsg);
     } catch (error) {
       this.logger.error(`Error procesando ${pattern}`, error);

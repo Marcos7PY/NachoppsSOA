@@ -12,31 +12,36 @@ export class AppService {
     private readonly rabbitmq: RabbitMQPublisherService
   ) {}
 
-  async registrarPago(command: PagarPedidoCommand): Promise<{ message: string; transaccion: TransaccionDto }> {
-    const transaccion = await this.prisma.transaccion.create({
-      data: {
-        pedidoId: command.pedidoId,
-        monto: command.monto,
-        metodo: command.metodo,
-        referencia: command.referencia,
-        notas: command.notas
-      }
-    });
+  async registrarPago(command: PagarPedidoCommand): Promise<{ message: string; transacciones: TransaccionDto[] }> {
+    const transaccionesProcesadas: TransaccionDto[] = [];
+    
+    // Si no enviaron pagos en el array
+    if (!command.pagos || command.pagos.length === 0) {
+      throw new Error('Debe enviar al menos un pago.');
+    }
 
-    this.logger.log(`Pago registrado para pedido ${command.pedidoId}: S/ ${command.monto}`);
+    for (const pago of command.pagos) {
+      const transaccion = await this.prisma.transaccion.create({
+        data: {
+          pedidoId: command.pedidoId,
+          monto: pago.monto,
+          metodo: pago.metodo,
+          referencia: pago.referencia,
+          notas: command.notas
+        }
+      });
 
-    // Emitir evento para que Pedidos o Reportes reaccionen
-    // Usamos el método publish que ya tiene el envelope
-    await this.rabbitmq.publish(RoutingKeys.PagoRegistrado, {
-      transaccionId: transaccion.id,
-      pedidoId: transaccion.pedidoId,
-      monto: Number(transaccion.monto),
-      metodo: transaccion.metodo
-    }, 'servicio-caja');
+      this.logger.log(`Pago registrado para pedido ${command.pedidoId}: S/ ${pago.monto} (${pago.metodo})`);
 
-    return {
-      message: 'Pago registrado exitosamente',
-      transaccion: {
+      // Emitir evento por cada pago (o transacción parcial)
+      await this.rabbitmq.publish(RoutingKeys.PagoRegistrado, {
+        transaccionId: transaccion.id,
+        pedidoId: transaccion.pedidoId,
+        monto: Number(transaccion.monto),
+        metodo: transaccion.metodo
+      }, 'servicio-caja');
+
+      transaccionesProcesadas.push({
         id: transaccion.id,
         pedidoId: transaccion.pedidoId,
         monto: Number(transaccion.monto),
@@ -44,7 +49,12 @@ export class AppService {
         referencia: transaccion.referencia,
         notas: transaccion.notas,
         createdAt: transaccion.createdAt.toISOString()
-      }
+      });
+    }
+
+    return {
+      message: 'Pagos registrados exitosamente',
+      transacciones: transaccionesProcesadas
     };
   }
 

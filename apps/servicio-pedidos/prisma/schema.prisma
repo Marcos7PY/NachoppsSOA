@@ -33,6 +33,7 @@ model PedidoItem {
   precioUnitario Decimal       @db.Decimal(10, 2)
   area           String?       @default("COCINA")
   notas          String?
+  estado         String        @default("PENDIENTE")
   modificadores  Modificador[]
   comensal       Int           @default(1) // Para división de cuenta por items
 

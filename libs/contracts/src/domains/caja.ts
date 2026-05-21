@@ -18,11 +18,15 @@ export interface TransaccionDto {
   createdAt: string;
 }
 
-export interface PagarPedidoCommand {
-  pedidoId: string;
+export interface PagoMixtoItem {
   monto: number;
   metodo: MetodoPago;
   referencia?: string;
+}
+
+export interface PagarPedidoCommand {
+  pedidoId: string;
+  pagos: PagoMixtoItem[];
   notas?: string;
 }
 

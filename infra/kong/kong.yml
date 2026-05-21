@@ -54,12 +54,11 @@ consumers:
 services:
   # ── Identidad (ruta pública para login, protegida para el resto) ──
   - name: servicio-identidad-public
-    url: http://host.docker.internal:3001/api
+    url: http://host.docker.internal:3001/api/auth
     routes:
       - name: identidad-login
         paths:
-          - /identidad/auth/login
-          - /identidad/auth/validate
+          - /identidad/auth
         strip_path: true
         methods:
           - POST

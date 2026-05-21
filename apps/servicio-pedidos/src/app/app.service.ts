@@ -3,10 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { 
   PedidoDto, 
   CrearPedidoCommand, 
-  ActualizarEstadoPedidoCommand, 
-  DividirCuentaCommand,
+  ActualizarEstadoPedidoCommand,
   PedidoEstado,
-  RoutingKeys
+  RoutingKeys,
+  PagoRegistradoPayload
 } from '@org/contracts';
 import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 import axios from 'axios';
@@ -17,6 +17,7 @@ export class AppService {
   // En un entorno real, esto vendría de un Service Discovery o Config
   private readonly INVENTARIO_URL = 'http://localhost:3007/api';
   private readonly MESAS_URL = 'http://localhost:3002/api';
+  private readonly CUENTAS_URL = 'http://localhost:3005/api';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -63,11 +64,26 @@ export class AppService {
 
     // 2. Obtener número de mesa desde el microservicio de Mesas
     let numeroMesa: number | undefined;
+    let estadoMesa: string | undefined;
     try {
       const resMesa = await axios.get(`${this.MESAS_URL}/mesas/${command.mesaId}`);
       numeroMesa = resMesa.data.numero;
+      estadoMesa = resMesa.data.estado;
     } catch (error) {
-      this.logger.warn(`No se pudo obtener el número de la mesa ${command.mesaId}`);
+      this.logger.warn(`No se pudo obtener la mesa ${command.mesaId}`);
+    }
+
+    // FLUJO IMPLÍCITO: Si la mesa estaba libre, ocuparla y abrir la cuenta
+    if (estadoMesa === 'LIBRE') {
+      try {
+        await axios.patch(`${this.MESAS_URL}/mesas/${command.mesaId}/estado`, { estado: 'OCUPADA' });
+        this.logger.log(`Mesa ${command.mesaId} ocupada automáticamente.`);
+        
+        await axios.post(`${this.CUENTAS_URL}/cuentas`, { mesaId: command.mesaId });
+        this.logger.log(`Cuenta abierta automáticamente para la mesa ${command.mesaId}.`);
+      } catch (error) {
+        this.logger.error(`Error al intentar ocupar mesa o abrir cuenta: ${(error as Error).message}`);
+      }
     }
 
     const total = itemsProcesados.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
@@ -140,56 +156,50 @@ export class AppService {
     return { pedidos: pedidos.map(p => this.mapToDto(p)) };
   }
 
-  async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<PedidoDto> {
-    const actualizado = await this.prisma.pedido.update({
+  async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
+    const pedido = await this.prisma.pedido.update({
       where: { id },
       data: { estado: command.estado },
-      include: {
-        items: {
-          include: { modificadores: true }
-        }
-      }
+      include: { items: { include: { modificadores: true } } }
     });
-    return this.mapToDto(actualizado);
+
+    if (command.estado === PedidoEstado.Listo) {
+      await this.rabbitmq.publish(RoutingKeys.PedidoListo, {
+        pedidoId: pedido.id,
+        mesaId: pedido.mesaId,
+      }, 'servicio-pedidos');
+    }
+
+    await this.rabbitmq.publish(RoutingKeys.PedidoActualizado, {
+      pedidoId: pedido.id,
+    }, 'servicio-pedidos');
+
+    return { message: 'Estado del pedido actualizado', pedido: this.mapToDto(pedido) };
   }
 
-  async dividirCuenta(id: string, command: DividirCuentaCommand): Promise<any> {
-    const pedido = await this.prisma.pedido.findUnique({
-      where: { id },
-      include: { items: true }
+  async actualizarEstadoItem(itemId: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string }> {
+    const item = await this.prisma.pedidoItem.update({
+      where: { id: itemId },
+      data: { estado: command.estado }
     });
 
-    if (!pedido) throw new NotFoundException('Pedido no encontrado');
-
-    if (command.metodo === 'IGUALES') {
-      const numPartes = command.numPartes || 1;
-      const montoPorParte = Number(pedido.total) / numPartes;
-      return {
-        metodo: 'IGUALES',
-        partes: Array(numPartes).fill(0).map((_, i) => ({
-          parte: i + 1,
-          monto: montoPorParte
-        }))
-      };
+    // Check if ALL items in the same order are now "LISTO" or beyond
+    const pedidoId = item.pedidoId;
+    const allItems = await this.prisma.pedidoItem.findMany({ where: { pedidoId } });
+    
+    const isOrderReady = allItems.every(i => i.estado === PedidoEstado.Listo || i.estado === PedidoEstado.Entregado);
+    
+    if (isOrderReady) {
+      // Auto-update the parent order to LISTO
+      await this.actualizarEstado(pedidoId, { estado: PedidoEstado.Listo });
+    } else {
+      // Notify KDS that an item was updated
+      await this.rabbitmq.publish(RoutingKeys.PedidoActualizado, {
+        pedidoId: pedidoId,
+      }, 'servicio-pedidos');
     }
 
-    if (command.metodo === 'POR_ITEMS') {
-      // Lógica simplificada: agrupar por comensal asignado en el item
-      const partes: Record<number, number> = {};
-      pedido.items.forEach(item => {
-        const comensal = item.comensal || 1;
-        const subtotal = Number(item.precioUnitario) * item.cantidad;
-        partes[comensal] = (partes[comensal] || 0) + subtotal;
-      });
-
-      return {
-        metodo: 'POR_ITEMS',
-        partes: Object.entries(partes).map(([comensal, monto]) => ({
-          comensal: Number(comensal),
-          monto
-        }))
-      };
-    }
+    return { message: 'Estado del ítem actualizado exitosamente' };
   }
 
   async registrarPagoInterno(pedidoId: string, monto: number): Promise<void> {
@@ -216,6 +226,35 @@ export class AppService {
     }
   }
 
+  async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {
+    this.logger.log(`Procesando pago recibido para el pedido ${payload.pedidoId}`);
+    
+    // 1. Registra el pago interno
+    await this.registrarPagoInterno(payload.pedidoId, payload.monto);
+
+    // 2. Revisar si la mesa puede ser liberada
+    const pedido = await this.prisma.pedido.findUnique({ where: { id: payload.pedidoId } });
+    if (!pedido || !pedido.mesaId) return;
+
+    // Verificar si TODOS los pedidos de esta mesa están PAGADOS
+    const pedidosActivos = await this.prisma.pedido.findMany({
+      where: {
+        mesaId: pedido.mesaId,
+        estado: { notIn: [PedidoEstado.Pagado] }
+      }
+    });
+
+    if (pedidosActivos.length === 0) {
+      this.logger.log(`Todos los pedidos de la mesa ${pedido.mesaId} están pagados. Liberando mesa...`);
+      try {
+        await axios.patch(`${this.MESAS_URL}/mesas/${pedido.mesaId}/estado`, { estado: 'LIBRE' });
+        this.logger.log(`Mesa ${pedido.mesaId} liberada exitosamente.`);
+      } catch (error) {
+        this.logger.error(`Error al intentar liberar la mesa: ${(error as Error).message}`);
+      }
+    }
+  }
+
   private mapToDto(p: any): PedidoDto {
     return {
       id: p.id,
@@ -225,12 +264,14 @@ export class AppService {
       total: Number(p.total),
       createdAt: p.createdAt.toISOString(),
       items: p.items.map((i: any) => ({
+        id: i.id,
         productoId: i.productoId,
         nombre: i.nombre,
         cantidad: i.cantidad,
         precioUnitario: Number(i.precioUnitario),
         area: i.area,
         notas: i.notas,
+        estado: i.estado as PedidoEstado,
         modificadores: i.modificadores.map((m: any) => ({
           nombre: m.nombre,
           precioExtra: Number(m.precioExtra)

@@ -12,7 +12,10 @@ import {
 import { PedidosApi } from '../../api/pedidos.service';
 import { InventarioApi } from '../../api/inventario.service';
 import { MesasApi } from '../../api/mesas.service';
+import { CuentasApi } from '../../api/cuentas.service';
 import { Modal } from '../../components/Modal/Modal';
+import { useAuthStore } from '../../store/auth.store';
+import { io } from 'socket.io-client';
 import styles from './Pedidos.module.css';
 
 export const Pedidos = () => {
@@ -67,6 +70,27 @@ export const Pedidos = () => {
 
   useEffect(() => {
     cargarDatos();
+
+    // Conectar a WebSockets mediante Kong API Gateway
+    const token = useAuthStore.getState().token;
+    const socket = io('http://localhost:8000', {
+      path: '/notificaciones/socket.io',
+      query: { jwt: token },
+      extraHeaders: { Authorization: `Bearer ${token}` }
+    });
+
+    socket.on('connect', () => {
+      console.log('Comandas conectado a WebSockets en tiempo real');
+    });
+
+    socket.on('pedidoUpdate', (data) => {
+      console.log('Actualización recibida en Comandas:', data);
+      cargarDatos(); // Refrescar los pedidos al instante
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const addToCart = (prod: ProductoDto) => {
