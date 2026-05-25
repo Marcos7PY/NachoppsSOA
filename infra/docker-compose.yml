@@ -1,7 +1,7 @@
-version: '3.8'
-
 services:
-  # --- INFRAESTRUCTURA COMPARTIDA ---
+  # ═══════════════════════════════════════════════════
+  # INFRAESTRUCTURA COMPARTIDA
+  # ═══════════════════════════════════════════════════
   rabbitmq:
     image: rabbitmq:3-management
     container_name: nachopps-rabbitmq
@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # --- BASES DE DATOS (UNA POR SERVICIO) ---
+  # BASES DE DATOS
   db-reservas:
     image: postgres:16-alpine
     container_name: nachopps-db-reservas
@@ -114,9 +114,160 @@ services:
     ports: ["5440:5432"]
     profiles: ["infra", "all", "dev"]
 
-  # --- API GATEWAY (KONG) — modo declarativo (sin Postgres propio) ---
+  # ═══════════════════════════════════════════════════
+  # MICROSERVICIOS
+  # ═══════════════════════════════════════════════════
+  servicio-identidad:
+    image: infra-servicio-identidad
+    container_name: nachopps-servicio-identidad
+    ports: ["3001:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-identidad:5432/identidad_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+      JWT_SECRET: "nachopps_jwt_secret_dev"
+      JWT_EXPIRES_IN: "24h"
+    profiles: ["all"]
+    depends_on:
+      db-identidad:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-mesas:
+    image: infra-servicio-mesas
+    container_name: nachopps-servicio-mesas
+    ports: ["3002:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-mesas:5432/mesas_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-mesas:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-pedidos:
+    image: infra-servicio-pedidos
+    container_name: nachopps-servicio-pedidos
+    ports: ["3004:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-pedidos:5432/pedidos_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-pedidos:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-cuentas:
+    image: infra-servicio-cuentas
+    container_name: nachopps-servicio-cuentas
+    ports: ["3005:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-cuentas:5432/cuentas_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-cuentas:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-reservas:
+    image: infra-servicio-reservas
+    container_name: nachopps-servicio-reservas
+    ports: ["3006:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-reservas:5432/reservas_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-reservas:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-inventario:
+    image: infra-servicio-inventario
+    container_name: nachopps-servicio-inventario
+    ports: ["3007:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-inventario:5432/inventario_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-inventario:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-notificaciones:
+    image: infra-servicio-notificaciones
+    container_name: nachopps-servicio-notificaciones
+    ports: ["3008:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-notificaciones:5432/notificaciones_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-notificaciones:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-caja:
+    image: infra-servicio-caja
+    container_name: nachopps-servicio-caja
+    ports: ["3009:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-caja:5432/caja_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-caja:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  servicio-reportes:
+    image: infra-servicio-reportes
+    container_name: nachopps-servicio-reportes
+    ports: ["3010:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_URL: "postgresql://nachopps:secret@db-reportes:5432/reportes_db?schema=public"
+      RABBITMQ_URI: "amqp://nachopps:nachopps_secret@rabbitmq:5672"
+    profiles: ["all"]
+    depends_on:
+      db-reportes:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  # ═══════════════════════════════════════════════════
+  # FRONTEND PWA
+  # ═══════════════════════════════════════════════════
+  pwa-cliente:
+    image: infra-pwa-cliente
+    container_name: nachopps-pwa-cliente
+    ports: ["4200:80"]
+    profiles: ["all"]
+
+  # ═══════════════════════════════════════════════════
+  # KONG API GATEWAY (con jwt-cache)
+  # ═══════════════════════════════════════════════════
   kong:
-    image: kong:3.9
+    image: infra-kong
     container_name: nachopps-kong
     environment:
       KONG_DATABASE: "off"
@@ -127,13 +278,16 @@ services:
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_PLUGINS: "bundled,jwt-cache"
+      KONG_JWT_SECRET: "nachopps_jwt_secret_dev"
+      KONG_NGINX_HTTP_LUA_SHARED_DICT: "jwt_cache 12m"
     ports:
       - "8000:8000"
       - "8001:8001"
     volumes:
-      - ./kong/kong.yml:/kong/kong.yml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - ./kong/kong.yml.template:/tmp/kong.yml.template:ro
+      - ./kong/docker-entrypoint-wrapper.sh:/docker-entrypoint-wrapper.sh:ro
+    entrypoint: ["/docker-entrypoint-wrapper.sh"]
     profiles: ["infra", "all", "dev"]
     healthcheck:
       test: ["CMD", "kong", "health"]
