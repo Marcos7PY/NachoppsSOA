@@ -1,0 +1,9 @@
+node_modules
+dist
+.nx/cache
+.git
+.vscode
+.cursor
+.opencode
+coverage
+tmp

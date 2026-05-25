@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: 'nestjs-microservices'
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets: 
+        - 'servicio-identidad:3001'
+        - 'servicio-mesas:3002'
+        - 'servicio-pedidos:3004'
+        - 'servicio-cuentas:3005'
+        - 'servicio-reservas:3006'
+        - 'servicio-inventario:3007'
+        - 'servicio-notificaciones:3008'
+        - 'servicio-caja:3009'
+        - 'servicio-reportes:3010'
