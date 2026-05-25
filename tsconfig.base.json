@@ -25,6 +25,15 @@
       ],
       "@org/shared-rabbitmq": [
         "libs/shared-rabbitmq/src/index.ts"
+      ],
+      "@org/shared-auth": [
+        "libs/shared-auth/src/index.ts"
+      ],
+      "@org/observabilidad": [
+        "libs/observabilidad/src/index.ts"
+      ],
+      "@org/resiliencia": [
+        "libs/resiliencia/src/index.ts"
       ]
     },
     "esModuleInterop": true

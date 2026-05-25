@@ -7,6 +7,8 @@ import { Mesas } from '../views/Mesas/Mesas';
 import { Pedidos } from '../views/Pedidos/Pedidos';
 import { Caja } from '../views/Caja/Caja';
 import { Cocina } from '../views/Cocina/Cocina';
+import { Auditoria } from '../views/Auditoria/Auditoria';
+import { ControlCaja } from '../views/ControlCaja/ControlCaja';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
 
@@ -14,10 +16,8 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rutas Públicas */}
         <Route path="/login" element={<Login />} />
 
-        {/* Rutas Protegidas */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
@@ -27,10 +27,11 @@ export function App() {
             <Route path="/pedidos" element={<Pedidos />} />
             <Route path="/caja" element={<Caja />} />
             <Route path="/cocina" element={<Cocina />} />
+            <Route path="/auditoria" element={<Auditoria />} />
+            <Route path="/control-caja" element={<ControlCaja />} />
           </Route>
         </Route>
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
