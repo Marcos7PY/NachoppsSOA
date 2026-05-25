@@ -7,73 +7,24 @@
     "targets": {
       "build": {
         "executor": "nx:run-commands",
+        "outputs": [
+          "{workspaceRoot}/dist/apps/servicio-notificaciones"
+        ],
         "options": {
-          "command": "webpack-cli build",
-          "args": [
-            "--node-env=production"
-          ],
-          "cwd": "apps/servicio-notificaciones"
+          "command": "tsc -p apps/servicio-notificaciones/tsconfig.app.json && npx tsc-alias -p apps/servicio-notificaciones/tsconfig.app.json && node -e \"const fs=require('fs'); if(fs.existsSync('apps/servicio-notificaciones/src/generated')) fs.cpSync('apps/servicio-notificaciones/src/generated', 'dist/apps/servicio-notificaciones/apps/servicio-notificaciones/src/generated', {recursive: true})\""
         },
         "configurations": {
-          "development": {
-            "args": [
-              "--node-env=development"
-            ]
-          }
+          "production": {},
+          "development": {}
         }
-      },
-      "prune-lockfile": {
-        "dependsOn": [
-          "build"
-        ],
-        "cache": true,
-        "executor": "@nx/js:prune-lockfile",
-        "outputs": [
-          "{workspaceRoot}/apps/servicio-notificaciones/dist/package.json",
-          "{workspaceRoot}/apps/servicio-notificaciones/dist/package-lock.json"
-        ],
-        "options": {
-          "buildTarget": "build"
-        }
-      },
-      "copy-workspace-modules": {
-        "dependsOn": [
-          "build"
-        ],
-        "cache": true,
-        "outputs": [
-          "{workspaceRoot}/apps/servicio-notificaciones/dist/workspace_modules"
-        ],
-        "executor": "@nx/js:copy-workspace-modules",
-        "options": {
-          "buildTarget": "build"
-        }
-      },
-      "prune": {
-        "dependsOn": [
-          "prune-lockfile",
-          "copy-workspace-modules"
-        ],
-        "executor": "nx:noop"
       },
       "serve": {
-        "continuous": true,
-        "executor": "@nx/js:node",
-        "defaultConfiguration": "development",
+        "executor": "nx:run-commands",
         "dependsOn": [
           "build"
         ],
         "options": {
-          "buildTarget": "servicio-notificaciones:build",
-          "runBuildTargetDependencies": false
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "servicio-notificaciones:build:development"
-          },
-          "production": {
-            "buildTarget": "servicio-notificaciones:build:production"
-          }
+          "command": "node dist/apps/servicio-notificaciones/apps/servicio-notificaciones/src/main.js"
         }
       }
     },
@@ -89,7 +40,12 @@
     "@nestjs/platform-express": "^11.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@org/resiliencia": "*",
+    "@org/contracts": "*",
+    "@org/shared-rabbitmq": "*",
+    "@org/observabilidad": "*",
+    "@org/shared-auth": "*"
   },
   "devDependencies": {
     "@nestjs/testing": "^11.0.0"

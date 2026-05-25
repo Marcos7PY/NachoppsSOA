@@ -3,6 +3,7 @@ export interface EventMetadata {
   correlationId?: string;
   occurredAt: string;
   producer?: string;
+  idempotencyKey?: string;
 }
 
 /**

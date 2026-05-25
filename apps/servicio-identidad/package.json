@@ -8,18 +8,10 @@
       "build": {
         "executor": "nx:run-commands",
         "options": {
-          "command": "webpack-cli build",
-          "args": [
-            "--node-env=production"
-          ],
-          "cwd": "apps/servicio-identidad"
+          "command": "tsc -p apps/servicio-identidad/tsconfig.app.json && npx tsc-alias -p apps/servicio-identidad/tsconfig.app.json && node -e \"const fs=require('fs'); if(fs.existsSync('apps/servicio-identidad/src/generated')) fs.cpSync('apps/servicio-identidad/src/generated', 'dist/apps/servicio-identidad/apps/servicio-identidad/src/generated', {recursive: true})\""
         },
         "configurations": {
-          "development": {
-            "args": [
-              "--node-env=development"
-            ]
-          }
+          "production": {}
         }
       },
       "prune-lockfile": {
@@ -57,23 +49,12 @@
         "executor": "nx:noop"
       },
       "serve": {
-        "continuous": true,
-        "executor": "@nx/js:node",
-        "defaultConfiguration": "development",
+        "executor": "nx:run-commands",
         "dependsOn": [
           "build"
         ],
         "options": {
-          "buildTarget": "servicio-identidad:build",
-          "runBuildTargetDependencies": false
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "servicio-identidad:build:development"
-          },
-          "production": {
-            "buildTarget": "servicio-identidad:build:production"
-          }
+          "command": "node dist/apps/servicio-identidad/apps/servicio-identidad/src/main.js"
         }
       }
     },

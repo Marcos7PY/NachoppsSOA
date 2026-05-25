@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PagarPedidoCommand, TransaccionDto, PagoRegistradoPayload, RoutingKeys, MetodoPago } from '@org/contracts';
+import { PagarPedidoCommand, TransaccionDto,  RoutingKeys, MetodoPago } from '@org/contracts';
 import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 
 @Injectable()
@@ -46,8 +46,8 @@ export class AppService {
         pedidoId: transaccion.pedidoId,
         monto: Number(transaccion.monto),
         metodo: transaccion.metodo as MetodoPago,
-        referencia: transaccion.referencia,
-        notas: transaccion.notas,
+        referencia: transaccion.referencia || undefined,
+        notas: transaccion.notas || undefined,
         createdAt: transaccion.createdAt.toISOString()
       });
     }
@@ -68,8 +68,8 @@ export class AppService {
       pedidoId: t.pedidoId,
       monto: Number(t.monto),
       metodo: t.metodo as MetodoPago,
-      referencia: t.referencia,
-      notas: t.notas,
+      referencia: t.referencia || undefined,
+      notas: t.notas || undefined,
       createdAt: t.createdAt.toISOString()
     }));
   }

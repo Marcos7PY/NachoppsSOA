@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
-import { EventPattern, Payload, Ctx, RmqContext } from '@nestjs/microservices';
+import { EventPattern, Payload,  } from '@nestjs/microservices';
 import { AppService } from './app.service';
 import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
 

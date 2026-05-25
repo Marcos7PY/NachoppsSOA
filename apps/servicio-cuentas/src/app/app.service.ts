@@ -103,7 +103,7 @@ export class AppService {
     const ticketId = uuidv4();
 
     // Actualizar cuenta en BD
-    const cuentaCerrada = await this.prisma.cuenta.update({
+    await this.prisma.cuenta.update({
       where: { id },
       data: {
         estado: CuentaEstado.Cerrada,

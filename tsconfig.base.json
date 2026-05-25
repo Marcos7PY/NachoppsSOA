@@ -4,8 +4,10 @@
     "declarationMap": true,
     "emitDeclarationOnly": true,
     "importHelpers": true,
-    "isolatedModules": true,
-    "lib": ["es2022"],
+    "isolatedModules": false,
+    "lib": [
+      "es2022"
+    ],
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmitOnError": true,
@@ -18,8 +20,13 @@
     "target": "es2022",
     "baseUrl": ".",
     "paths": {
-      "@org/contracts": ["libs/contracts/src/index.ts"],
-      "@org/shared-rabbitmq": ["libs/shared-rabbitmq/src/index.ts"]
-    }
+      "@org/contracts": [
+        "libs/contracts/src/index.ts"
+      ],
+      "@org/shared-rabbitmq": [
+        "libs/shared-rabbitmq/src/index.ts"
+      ]
+    },
+    "esModuleInterop": true
   }
 }

@@ -11,7 +11,7 @@ import { JwtStrategy } from './jwt.strategy';
     JwtModule.register({
       secret: process.env.JWT_SECRET ?? 'nachopps_jwt_secret_dev',
       signOptions: {
-        expiresIn: process.env.JWT_EXPIRES_IN ?? '24h',
+        expiresIn: (process.env.JWT_EXPIRES_IN || '12h') as any,
         issuer: 'nachopps-identidad',
       },
     }),
