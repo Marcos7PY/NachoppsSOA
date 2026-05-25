@@ -1,22 +1,27 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "types": ["node"],
+    "outDir": "../../dist/apps/servicio-mesas",
+    "types": [
+      "node"
+    ],
     "rootDir": "../../",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "target": "es2021"
+    "target": "es2021",
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "composite": false
   },
-  "include": ["src/**/*.ts", "../../libs/**/*.ts"],
-  "exclude": [],
-  "references": [
-    {
-      "path": "../../libs/shared-rabbitmq"
-    },
-    {
-      "path": "../../libs/contracts/tsconfig.lib.json"
-    }
-  ]
+  "include": [
+    "src/**/*.ts",
+    "../../libs/resiliencia/**/*.ts",
+    "../../libs/contracts/**/*.ts",
+    "../../libs/shared-rabbitmq/**/*.ts",
+    "../../libs/observabilidad/**/*.ts",
+    "../../libs/shared-auth/**/*.ts"
+  ],
+  "exclude": []
 }

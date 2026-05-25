@@ -12,7 +12,7 @@ import { RABBITMQ_CONNECTION } from './rabbitmq.constants';
 @Injectable()
 export class RabbitMQPublisherService implements OnModuleInit {
   private readonly logger = new Logger(RabbitMQPublisherService.name);
-  private channelWrapper: amqp.ChannelWrapper;
+  private channelWrapper!: amqp.ChannelWrapper;
 
   constructor(
     @Inject(RABBITMQ_CONNECTION)
