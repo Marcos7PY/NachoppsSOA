@@ -13,9 +13,11 @@ import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
     ObservabilidadModule,
     SharedAuthModule,
     PrismaModule,
-    RabbitMQModule.forRoot(
-      process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672'
-    ),
+    RabbitMQModule.forRoot({
+      uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
+      queue: 'inventario_queue',
+      bindings: ['pedido.creado']
+    }),
   ],
   controllers: [AppController, EventsController],
   providers: [

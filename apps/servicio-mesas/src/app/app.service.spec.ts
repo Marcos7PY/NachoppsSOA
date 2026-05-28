@@ -3,7 +3,22 @@ import { AppService } from './app.service';
 import { MesaEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
-  return { ...overrides } as any;
+  const mock = {
+    mesa: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    outboxEvent: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+    },
+    $transaction: vi.fn((cb: any) => cb(mock)),
+    ...overrides,
+  };
+  return mock as any;
 }
 
 describe('AppService — Mesas', () => {
@@ -22,14 +37,7 @@ describe('AppService — Mesas', () => {
   };
 
   beforeEach(() => {
-    mockPrisma = createMockPrismaService({
-      mesa: {
-        findMany: vi.fn(),
-        findUnique: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-      },
-    });
+    mockPrisma = createMockPrismaService();
     service = new AppService(mockPrisma);
   });
 
@@ -54,9 +62,7 @@ describe('AppService — Mesas', () => {
       mockPrisma.mesa.create.mockResolvedValue(mesaBase);
       const result = await service.crearMesa({ numero: 5, capacidad: 4 });
       expect(result.message).toBe('Mesa creada exitosamente');
-      expect(mockPrisma.mesa.create).toHaveBeenCalledWith({
-        data: { numero: 5, capacidad: 4, ubicacion: 'Salon Principal', estado: MesaEstado.Libre },
-      });
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
 
     it('debe lanzar ConflictException si el numero ya existe', async () => {
@@ -67,8 +73,24 @@ describe('AppService — Mesas', () => {
 
   describe('actualizarEstado', () => {
     it('debe actualizar el estado de una mesa', async () => {
-      mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase);
-      mockPrisma.mesa.update.mockResolvedValue({ ...mesaBase, estado: MesaEstado.Ocupada });
+      const mesaOcupada = { ...mesaBase, estado: MesaEstado.Ocupada };
+      mockPrisma.mesa.findUnique.mockResolvedValueOnce(mesaBase);
+      // $transaction callback
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        const txMock = {
+          ...mockPrisma,
+          mesa: {
+            ...mockPrisma.mesa,
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+            findUnique: vi.fn().mockResolvedValue(mesaOcupada),
+          },
+          outboxEvent: {
+            create: vi.fn(),
+            createMany: vi.fn(),
+          },
+        };
+        return cb(txMock);
+      });
       const result = await service.actualizarEstado('m-001', { estado: MesaEstado.Ocupada });
       expect(result.mesa.estado).toBe(MesaEstado.Ocupada);
     });

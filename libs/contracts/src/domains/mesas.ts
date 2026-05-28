@@ -1,3 +1,5 @@
+import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
+
 export const MesaEstado = {
   Libre: 'LIBRE',
   Ocupada: 'OCUPADA',
@@ -6,31 +8,56 @@ export const MesaEstado = {
 
 export type MesaEstado = (typeof MesaEstado)[keyof typeof MesaEstado];
 
-export interface MesaDto {
+export class MesaDto {
+  @IsString()
   id: string;
+  @IsNumber()
   numero: number;
+  @IsNumber()
   capacidad: number;
+  @IsString()
   ubicacion: string;
+  @IsEnum(MesaEstado)
   estado: MesaEstado;
+  @IsOptional()
+  @IsString()
   cuentaAsociada?: string | null;
 }
 
-export interface MesaAsignadaPayload {
+export class MesaAsignadaPayload {
+  @IsString()
   mesaId: string;
+  @IsString()
   cuentaId: string;
 }
 
-export interface MesaLiberadaPayload {
+export class MesaLiberadaPayload {
+  @IsString()
   mesaId: string;
 }
 
-export interface CrearMesaCommand {
+export class MesaCreadaPayload {
+  mesa: MesaDto;
+}
+
+export class MesaActualizadaPayload {
+  mesa: MesaDto;
+}
+
+export class CrearMesaCommand {
+  @IsNumber()
   numero: number;
+  @IsNumber()
   capacidad: number;
+  @IsOptional()
+  @IsString()
   ubicacion?: string;
 }
 
-export interface ActualizarEstadoMesaCommand {
+export class ActualizarEstadoMesaCommand {
+  @IsEnum(MesaEstado)
   estado: MesaEstado;
+  @IsOptional()
+  @IsString()
   cuentaAsociada?: string;
 }

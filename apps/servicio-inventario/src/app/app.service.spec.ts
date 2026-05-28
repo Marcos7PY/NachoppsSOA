@@ -20,9 +20,8 @@ describe('AppService — Inventario', () => {
       producto: {
         findUnique: vi.fn(),
         findMany: vi.fn(),
-        create: vi.fn(),
         update: vi.fn(),
-        delete: vi.fn(),
+        updateMany: vi.fn(),
       },
       categoria: {
         findMany: vi.fn(),
@@ -36,26 +35,28 @@ describe('AppService — Inventario', () => {
 
   describe('reducirStockAutomatico', () => {
     it('debe reducir stock y publicar alerta si cae bajo 10', async () => {
-      mockPrisma.producto.findUnique.mockResolvedValue({
-        id: 'prod-001',
-        nombre: 'Cerveza',
-        stockActual: 15,
-        disponible: true,
-      });
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-001',
+          nombre: 'Cerveza',
+          stockActual: 15,
+          disponible: true,
+        })
+        .mockResolvedValueOnce({
+          id: 'prod-001',
+          nombre: 'Cerveza',
+          stockActual: 5,
+          disponible: true,
+        });
 
-      mockPrisma.producto.update.mockResolvedValue({
-        id: 'prod-001',
-        stockActual: 5,
-        disponible: true,
-      });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
 
       await service.reducirStockAutomatico('prod-001', 10);
 
-      expect(mockPrisma.producto.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ stockActual: 5 }),
-        })
-      );
+      expect(mockPrisma.producto.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: 'prod-001' }),
+        data: expect.objectContaining({ stockActual: { decrement: 10 } }),
+      });
     });
 
     it('no debe hacer nada si el producto no existe', async () => {
@@ -76,7 +77,7 @@ describe('AppService — Inventario', () => {
 
       await service.reducirStockAutomatico('prod-002', 5);
 
-      expect(mockPrisma.producto.update).not.toHaveBeenCalled();
+      expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
     });
   });
 });

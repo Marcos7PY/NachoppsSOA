@@ -1,5 +1,5 @@
 {
-  "name": "@nachopps/shared-prisma",
+  "name": "@org/shared-prisma",
   "version": "0.0.1",
   "private": true,
   "main": "./src/index.ts",

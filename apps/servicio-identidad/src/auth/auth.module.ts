@@ -8,11 +8,17 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'nachopps_jwt_secret_dev',
-      signOptions: {
-        expiresIn: (process.env.JWT_EXPIRES_IN || '12h') as any,
-        issuer: 'nachopps-identidad',
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET env variable is required');
+        return {
+          secret,
+          signOptions: {
+            expiresIn: (process.env.JWT_EXPIRES_IN || '12h') as any,
+            issuer: 'nachopps-identidad',
+          },
+        };
       },
     }),
   ],
@@ -21,4 +27,3 @@ import { JwtStrategy } from './jwt.strategy';
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
-

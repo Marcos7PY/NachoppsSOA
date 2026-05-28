@@ -1,16 +1,27 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  output          = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-model Snapshot {
-  id        String   @id @default(uuid())
-  tipo      String   // VENTAS, STOCK, OCUPACION
-  periodo   String   // DIA, SEMANA, MES
-  datos     Json
-  timestamp DateTime @default(now())
+model VentaDiaria {
+  id          String   @id @default(uuid())
+  cuentaId    String   @unique
+  mesaId      String
+  total       Decimal  @db.Decimal(10, 2)
+  fecha       DateTime @default(now())
+  
+  @@index([fecha])
+  @@map("ventas_diarias")
+}
+
+model IdempotencyKey {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@map("idempotency_keys")
 }

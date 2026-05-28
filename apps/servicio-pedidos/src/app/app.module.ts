@@ -1,25 +1,32 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
+import { OutboxProcessor } from './outbox.processor';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
+import { RoutingKeys } from '@org/contracts';
 
 @Module({
   imports: [
     ObservabilidadModule,
     SharedAuthModule,
     PrismaModule,
-    RabbitMQModule.forRoot(
-      process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672'
-    ),
+    ScheduleModule.forRoot(),
+    RabbitMQModule.forRoot({
+      uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
+      queue: 'pedidos_queue',
+      bindings: [RoutingKeys.PagoRegistrado, RoutingKeys.MesaCreada, RoutingKeys.MesaActualizada]
+    }),
   ],
   controllers: [AppController, EventsController],
   providers: [
     AppService,
+    OutboxProcessor,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })

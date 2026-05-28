@@ -7,13 +7,34 @@ datasource db {
   provider = "postgresql"
 }
 
+enum CuentaEstado {
+  ABIERTA
+  CERRADA
+  PAGADA
+}
+
 model Cuenta {
-  id        String   @id @default(uuid())
+  id        String       @id @default(uuid())
   mesaId    String
   pedidos   Json
-  total     Float    @default(0)
-  estado    String   @default("ABIERTA") // ABIERTA, CERRADA, PAGADA
+  total     Float        @default(0)
+  estado    CuentaEstado @default(ABIERTA)
   ticket    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  
+  @@index([mesaId, estado])
+  @@map("cuentas")
+}
+
+model OutboxEvent {
+  id         String   @id @default(uuid())
+  routingKey String
+  payload    String
+  status     String   @default("PENDING") // PENDING, PROCESSED, FAILED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
 }

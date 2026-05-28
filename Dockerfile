@@ -17,13 +17,14 @@ ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
 ENV NODE_ENV=production
 
-COPY --from=builder /usr/src/app/package*.json /usr/src/app/nx.json ./
-RUN npm install --omit=dev
+COPY --from=builder /usr/src/app/node_modules ./node_modules
 
 COPY --from=builder /usr/src/app/dist/apps/${APP_NAME} ./dist/apps/${APP_NAME}
-COPY --from=builder /usr/src/app/apps/${APP_NAME}/src/generated ./apps/${APP_NAME}/src/generated
+COPY --from=builder /usr/src/app/apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
+COPY infra/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 USER node
 EXPOSE 3000
 
-CMD ["sh", "-c", "node dist/apps/${APP_NAME}/apps/${APP_NAME}/src/main.js"]
+CMD ["sh", "-c", "./entrypoint.sh"]

@@ -1,14 +1,17 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, UseInterceptors } from '@nestjs/common';
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import {
   DomainEventEnvelope,
   PedidoCreadoPayload,
+  PedidoActualizadoPayload,
   ReservaCreadaPayload,
   RoutingKeys,
 } from '@org/contracts';
+import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 
+@UseInterceptors(RabbitMQRetryInterceptor)
 @Controller()
 export class AppController {
   private readonly logger = new Logger(AppController.name);
@@ -34,10 +37,10 @@ export class AppController {
 
   @EventPattern(RoutingKeys.PedidoActualizado)
   async handlePedidoActualizado(
-    @Payload() payload: DomainEventEnvelope<any> | any,
+    @Payload() payload: DomainEventEnvelope<PedidoActualizadoPayload> | PedidoActualizadoPayload,
     @Ctx() context: RmqContext,
   ) {
-    const data = payload?.data ?? payload;
+    const data = payload && 'data' in payload ? payload.data : payload;
     await this.handleEvent(RoutingKeys.PedidoActualizado, data, context);
   }
 
@@ -62,22 +65,11 @@ export class AppController {
   private async handleEvent(
     pattern: string,
     data: unknown,
-    context: RmqContext,
+    _context: RmqContext,
   ): Promise<void> {
-    const channel = context.getChannelRef();
-    const originalMsg = context.getMessage();
+    this.logger.log(`✅ Evento recibido: ${pattern}`);
+    this.logger.log(` Datos: ${JSON.stringify(data)}`);
 
-    try {
-      this.logger.log(`✅ Evento recibido: ${pattern}`);
-      this.logger.log(` Datos: ${JSON.stringify(data)}`);
-      
-      // Emitir WebSocket a la PWA Cliente (KDS, Mesas, etc)
-      this.gateway.emitPedidoUpdate({ pattern, data });
-
-      channel.ack(originalMsg);
-    } catch (error) {
-      this.logger.error(`Error procesando ${pattern}`, error);
-      channel.nack(originalMsg, false, true);
-    }
+    this.gateway.emitPedidoUpdate({ pattern, data });
   }
 }

@@ -24,12 +24,9 @@ describe('AppService — Pedidos', () => {
     id: 'p-001',
     mesaId: 'm-001',
     numeroMesa: 5,
-    sesionMesaId: 's-001',
     estado: PedidoEstado.Pendiente,
     total: 100,
-    montoPagado: 0,
     items: [],
-    auditorId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -48,44 +45,46 @@ describe('AppService — Pedidos', () => {
     service = new AppService(mockPrisma as any, mockPublisher as any);
   });
 
-  describe('registrarPagoInterno', () => {
-    it('debe actualizar montoPagado y mantener estado si no se paga completo', async () => {
-      const pedidoConSaldo = { ...basePedido, montoPagado: 0, total: 100, estado: PedidoEstado.Pendiente };
-      mockPrisma.pedido.findUnique.mockResolvedValue(pedidoConSaldo);
-      mockPrisma.pedido.update.mockResolvedValue({
-        ...pedidoConSaldo,
-        montoPagado: 40,
-        estado: PedidoEstado.Pendiente,
+  describe('procesarPagoRecibido', () => {
+    it('debe mantener estado si no se paga completo', async () => {
+      const pedidoConSaldo = { ...basePedido, total: 100, estado: PedidoEstado.Pendiente };
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([pedidoConSaldo] as any);
+      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue(pedidoConSaldo as any);
+
+      await service.procesarPagoRecibido({
+        cuentaId: 'cuenta-1',
+        mesaId: 'mesa-1',
+        montoTotal: 100,
+        metodoPago: 'EFECTIVO'
       });
 
-      await service.registrarPagoInterno('p-001', 40);
-
-      expect(mockPrisma.pedido.update).toHaveBeenCalledWith({
+      expect(updateSpy).toHaveBeenCalledWith({
         where: { id: 'p-001' },
-        data: { montoPagado: 40, estado: PedidoEstado.Pendiente },
+        data: { estado: PedidoEstado.Pagado },
       });
     });
 
-    it('debe cambiar estado a PAGADO cuando el monto pagado iguala o supera el total', async () => {
-      const pedidoPendiente = { ...basePedido, montoPagado: 60, total: 100, estado: PedidoEstado.Pendiente };
-      mockPrisma.pedido.findUnique.mockResolvedValue(pedidoPendiente);
-      mockPrisma.pedido.update.mockResolvedValue({
-        ...pedidoPendiente,
-        montoPagado: 100,
-        estado: PedidoEstado.Pagado,
+    it('debe actualizar estado a PAGADO si el pago cubre el total', async () => {
+      const pedidoPendiente = { ...basePedido, total: 100, estado: PedidoEstado.Pendiente };
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([pedidoPendiente] as any);
+      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue(pedidoPendiente as any);
+
+      await service.procesarPagoRecibido({
+        cuentaId: 'cuenta-1',
+        mesaId: 'mesa-1',
+        montoTotal: 100,
+        metodoPago: 'EFECTIVO'
       });
 
-      await service.registrarPagoInterno('p-001', 40);
-
-      expect(mockPrisma.pedido.update).toHaveBeenCalledWith({
+      expect(updateSpy).toHaveBeenCalledWith({
         where: { id: 'p-001' },
-        data: { montoPagado: 100, estado: PedidoEstado.Pagado },
+        data: { estado: PedidoEstado.Pagado },
       });
     });
 
-    it('no debe lanzar error si el pedido no existe', async () => {
-      mockPrisma.pedido.findUnique.mockResolvedValue(null);
-      await expect(service.registrarPagoInterno('inexistente', 50)).resolves.not.toThrow();
+    it('no debe lanzar error si no hay pedidos para la mesa', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
     });
   });
 });

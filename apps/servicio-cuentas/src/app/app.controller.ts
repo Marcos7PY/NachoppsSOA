@@ -6,9 +6,14 @@ import {
   DividirCuentaCommand
 } from '@org/contracts';
 
-@Controller('cuentas')
+@Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
+
+  @Get()
+  healthCheck() {
+    return { status: 'OK', service: 'Cuentas' };
+  }
 
   @Post()
   abrirCuenta(@Body() command: AbrirCuentaCommand) {

@@ -1,1 +1,1 @@
-export * from './lib/prisma.service';
+export * from './lib/base-prisma.service';

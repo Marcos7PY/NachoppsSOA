@@ -7,22 +7,22 @@ import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoReg
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Post('pedidos')
+  @Post()
   crearPedido(@Body() body: CrearPedidoCommand) {
     return this.appService.crearPedido(body);
   }
 
-  @Get('pedidos')
+  @Get()
   listarPedidos(@Query('mesaId') mesaId?: string) {
     return this.appService.listarPedidos(mesaId);
   }
 
-  @Patch('pedidos/:id/estado')
+  @Patch(':id/estado')
   actualizarEstado(@Param('id') id: string, @Body() body: ActualizarEstadoPedidoCommand) {
     return this.appService.actualizarEstado(id, body);
   }
 
-  @Patch('pedidos/items/:itemId/estado')
+  @Patch('items/:itemId/estado')
   actualizarEstadoItem(@Param('itemId') itemId: string, @Body() body: ActualizarEstadoPedidoCommand) {
     return this.appService.actualizarEstadoItem(itemId, body);
   }

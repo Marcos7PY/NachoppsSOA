@@ -77,12 +77,18 @@ export class AppService {
     return { message: 'Producto creado exitosamente', producto };
   }
 
-  async actualizarStock(id: string, nuevoStock: number): Promise<{ message: string; producto: ProductoDto }> {
-    const producto = await this.prisma.producto.update({
+  async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
+    const producto = await this.prisma.producto.findUnique({ where: { id } });
+    if (!producto) throw new NotFoundException('Producto no encontrado');
+
+    const stockBase = producto.stockActual ?? 0;
+    const nuevoStock = Math.max(0, stockBase + cantidad);
+
+    const actualizado = await this.prisma.producto.update({
       where: { id },
       data: { stockActual: nuevoStock }
     });
-    return { message: 'Stock actualizado', producto };
+    return { message: 'Stock actualizado', producto: actualizado };
   }
 
   async reducirStockAutomatico(id: string, cantidad: number): Promise<void> {
@@ -98,17 +104,30 @@ export class AppService {
       return;
     }
 
-    const nuevoStock = Math.max(0, producto.stockActual - cantidad);
-
-    await this.prisma.producto.update({
-      where: { id },
+    // Update condicional atómico: solo decrementa si hay stock suficiente
+    const actualizado = await this.prisma.producto.updateMany({
+      where: {
+        id,
+        stockActual: { gte: cantidad }
+      },
       data: { 
-        stockActual: nuevoStock,
-        // Si el stock llega a 0, podríamos marcarlo como no disponible opcionalmente
-        disponible: nuevoStock > 0 ? producto.disponible : false
+        stockActual: { decrement: cantidad }
       }
     });
 
-    this.logger.log(`Stock reducido para ${producto.nombre}: ${producto.stockActual} -> ${nuevoStock}`);
+    if (actualizado.count === 0) {
+      this.logger.warn(`Stock insuficiente para producto ${id} — no se pudo decrementar ${cantidad}`);
+      return;
+    }
+
+    const productoDespues = await this.prisma.producto.findUnique({ where: { id } });
+    if (productoDespues && productoDespues.stockActual === 0 && productoDespues.disponible) {
+      await this.prisma.producto.update({
+        where: { id },
+        data: { disponible: false }
+      });
+    }
+
+    this.logger.log(`Stock reducido para ${productoDespues?.nombre ?? id}: -> ${productoDespues?.stockActual}`);
   }
 }

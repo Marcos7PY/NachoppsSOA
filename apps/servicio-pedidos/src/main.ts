@@ -8,10 +8,9 @@ config({ path: join(__dirname, '../.env') });
 
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Transport } from '@nestjs/microservices';
 import { AppModule } from './app/app.module';
-import { RoutingKeys } from '@org/contracts';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,10 +28,15 @@ async function bootstrap() {
     options: {
       urls: [process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672'],
       queue: 'pedidos_queue',
-      queueOptions: { durable: true },
+      queueOptions: { 
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': 'NACHOPPS_DLX',
+          'x-dead-letter-routing-key': 'dlq.pedidos_queue'
+        }
+      },
       exchange: 'nachopps_exchange',
       exchangeType: 'topic',
-      routingKey: RoutingKeys.PagoRegistrado,
       noAck: false,
     },
   });
@@ -46,8 +50,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.startAllMicroservices();
   const port = process.env.PORT || 3000;
+  await app.startAllMicroservices();
   await app.listen(port);
   Logger.log(`🚀 Servicio Pedidos corriendo en: http://localhost:${port}/${globalPrefix}`);
   Logger.log(`📄 Swagger: http://localhost:${port}/api/docs`);

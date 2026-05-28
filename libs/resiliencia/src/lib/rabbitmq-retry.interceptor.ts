@@ -2,21 +2,22 @@ import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } fr
 import { Observable, throwError, timer } from 'rxjs';
 import { retryWhen, mergeMap, tap } from 'rxjs/operators';
 import { RmqContext } from '@nestjs/microservices';
+import { context, propagation } from '@opentelemetry/api';
 
 @Injectable()
 export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RabbitMQRetryInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const ctxType = context.getType();
+  intercept(executionContext: ExecutionContext, next: CallHandler): Observable<any> {
+    const ctxType = executionContext.getType();
 
     if (ctxType !== 'rpc' && (ctxType as string) !== 'rmq') {
       return next.handle();
     }
 
     const rmqContext = ctxType === 'rpc'
-      ? context.switchToRpc().getContext<RmqContext>()
-      : (context as any).args?.[1] as RmqContext | undefined;
+      ? executionContext.switchToRpc().getContext<RmqContext>()
+      : (executionContext as any).args?.[1] as RmqContext | undefined;
 
     const channel = rmqContext?.getChannelRef?.() || null;
     const originalMsg = rmqContext?.getMessage?.() || null;
@@ -24,7 +25,14 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
     const maxRetries = 3;
     const initialDelay = 1000;
 
-    return next.handle().pipe(
+    // Extracción de OpenTelemetry
+    let currentCtx = context.active();
+    if (originalMsg?.properties?.headers) {
+      currentCtx = propagation.extract(currentCtx, originalMsg.properties.headers);
+    }
+
+    return context.with(currentCtx, () => {
+      return next.handle().pipe(
       tap(() => {
         if (channel && originalMsg) {
           try { channel.ack(originalMsg); } catch { /* ignore */ }
@@ -53,5 +61,6 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
         ),
       ),
     );
+    });
   }
 }

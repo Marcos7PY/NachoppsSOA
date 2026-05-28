@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import { MesaDto, CrearMesaCommand, ActualizarEstadoMesaCommand } from '@org/contracts';
 
-const BASE_URL = '/mesas/mesas';
+const BASE_URL = '/mesas';
 
 export const MesasApi = {
   obtenerMesas: async (): Promise<MesaDto[]> => {

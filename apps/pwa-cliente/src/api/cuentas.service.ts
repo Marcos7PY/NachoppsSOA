@@ -7,7 +7,7 @@ import {
   DividirCuentaCommand 
 } from '@org/contracts';
 
-const BASE_URL = '/cuentas/cuentas'; // Kong enruta /cuentas/* a servicio-cuentas
+const BASE_URL = '/cuentas';
 
 export const CuentasApi = {
   abrirCuenta: async (command: AbrirCuentaCommand): Promise<{ message: string; cuenta: CuentaDto }> => {

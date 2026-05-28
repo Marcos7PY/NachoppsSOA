@@ -10,7 +10,7 @@ export const CajaApi = {
   },
 
   obtenerTransacciones: async (): Promise<TransaccionDto[]> => {
-    const response = await apiClient.get(`${BASE_URL}/transacciones`);
+    const response = await apiClient.get(`${BASE_URL}`);
     return response.data;
   },
 };

@@ -24,6 +24,9 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  esbuild: false,
+  // Desactivar oxc para suprimir el warning de vitest 3/4
+  oxc: false,
   test: {
     globals: true,
     environment: 'node',

@@ -1,29 +1,10 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '../generated/prisma';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createBasePrismaService } from '@org/shared-prisma';
+
+const BasePrisma = createBasePrismaService(PrismaClient);
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(PrismaService.name);
-
-  constructor() {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error('DATABASE_URL is not defined in the environment');
-    }
-
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaPg(pool);
-    super({ adapter });
-  }
-
-  async onModuleInit() {
-    await this.$connect();
-    this.logger.log('Conectado a la BD de Inventario vía PrismaPg');
-  }
-
-  async onModuleDestroy() {
-    await this.$disconnect();
-  }
+export class PrismaService extends BasePrisma {
+  protected readonly serviceName = 'servicio-inventario';
 }

@@ -5,7 +5,7 @@ import {
   ActualizarEstadoPedidoCommand
 } from '@org/contracts';
 
-const BASE_URL = '/pedidos/pedidos';
+const BASE_URL = '/pedidos';
 
 export const PedidosApi = {
   crearPedido: async (command: CrearPedidoCommand): Promise<PedidoDto> => {

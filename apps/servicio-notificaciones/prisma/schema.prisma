@@ -5,6 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+
 }
 
 model Notificacion {
@@ -16,4 +17,11 @@ model Notificacion {
   estado      String   @default("PENDIENTE") // PENDIENTE, ENVIADO, FALLIDO
   intentos    Int      @default(0)
   timestamp   DateTime @default(now())
+}
+
+model IdempotencyKey {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@map("idempotency_keys")
 }

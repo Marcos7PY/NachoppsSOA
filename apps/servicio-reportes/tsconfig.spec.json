@@ -1,9 +1,16 @@
 {
-  "extends": "./tsconfig.app.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
     "types": ["node"],
-    "rootDir": "../../"
+    "rootDir": "../../",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["src/**/*.spec.ts", "src/**/*.ts", "../../libs/**/*.ts"]
+  "include": ["src/**/*.spec.ts", "src/**/*.ts", "../../libs/**/*.ts"],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ]
 }

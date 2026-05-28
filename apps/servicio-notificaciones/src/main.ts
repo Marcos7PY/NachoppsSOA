@@ -6,7 +6,6 @@ import { join } from 'path';
 
 config({ path: join(__dirname, '../.env') });
 
-import { CONSUMER_BINDING_ALL_DOMAIN_EVENTS } from '@org/contracts';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -30,10 +29,15 @@ async function bootstrap() {
     options: {
       urls: [RABBITMQ_URI],
       queue: 'notificaciones_queue',
-      queueOptions: { durable: true },
+      queueOptions: { 
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': 'NACHOPPS_DLX',
+          'x-dead-letter-routing-key': 'dlq.notificaciones_queue'
+        }
+      },
       exchange: 'nachopps_exchange',
       exchangeType: 'topic',
-      routingKey: CONSUMER_BINDING_ALL_DOMAIN_EVENTS,
       noAck: false,
     },
   });

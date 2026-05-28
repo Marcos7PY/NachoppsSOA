@@ -1,6 +1,6 @@
 # DT-04: JWT — Caché, Resiliencia y Rendimiento
 
-**Estado actual:** 🟡 Pendiente
+**Estado actual:** ✅ Completada (3 fases: LRU cache + degraded mode + refresh tokens)
 **Severidad:** Alto
 **Archivos de referencia:** `infra/kong/kong.yml` · `apps/servicio-identidad/`
 **Ubicación de este documento:** `docs/DT04_JWT_CACHE_KONG.md`

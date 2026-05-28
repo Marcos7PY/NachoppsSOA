@@ -7,31 +7,26 @@ export class AppController {
   constructor(private readonly reservas: ReservasService) {}
 
   @Get()
-  health() {
-    return { message: 'Servicio de Reservas activo', service: 'servicio-reservas' };
-  }
-
-  @Get('reservas')
   listar() {
     return this.reservas.listar();
   }
 
-  @Get('reservas/disponibilidad')
+  @Get('disponibilidad')
   disponibilidad(@Query('fecha') fecha: string, @Query('hora') hora: string) {
     return this.reservas.consultarDisponibilidad(fecha, hora);
   }
 
-  @Post('reservas')
+  @Post()
   crear(@Body() body: CrearReservaCommand) {
     return this.reservas.crear(body);
   }
 
-  @Patch('reservas/:id/confirmar')
+  @Patch(':id/confirmar')
   confirmar(@Param('id') id: string) {
     return this.reservas.confirmar(id);
   }
 
-  @Delete('reservas/:id')
+  @Delete(':id')
   cancelar(@Param('id') id: string, @Body() body?: { motivo?: string }) {
     return this.reservas.cancelar(id, body?.motivo);
   }

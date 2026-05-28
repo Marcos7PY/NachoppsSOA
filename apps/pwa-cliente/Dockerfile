@@ -8,7 +8,7 @@ COPY nx.json ./
 COPY tsconfig.base.json ./
 
 # Instalar dependencias
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 # Copiar el workspace
 COPY . .

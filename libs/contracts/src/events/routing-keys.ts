@@ -9,6 +9,8 @@ export const RoutingKeys = {
   ReservaConfirmada: 'reserva.confirmada',
 
   // Mesas
+  MesaCreada: 'mesa.creada',
+  MesaActualizada: 'mesa.actualizada',
   MesaAsignada: 'mesa.asignada',
   MesaLiberada: 'mesa.liberada',
 
@@ -18,6 +20,7 @@ export const RoutingKeys = {
   PedidoActualizado: 'pedido.actualizado',
 
   // Cuentas
+  CuentaAbierta: 'cuenta.abierta',
   CuentaCerrada: 'cuenta.cerrada',
   TicketGenerado: 'ticket.generado',
 

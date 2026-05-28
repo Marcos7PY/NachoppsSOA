@@ -71,7 +71,7 @@ consumers:
 services:
   # ── Identidad (ruta pública para login, protegida para el resto) ──
   - name: servicio-identidad-public
-    url: http://servicio-identidad:3001/api/auth
+    url: http://host.docker.internal:3001/api/auth
     routes:
       - name: identidad-login
         paths:
@@ -81,7 +81,7 @@ services:
           - POST
 
   - name: servicio-identidad
-    url: http://servicio-identidad:3001/api
+    url: http://host.docker.internal:3001/api
     plugins:
       - name: jwt
         config:
@@ -95,7 +95,7 @@ services:
 
   # ── Mesas ──
   - name: servicio-mesas
-    url: http://servicio-mesas:3002/api
+    url: http://host.docker.internal:3002/api
     plugins:
       - name: jwt
         config:
@@ -109,7 +109,7 @@ services:
 
   # ── Pedidos ──
   - name: servicio-pedidos
-    url: http://servicio-pedidos:3004/api
+    url: http://host.docker.internal:3004/api
     plugins:
       - name: jwt
         config:
@@ -123,7 +123,7 @@ services:
 
   # ── Cuentas ──
   - name: servicio-cuentas
-    url: http://servicio-cuentas:3005/api
+    url: http://host.docker.internal:3005/api
     plugins:
       - name: jwt
         config:
@@ -137,7 +137,7 @@ services:
 
   # ── Reservas ──
   - name: servicio-reservas
-    url: http://servicio-reservas:3006/api
+    url: http://host.docker.internal:3006/api
     plugins:
       - name: jwt
         config:
@@ -151,7 +151,7 @@ services:
 
   # ── Inventario ──
   - name: servicio-inventario
-    url: http://servicio-inventario:3007/api
+    url: http://host.docker.internal:3007/api
     plugins:
       - name: jwt
         config:
@@ -165,7 +165,7 @@ services:
 
   # ── Notificaciones ──
   - name: servicio-notificaciones
-    url: http://servicio-notificaciones:3008/api
+    url: http://host.docker.internal:3008/api
     plugins:
       - name: jwt
         config:
@@ -179,7 +179,7 @@ services:
 
   # ── Caja ──
   - name: servicio-caja
-    url: http://servicio-caja:3009/api
+    url: http://host.docker.internal:3009/api
     plugins:
       - name: jwt
         config:
@@ -193,7 +193,7 @@ services:
 
   # ── Reportes ──
   - name: servicio-reportes
-    url: http://servicio-reportes:3010/api
+    url: http://host.docker.internal:3010/api
     plugins:
       - name: jwt
         config:

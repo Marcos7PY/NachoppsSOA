@@ -8,18 +8,28 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PedidoEstado {
+  PENDIENTE
+  EN_PREPARACION
+  LISTO
+  ENTREGADO
+  CANCELADO
+  PAGADO
+}
+
 model Pedido {
   id             String       @id @default(uuid())
   mesaId         String
   numeroMesa     Int?
-  estado         String       @default("PENDIENTE") // PENDIENTE, EN_PREPARACION, LISTO, ENTREGADO
+  estado         PedidoEstado @default(PENDIENTE)
   total          Decimal      @default(0) @db.Decimal(10, 2)
-  montoPagado    Decimal      @default(0) @db.Decimal(10, 2)
   items          PedidoItem[]
   comensales     Int          @default(1)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  @@index([mesaId])
+  @@index([estado])
   @@map("pedidos")
 }
 
@@ -35,9 +45,18 @@ model PedidoItem {
   notas          String?
   estado         String        @default("PENDIENTE")
   modificadores  Modificador[]
-  comensal       Int           @default(1) // Para división de cuenta por items
+  comensal       Int           @default(1)
 
+  @@index([pedidoId])
   @@map("pedido_items")
+}
+
+model MesaLocal {
+  id        String   @id
+  numero    Int
+  updatedAt DateTime @updatedAt
+
+  @@map("mesas_local")
 }
 
 model Modificador {
@@ -48,4 +67,16 @@ model Modificador {
   precioExtra  Decimal    @default(0) @db.Decimal(10, 2)
 
   @@map("modificadores")
+}
+
+model OutboxEvent {
+  id         String   @id @default(uuid())
+  routingKey String
+  payload    String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
 }

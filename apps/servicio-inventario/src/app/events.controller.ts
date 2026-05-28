@@ -1,8 +1,10 @@
-import { Controller, Logger } from '@nestjs/common';
-import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
+import { Controller, Logger, UseInterceptors } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { AppService } from './app.service';
-import { RoutingKeys } from '@org/contracts';
+import { DomainEventEnvelope, RoutingKeys } from '@org/contracts';
+import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
+@UseInterceptors(RabbitMQRetryInterceptor)
 @Controller()
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
@@ -10,26 +12,25 @@ export class EventsController {
   constructor(private readonly appService: AppService) {}
 
   @EventPattern(RoutingKeys.PedidoCreado)
-  async handlePedidoCreado(@Payload() payload: any, @Ctx() context: RmqContext) {
-    const channel = context.getChannelRef();
-    const originalMsg = context.getMessage();
+  async handlePedidoCreado(
+    @Payload() envelope: DomainEventEnvelope<any>,
+  ) {
+    const payload = envelope.data ?? envelope;
+    
+    const pedido = payload.pedido ?? payload;
+    
+    if (!pedido.items || !Array.isArray(pedido.items)) {
+      this.logger.warn('PedidoCreado sin items. Ignorando.');
+      return;
+    }
 
-    try {
-      // Manejar tanto el formato con envelope como el raw
-      const data = payload.data || payload;
-      this.logger.log(`Evento pedido.creado recibido. Reduciendo stock...`);
-      
-      if (data.items && Array.isArray(data.items)) {
-        for (const item of data.items) {
-          await this.appService.reducirStockAutomatico(item.productoId, item.cantidad);
-        }
+    this.logger.log(`Procesando pedido.creado con ${pedido.items.length} items`);
+    
+    for (const item of pedido.items) {
+      if (item.productoId && item.cantidad) {
+        await this.appService.reducirStockAutomatico(item.productoId, item.cantidad);
+        this.logger.log(`Stock reducido: ${item.productoId} (-${item.cantidad})`);
       }
-
-      channel.ack(originalMsg);
-    } catch (error: unknown) {
-      this.logger.error(`Error al procesar pedido.creado: ${(error as Error).message}`);
-      // En caso de error, no reencolamos para evitar bucles infinitos si es un error de lógica
-      channel.nack(originalMsg, false, false);
     }
   }
 }

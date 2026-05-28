@@ -5,13 +5,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+
 }
 
 model Reserva {
   id              String   @id @default(uuid())
-  clienteId       String
+  clienteId       String?
   clienteNombre   String
-  clienteTelefono String
+  clienteTelefono String?
   fecha           DateTime @db.Date
   hora            String
   mesaPreferida   String?

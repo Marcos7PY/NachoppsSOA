@@ -11,7 +11,6 @@ import { NestFactory } from '@nestjs/core';
 import { Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
-import { RoutingKeys } from '@org/contracts';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,10 +28,15 @@ async function bootstrap() {
     options: {
       urls: [process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672'],
       queue: 'caja_queue',
-      queueOptions: { durable: true },
+      queueOptions: { 
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': 'NACHOPPS_DLX',
+          'x-dead-letter-routing-key': 'dlq.caja_queue'
+        }
+      },
       exchange: 'nachopps_exchange',
       exchangeType: 'topic',
-      routingKey: RoutingKeys.PedidoCreado,
       noAck: false,
     },
   });

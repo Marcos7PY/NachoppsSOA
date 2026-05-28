@@ -6,12 +6,17 @@ import { PagarPedidoCommand } from '@org/contracts';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  @Get('health')
+  healthCheck() {
+    return { status: 'OK', service: 'Caja' };
+  }
+
   @Post('pagos')
   registrarPago(@Body() body: PagarPedidoCommand) {
     return this.appService.registrarPago(body);
   }
 
-  @Get('transacciones')
+  @Get()
   listarTransacciones() {
     return this.appService.listarTransacciones();
   }

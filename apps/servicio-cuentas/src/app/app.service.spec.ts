@@ -5,6 +5,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
   const mock = {
     $connect: async () => {},
     $disconnect: async () => {},
+    $transaction: vi.fn(async (cb: any) => cb(mock)),
     checkAndRecordIdempotencyKey: async (_key: string) => true,
     ...overrides,
   };
@@ -23,12 +24,12 @@ describe('AppService — Cuentas', () => {
         create: vi.fn(),
         update: vi.fn(),
       },
+      outboxEvent: {
+        create: vi.fn(),
+      },
     });
 
-    service = new AppService(
-      mockPrisma as any,
-      { publish: vi.fn().mockResolvedValue(undefined) } as any,
-    );
+    service = new AppService(mockPrisma as any);
   });
 
   describe('abrirCuenta', () => {
@@ -41,23 +42,41 @@ describe('AppService — Cuentas', () => {
         total: 0,
         pedidos: [],
         ticket: null,
-        auditorId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
 
       const result = await service.abrirCuenta({ mesaId: 'm-001' });
 
       expect(result.cuenta.id).toBe('c-001');
       expect(result.cuenta.estado).toBe('ABIERTA');
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalled();
     });
 
-    it('debe rechazar si la mesa ya tiene una cuenta abierta', async () => {
+    it('debe rechazar si la mesa ya tiene una cuenta abierta y origen es manual', async () => {
       mockPrisma.cuenta.findFirst.mockResolvedValue({ id: 'c-existing', estado: 'ABIERTA' });
 
       await expect(
-        service.abrirCuenta({ mesaId: 'm-001' })
+        service.abrirCuenta({ mesaId: 'm-001' }, 'manual')
       ).rejects.toThrow('La mesa ya tiene una cuenta abierta');
+    });
+
+    it('no debe rechazar si la mesa ya tiene una cuenta abierta y origen es fallback', async () => {
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-existing',
+        mesaId: 'm-001',
+        estado: 'ABIERTA',
+        total: 0,
+        pedidos: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'fallback');
+
+      expect(result.message).toBe('Cuenta ya existe.');
+      expect(result.cuenta.id).toBe('c-existing');
     });
   });
 
@@ -73,9 +92,17 @@ describe('AppService — Cuentas', () => {
         updatedAt: new Date(),
       });
 
-      vi.spyOn(service as any, 'fetchPedidosDeMesa').mockResolvedValue([
-        { id: 'p-1', total: 150, items: [{ precioUnitario: 50, cantidad: 3 }] },
-      ]);
+      vi.spyOn(service, 'obtenerCuenta').mockResolvedValue({
+        id: 'c-001',
+        estado: 'ABIERTA',
+        mesaId: 'm-001',
+        total: 150,
+        pedidos: [
+          { id: 'p-1', total: 150, items: [{ precioUnitario: 50, cantidad: 3 }] } as any
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
 
       const result = await service.dividirCuenta('c-001', { metodo: 'IGUALES', numPartes: 3 });
 

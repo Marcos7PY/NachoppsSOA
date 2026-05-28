@@ -9,7 +9,7 @@ import { ObservabilidadModule } from '@org/observabilidad';
     ObservabilidadModule,
     PrismaModule,
     RabbitMQModule.forRoot(
-      process.env.RABBITMQ_URI ?? 'amqp://nachopps:nachopps_secret@localhost:5672',
+      process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
     ),
     AuthModule,
   ],

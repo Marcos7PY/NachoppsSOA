@@ -29,17 +29,20 @@ export class ReservasService {
   }
 
   async crear(command: CrearReservaCommand) {
+    const clienteNombre = command.clienteNombre ?? 'Sin nombre';
+    const numComensales = command.numComensales ?? 2;
+
     await this.assertSlotDisponible(command.fecha, command.hora);
 
     const reserva = await this.prisma.reserva.create({
       data: {
-        clienteId: command.clienteId,
-        clienteNombre: command.clienteNombre,
-        clienteTelefono: command.clienteTelefono,
+        clienteId: command.clienteId ?? null,
+        clienteNombre,
+        clienteTelefono: command.clienteTelefono ?? null,
         fecha: new Date(command.fecha),
         hora: command.hora,
         mesaPreferida: command.mesaPreferida,
-        numComensales: command.numComensales ?? 2,
+        numComensales,
         estado: ReservaEstado.Pendiente,
       },
     });

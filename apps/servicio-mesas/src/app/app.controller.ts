@@ -6,22 +6,22 @@ import { CrearMesaCommand, ActualizarEstadoMesaCommand } from '@org/contracts';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get('mesas')
+  @Get()
   listarMesas() {
     return this.appService.listarMesas();
   }
 
-  @Get('mesas/:id')
+  @Get(':id')
   obtenerMesa(@Param('id') id: string) {
     return this.appService.obtenerMesa(id);
   }
 
-  @Post('mesas')
+  @Post()
   crearMesa(@Body() body: CrearMesaCommand) {
     return this.appService.crearMesa(body);
   }
 
-  @Patch('mesas/:id/estado')
+  @Patch(':id/estado')
   actualizarEstado(@Param('id') id: string, @Body() body: ActualizarEstadoMesaCommand) {
     return this.appService.actualizarEstado(id, body);
   }

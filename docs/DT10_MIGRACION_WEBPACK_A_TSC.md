@@ -2,7 +2,7 @@
 
 > **Tipo:** Deuda técnica arquitectural
 > **Ámbito:** Los 9 microservicios backend (`apps/servicio-*`)
-> **Estado:** 🟡 Pendiente de ejecución
+> **Estado:** ✅ Completada (9/9 servicios migrados a tsc, último webpack residual eliminado)
 > **Riesgo:** Medio-bajo (controlable con migración incremental)
 > **Autor del análisis:** Sesión de diagnóstico — 24 Mayo 2026
 

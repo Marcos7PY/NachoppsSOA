@@ -7,9 +7,17 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
+export interface NotificacionEvento {
+  pattern: string;
+  data: unknown;
+}
+
 @WebSocketGateway({
   cors: {
-    origin: '*', // En un entorno real, restringir a los orígenes del frontend
+    origin: process.env.ALLOWED_ORIGINS 
+      ? process.env.ALLOWED_ORIGINS.split(',') 
+      : ['http://localhost:3000', 'http://localhost:4200'],
+    credentials: true,
   },
   // Kong enrutará `/notificaciones/socket.io` hacia este path base:
   path: '/api/socket.io'
@@ -29,8 +37,8 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   // Método público para emitir eventos de pedidos a todos los clientes (cocina)
-  emitPedidoUpdate(data: any) {
+  emitPedidoUpdate(evento: NotificacionEvento) {
     this.logger.log('Emitiendo evento pedidoUpdate por WebSocket...');
-    this.server.emit('pedidoUpdate', data);
+    this.server.emit('pedidoUpdate', evento);
   }
 }

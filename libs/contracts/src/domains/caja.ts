@@ -1,3 +1,5 @@
+import { IsNumber, IsString, IsOptional, IsNotEmpty } from 'class-validator';
+
 export const MetodoPago = {
   Efectivo: 'EFECTIVO',
   Tarjeta: 'TARJETA',
@@ -8,36 +10,60 @@ export const MetodoPago = {
 
 export type MetodoPago = (typeof MetodoPago)[keyof typeof MetodoPago];
 
-export interface TransaccionDto {
+export class TransaccionDto {
+  @IsString()
   id: string;
-  pedidoId: string;
+
+  @IsString()
+  cuentaId: string;
+
+  @IsNumber()
   monto: number;
-  metodo: MetodoPago;
+
+  @IsString()
+  metodo: string;
+
+  @IsOptional()
+  @IsString()
   referencia?: string;
+
+  @IsOptional()
+  @IsString()
   notas?: string;
+
+  @IsString()
   createdAt: string;
 }
 
-export interface PagoMixtoItem {
-  monto: number;
-  metodo: MetodoPago;
-  referencia?: string;
+export class PagarPedidoCommand {
+  @IsString()
+  @IsNotEmpty()
+  cuentaId: string;
+
+  @IsNumber()
+  montoRecibido: number;
+
+  @IsString()
+  @IsNotEmpty()
+  metodo: string;
 }
 
-export interface PagarPedidoCommand {
-  pedidoId: string;
-  pagos: PagoMixtoItem[];
-  notas?: string;
-}
-
-export interface PagoRegistradoPayload {
+export class PagoRegistradoPayload {
+  @IsString()
   transaccionId: string;
-  pedidoId: string;
+  @IsString()
+  cuentaId: string;
+  @IsString()
+  mesaId: string;
+  @IsNumber()
   monto: number;
-  metodo: MetodoPago;
+  @IsString()
+  metodo: string;
 }
 
-export interface ArqueoRealizadoPayload {
+export class ArqueoRealizadoPayload {
+  @IsString()
   turnoId: string;
+  @IsNumber()
   diferencia: number;
 }
