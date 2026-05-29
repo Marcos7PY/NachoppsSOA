@@ -11,6 +11,7 @@ import {
   RoutingKeys,
   PagoRegistradoPayload
 } from '@org/contracts';
+import { Prisma } from '../generated/prisma';
 import axios from 'axios';
 import {
   PedidoItemMapeado,
@@ -156,11 +157,14 @@ export class AppService {
     });
   }
 
-  private calcularTotal(items: PedidoItemMapeado[]): number {
-    return items.reduce((sum, item) => sum + (item.precioUnitario * item.cantidad), 0);
+  private calcularTotal(items: PedidoItemMapeado[]): Prisma.Decimal {
+    return items.reduce(
+      (sum, item) => sum.plus(new Prisma.Decimal(item.precioUnitario).times(item.cantidad)),
+      new Prisma.Decimal(0),
+    );
   }
 
-  private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: number): Promise<PedidoEntity> {
+  private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
       const pedido = await prisma.pedido.create({
         data: {

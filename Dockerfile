@@ -10,7 +10,9 @@ COPY libs/ ./libs/
 COPY apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
 
 # Optimización: Usa la caché nativa de Docker BuildKit para no descargar el internet 9 veces
+RUN apk add --no-cache python3 make g++
 RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts
+RUN npm rebuild bcrypt --build-from-source
 
 COPY apps/${APP_NAME} ./apps/${APP_NAME}
 

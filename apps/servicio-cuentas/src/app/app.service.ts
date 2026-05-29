@@ -10,9 +10,11 @@ import {
   RoutingKeys,
   CuentaCerradaPayload,
   TicketGeneradoPayload,
-  DomainEventEnvelope,
+  PedidoActualizadoPayload,
+  PedidoCreadoPayload,
   PagoRegistradoPayload,
 } from '@org/contracts';
+import { Prisma } from '../generated/prisma';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -81,72 +83,100 @@ export class AppService {
     return { message: 'Cuenta abierta exitosamente', cuenta: this.mapToDto(cuenta) };
   }
 
-  async procesarPedidoCreado(envelope: DomainEventEnvelope<any>): Promise<void> {
-    const payload = envelope.data ?? envelope;
+  // A2+M5: idempotencia + advisory lock + recompute Decimal
+  async procesarPedidoCreado(payload: PedidoCreadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
-    if (!pedidoDto || !pedidoDto.mesaId) {
-      this.logger.warn('PedidoCreado sin mesaId — ignorado');
+    if (!pedidoDto || !pedidoDto.mesaId || !pedidoDto.id) {
+      this.logger.warn('PedidoCreado sin mesaId/id — ignorado');
       return;
     }
 
-    let cuenta = await this.prisma.cuenta.findFirst({
-      where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta }
+    await this.prisma.$transaction(async (prisma) => {
+      // M5: advisory lock por mesa (serializa pedidos concurrentes a la misma cuenta)
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
+
+      let cuenta = await prisma.cuenta.findFirst({
+        where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta },
+      });
+
+      // Fallback INLINE (misma tx): crea cuenta + reemite CuentaAbierta
+      if (!cuenta) {
+        cuenta = await prisma.cuenta.create({
+          data: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
+        });
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.CuentaAbierta,
+            payload: JSON.stringify({ cuentaId: cuenta.id, mesaId: cuenta.mesaId, origen: 'fallback' }),
+            status: 'PENDING',
+          },
+        });
+      }
+
+      const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
+
+      // A2: dedup por pedido.id — una reentrega no duplica el cobro
+      if (snapshot.some((p: any) => p.id === pedidoDto.id)) {
+        this.logger.warn(`Pedido ${pedidoDto.id} ya está en la cuenta ${cuenta.id} — ignorado (idempotente)`);
+        return;
+      }
+
+      snapshot.push(pedidoDto);
+
+      // A3: recompute del total desde el array, con Decimal (no increment ciego)
+      const total = snapshot.reduce(
+        (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
+        new Prisma.Decimal(0),
+      );
+
+      await prisma.cuenta.update({
+        where: { id: cuenta.id },
+        data: { total, pedidos: snapshot as any },
+      });
     });
 
-    if (!cuenta) {
-      const resultado = await this.abrirCuenta({ mesaId: pedidoDto.mesaId }, 'fallback');
-      cuenta = await this.prisma.cuenta.findUnique({ where: { id: resultado.cuenta.id } });
-    }
-    if (!cuenta) return;
-
-    const snapshotActual = Array.isArray(cuenta.pedidos) ? cuenta.pedidos : [];
-    snapshotActual.push(pedidoDto);
-
-    await this.prisma.cuenta.update({
-      where: { id: cuenta.id },
-      data: {
-        total: { increment: pedidoDto.total },
-        pedidos: snapshotActual as any
-      },
-    });
-    this.logger.log(`Añadido pedido ${pedidoDto.id} a la cuenta ${cuenta.id}`);
+    this.logger.log(`Pedido ${pedidoDto.id} consolidado en cuenta de mesa ${pedidoDto.mesaId}`);
   }
 
-  async procesarPedidoActualizado(envelope: DomainEventEnvelope<any>): Promise<void> {
-    const payload = envelope.data ?? envelope;
+  // A2+M5: idempotencia + advisory lock + recompute Decimal para actualizaciones
+  async procesarPedidoActualizado(payload: PedidoActualizadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
     if (!pedidoDto || !pedidoDto.mesaId) return;
 
-    const cuenta = await this.prisma.cuenta.findFirst({
-      where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta }
-    });
-    if (!cuenta) return;
+    await this.prisma.$transaction(async (prisma) => {
+      // M5: advisory lock por mesa
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
 
-    const snapshotActual = Array.isArray(cuenta.pedidos) ? cuenta.pedidos : [];
-    const index = snapshotActual.findIndex((p: any) => p.id === pedidoDto.id);
-    
-    let deltaTotal = 0;
-    if (index >= 0) {
-      deltaTotal = pedidoDto.total - ((snapshotActual[index] as any).total || 0);
-      snapshotActual[index] = pedidoDto;
-    } else {
-      deltaTotal = pedidoDto.total;
-      snapshotActual.push(pedidoDto);
-    }
+      const cuenta = await prisma.cuenta.findFirst({
+        where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta },
+      });
+      if (!cuenta) return;
 
-    await this.prisma.cuenta.update({
-      where: { id: cuenta.id },
-      data: {
-        total: { increment: deltaTotal },
-        pedidos: snapshotActual as any
-      },
+      const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
+      const index = snapshot.findIndex((p: any) => p.id === pedidoDto.id);
+
+      if (index >= 0) {
+        snapshot[index] = pedidoDto;
+      } else {
+        snapshot.push(pedidoDto);
+      }
+
+      // A3: recompute total con Decimal desde el snapshot actualizado
+      const total = snapshot.reduce(
+        (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
+        new Prisma.Decimal(0),
+      );
+
+      await prisma.cuenta.update({
+        where: { id: cuenta.id },
+        data: { total, pedidos: snapshot as any },
+      });
     });
-    this.logger.log(`Snapshot de pedido ${pedidoDto.id} actualizado en cuenta ${cuenta.id}`);
+
+    this.logger.log(`Snapshot de pedido ${pedidoDto.id} actualizado en cuenta de mesa ${pedidoDto.mesaId}`);
   }
 
-  async procesarPagoRegistrado(envelope: DomainEventEnvelope<PagoRegistradoPayload>): Promise<void> {
-    const payload = envelope.data ?? (envelope as unknown as PagoRegistradoPayload);
-
+  async procesarPagoRegistrado(payload: PagoRegistradoPayload): Promise<void> {
     const cuenta = await this.prisma.cuenta.findUnique({
       where: { id: payload.cuentaId },
     });
@@ -204,17 +234,18 @@ export class AppService {
       throw new BadRequestException('La cuenta no tiene pedidos.');
     }
 
-    const subtotal = Number(cuenta.total);
-    const descuento = command.descuento || 0;
-    const total = Math.max(0, subtotal - descuento);
+    // A3: aritmética Decimal para el cierre
+    const subtotal = new Prisma.Decimal(cuenta.total);
+    const descuento = new Prisma.Decimal(command.descuento ?? 0);
+    const total = Prisma.Decimal.max(new Prisma.Decimal(0), subtotal.minus(descuento));
     const ticketId = uuidv4();
 
     const cuentaCerradaPayload: CuentaCerradaPayload = {
       cuentaId: id,
       mesaId: cuenta.mesaId,
-      total,
+      total: total.toNumber(),
     };
-    
+
     const ticketGeneradoPayload: TicketGeneradoPayload = {
       ticketId,
       cuentaId: id,
@@ -250,14 +281,14 @@ export class AppService {
       id: ticketId,
       cuentaId: id,
       mesaId: cuenta.mesaId,
-      items: pedidos.flatMap((p: any) => p.items || []),
-      subtotal,
-      descuento,
-      total,
+      items: (pedidos as any[]).flatMap((p: any) => p.items || []),
+      subtotal: subtotal.toNumber(),
+      descuento: descuento.toNumber(),
+      total: total.toNumber(),
       fecha: new Date().toISOString()
     };
 
-    this.logger.log(`Cuenta ${id} cerrada. Ticket ${ticketId} generado. Total: S/ ${total}`);
+    this.logger.log(`Cuenta ${id} cerrada. Ticket ${ticketId} generado. Total: S/ ${total.toNumber()}`);
 
     return { message: 'Cuenta cerrada exitosamente', ticket };
   }
@@ -272,7 +303,8 @@ export class AppService {
 
     if (command.metodo === 'IGUALES') {
       const numPartes = command.numPartes || 1;
-      const montoPorParte = cuenta.total / numPartes;
+      // A3: aritmética Decimal para la división
+      const montoPorParte = new Prisma.Decimal(cuenta.total).dividedBy(numPartes).toNumber();
       return {
         metodo: 'IGUALES',
         partes: Array(numPartes).fill(0).map((_, i) => ({
@@ -284,11 +316,12 @@ export class AppService {
 
     if (command.metodo === 'POR_ITEMS') {
       const partes: Record<number, number> = {};
-      const allItems = pedidos.flatMap((p: any) => p.items || []);
-      allItems.forEach(item => {
+      const allItems = (pedidos as any[]).flatMap((p: any) => p.items || []);
+      allItems.forEach((item: any) => {
         const comensal = item.comensal || 1;
-        const subtotal = Number(item.precioUnitario) * item.cantidad;
-        partes[comensal] = (partes[comensal] || 0) + subtotal;
+        // A3: aritmética Decimal por ítem
+        const subtotal = new Prisma.Decimal(item.precioUnitario).times(item.cantidad);
+        partes[comensal] = new Prisma.Decimal(partes[comensal] ?? 0).plus(subtotal).toNumber();
       });
 
       return {

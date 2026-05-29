@@ -1,7 +1,5 @@
 import { Inject, Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import {
-  createEventEnvelope,
-  DomainEventEnvelope,
   NACHOPPS_EXCHANGE,
   RoutingKey,
 } from '@org/contracts';
@@ -60,17 +58,17 @@ export class RabbitMQPublisherService implements OnModuleInit {
     data: TPayload,
     producer?: string,
   ): Promise<void> {
-    const envelope: DomainEventEnvelope<TPayload> = createEventEnvelope(
-      routingKey,
-      data,
-      producer,
-    );
-
     const ctx = context.active();
     const carrier: Record<string, string> = {};
     propagation.inject(ctx, carrier);
+    if (producer) {
+      carrier['x-producer'] = producer;
+    }
 
-    await this.channelWrapper.publish(NACHOPPS_EXCHANGE, routingKey, envelope, {
+    await this.channelWrapper.publish(NACHOPPS_EXCHANGE, routingKey, {
+      pattern: routingKey,
+      data,
+    }, {
       headers: carrier
     });
     this.logger.log(`Evento publicado: ${routingKey}`);

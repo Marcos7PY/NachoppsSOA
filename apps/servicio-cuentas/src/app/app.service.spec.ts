@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
+import { CuentaEstado, PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
   const mock = {
@@ -27,6 +28,7 @@ describe('AppService — Cuentas', () => {
       outboxEvent: {
         create: vi.fn(),
       },
+      $executeRaw: vi.fn(),
     });
 
     service = new AppService(mockPrisma as any);
@@ -109,6 +111,82 @@ describe('AppService — Cuentas', () => {
       expect(result.metodo).toBe('IGUALES');
       expect(result.partes).toHaveLength(3);
       expect(result.partes[0].monto).toBe(50);
+    });
+  });
+
+  describe('eventos de pedidos con payload directo', () => {
+    const pedido = {
+      id: 'p-001',
+      mesaId: 'm-001',
+      numeroMesa: 1,
+      estado: PedidoEstado.Pendiente,
+      total: 50,
+      items: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    it('pedido.creado recibe payload directo y consolida cuenta', async () => {
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [],
+        total: 0,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoCreado({ pedido });
+
+      expect(mockPrisma.cuenta.update).toHaveBeenCalledWith({
+        where: { id: 'c-001' },
+        data: expect.objectContaining({
+          pedidos: [pedido],
+          total: expect.anything(),
+        }),
+      });
+    });
+
+    it('pedido.actualizado recibe payload directo y actualiza snapshot', async () => {
+      const pedidoActualizado = { ...pedido, total: 75 };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [pedido],
+        total: 50,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoActualizado });
+
+      expect(mockPrisma.cuenta.update).toHaveBeenCalledWith({
+        where: { id: 'c-001' },
+        data: expect.objectContaining({
+          pedidos: [pedidoActualizado],
+          total: expect.anything(),
+        }),
+      });
+    });
+
+    it('pago.registrado recibe payload directo y cierra cuenta', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [pedido],
+        total: 50,
+      });
+      const cerrarCuenta = vi.spyOn(service, 'cerrarCuenta').mockResolvedValue({ message: 'ok', ticket: {} as any });
+
+      await service.procesarPagoRegistrado({
+        transaccionId: 'tx-001',
+        cuentaId: 'c-001',
+        mesaId: 'm-001',
+        monto: 50,
+        metodo: 'EFECTIVO',
+      });
+
+      expect(cerrarCuenta).toHaveBeenCalledWith('c-001', {});
     });
   });
 });

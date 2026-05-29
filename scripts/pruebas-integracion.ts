@@ -357,10 +357,13 @@ async function main() {
   await test('3.2 Verificar Mesa 3 LIBRE tras primer ciclo', async () => {
     await expectWithRetry(
       async () => {
-        const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
-        return res.data;
+        const [mesaRes, cuentaRes] = await Promise.all([
+          axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() }),
+          axios.get(`${BASE}/cuentas/${cuenta3aId}`, { headers: authHeaders() }),
+        ]);
+        return { mesa: mesaRes.data, cuenta: cuentaRes.data };
       },
-      (m) => m.estado === 'LIBRE'
+      (res) => res.mesa.estado === 'LIBRE' && res.cuenta.estado === 'CERRADA'
     );
   });
 
@@ -386,8 +389,13 @@ async function main() {
   });
 
   await test('3.5 Verificar Mesa 3 OCUPADA nuevamente', async () => {
-    const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
-    if (res.data.estado !== 'OCUPADA') throw new Error(`Estado: ${res.data.estado}`);
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (m) => m.estado === 'OCUPADA'
+    );
   });
 
   await test('3.6 Pagar nueva cuenta y verificar cierre', async () => {
@@ -745,6 +753,8 @@ async function main() {
     });
   }
 
+  await flujoRegresionSeguridad();
+
   // Generar Informe Final
   generateReport(servicesToCheck);
 }
@@ -752,6 +762,62 @@ async function main() {
 // ═══════════════════════════════════════════════════════════
 // Generación de informe Markdown
 // ═══════════════════════════════════════════════════════════
+
+// ───────────────────────────── REGRESIONES DE SEGURIDAD ─────────────────────────────
+async function flujoRegresionSeguridad() {
+  flow('REGRESIÓN — C1/A1/A4');
+
+  // A4: rutas protegidas rechazan peticiones sin JWT (401)
+  await test('A4.1 GET /inventario/productos SIN token → 401', async () => {
+    try {
+      await axios.get(`${BASE}/inventario/productos`); // sin Authorization
+      throw new Error('Se esperaba 401 pero la petición pasó');
+    } catch (e: any) {
+      if (e.response?.status !== 401) throw new Error(`status ${e.response?.status ?? 'sin respuesta'}`);
+    }
+  });
+
+  await test('A4.2 GET /cuentas SIN token → 401', async () => {
+    try {
+      await axios.get(`${BASE}/cuentas`);
+      throw new Error('Se esperaba 401');
+    } catch (e: any) {
+      if (e.response?.status !== 401) throw new Error(`status ${e.response?.status}`);
+    }
+  });
+
+  // C1: token con firma inválida es rechazado (la estrategia exige JWT_SECRET correcto)
+  await test('C1.1 Token con firma manipulada → 401', async () => {
+    const tampered = token.slice(0, token.lastIndexOf('.') + 1) + 'firmafalsa123';
+    try {
+      await axios.get(`${BASE}/cuentas`, { headers: { Authorization: `Bearer ${tampered}` } });
+      throw new Error('Se esperaba 401 con token manipulado');
+    } catch (e: any) {
+      if (e.response?.status !== 401) throw new Error(`status ${e.response?.status}`);
+    }
+  });
+
+  // A1: ValidationPipe (whitelist + forbidNonWhitelisted) rechaza input inválido (400)
+  await test('A1.1 Login con email inválido → 400', async () => {
+    try {
+      await axios.post(`${BASE}/identidad/auth/login`, { email: 'no-es-un-email', password: 'x' });
+      throw new Error('Se esperaba 400');
+    } catch (e: any) {
+      if (e.response?.status !== 400) throw new Error(`status ${e.response?.status}`);
+    }
+  });
+
+  await test('A1.2 Login con campo no permitido → 400', async () => {
+    try {
+      await axios.post(`${BASE}/identidad/auth/login`, {
+        email: 'admin@nachopps.com', password: 'admin123', campoExtra: 'inyectado',
+      });
+      throw new Error('Se esperaba 400 por forbidNonWhitelisted');
+    } catch (e: any) {
+      if (e.response?.status !== 400) throw new Error(`status ${e.response?.status}`);
+    }
+  });
+}
 
 function generateReport(servicesChecked: Array<{ name: string }>) {
   const totalTests = results.length;

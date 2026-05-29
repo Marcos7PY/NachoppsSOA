@@ -1,9 +1,9 @@
 import { Controller, Get, Logger, UseInterceptors } from '@nestjs/common';
 import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
 import {
-  DomainEventEnvelope,
   PedidoCreadoPayload,
   PedidoActualizadoPayload,
+  ReservaCanceladaPayload,
   ReservaCreadaPayload,
   RoutingKeys,
 } from '@org/contracts';
@@ -28,38 +28,34 @@ export class AppController {
 
   @EventPattern(RoutingKeys.PedidoCreado)
   async handlePedidoCreado(
-    @Payload() payload: DomainEventEnvelope<PedidoCreadoPayload> | PedidoCreadoPayload,
+    @Payload() payload: PedidoCreadoPayload,
     @Ctx() context: RmqContext,
   ) {
-    const data = 'data' in payload && payload.data ? payload.data : payload;
-    await this.handleEvent(RoutingKeys.PedidoCreado, data, context);
+    await this.handleEvent(RoutingKeys.PedidoCreado, payload, context);
   }
 
   @EventPattern(RoutingKeys.PedidoActualizado)
   async handlePedidoActualizado(
-    @Payload() payload: DomainEventEnvelope<PedidoActualizadoPayload> | PedidoActualizadoPayload,
+    @Payload() payload: PedidoActualizadoPayload,
     @Ctx() context: RmqContext,
   ) {
-    const data = payload && 'data' in payload ? payload.data : payload;
-    await this.handleEvent(RoutingKeys.PedidoActualizado, data, context);
+    await this.handleEvent(RoutingKeys.PedidoActualizado, payload, context);
   }
 
   @EventPattern(RoutingKeys.ReservaCreada)
   async handleReservaCreada(
-    @Payload() payload: DomainEventEnvelope<ReservaCreadaPayload> | ReservaCreadaPayload,
+    @Payload() payload: ReservaCreadaPayload,
     @Ctx() context: RmqContext,
   ) {
-    const data = 'data' in payload && payload.data ? payload.data : payload;
-    await this.handleEvent(RoutingKeys.ReservaCreada, data, context);
+    await this.handleEvent(RoutingKeys.ReservaCreada, payload, context);
   }
 
   @EventPattern(RoutingKeys.ReservaCancelada)
   async handleReservaCancelada(
-    @Payload() payload: DomainEventEnvelope<{ reservaId: string }>,
+    @Payload() payload: ReservaCanceladaPayload,
     @Ctx() context: RmqContext,
   ) {
-    const data = payload?.data ?? payload;
-    await this.handleEvent(RoutingKeys.ReservaCancelada, data, context);
+    await this.handleEvent(RoutingKeys.ReservaCancelada, payload, context);
   }
 
   private async handleEvent(

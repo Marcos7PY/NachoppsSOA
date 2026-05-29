@@ -1,21 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ExtractJwt, Strategy, JwtFromRequestFunction } from 'passport-jwt';
+import { Request } from 'express';
 
 /**
  * Estrategia Passport-JWT.
- * Extrae el Bearer token del header Authorization y verifica
- * la firma HS256 con JWT_SECRET.
- *
+ * M4.2: extrae el token primero de la cookie httpOnly 'access_token',
+ * con fallback al header Authorization Bearer.
  * El payload decodificado se inyecta en `req.user`.
  */
+const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
+  return req?.cookies?.['access_token'] ?? null;
+};
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET env variable is required');
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // 1º cookie httpOnly, 2º header Bearer (fallback no-breaking)
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        cookieExtractor,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: secret,
     });

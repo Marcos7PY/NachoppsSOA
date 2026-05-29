@@ -1,6 +1,6 @@
 import { Controller, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
-import { RoutingKeys, DomainEventEnvelope, MesaCreadaPayload, MesaActualizadaPayload, ProductoCreadoPayload, ProductoActualizadoPayload } from '@org/contracts';
+import { RoutingKeys, MesaCreadaPayload, MesaActualizadaPayload, ProductoCreadoPayload, ProductoActualizadoPayload } from '@org/contracts';
 import { AppService } from './app.service';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
@@ -11,20 +11,17 @@ export class EventsController {
   constructor(private readonly appService: AppService) {}
 
   @EventPattern(RoutingKeys.MesaCreada)
-  async handleMesaCreada(@Payload() envelope: DomainEventEnvelope<MesaCreadaPayload>) {
-    const mesa = envelope.data.mesa;
-    await this.appService.upsertMesaLocal(mesa);
+  async handleMesaCreada(@Payload() payload: MesaCreadaPayload) {
+    await this.appService.upsertMesaLocal(payload.mesa);
   }
 
   @EventPattern(RoutingKeys.MesaActualizada)
-  async handleMesaActualizada(@Payload() envelope: DomainEventEnvelope<MesaActualizadaPayload>) {
-    const mesa = envelope.data.mesa;
-    await this.appService.upsertMesaLocal(mesa);
+  async handleMesaActualizada(@Payload() payload: MesaActualizadaPayload) {
+    await this.appService.upsertMesaLocal(payload.mesa);
   }
 
   @EventPattern(RoutingKeys.ProductoCreado)
-  async handleProductoCreado(@Payload() envelope: DomainEventEnvelope<ProductoCreadoPayload>) {
-    const payload = envelope.data ?? (envelope as unknown as ProductoCreadoPayload);
+  async handleProductoCreado(@Payload() payload: ProductoCreadoPayload) {
     await this.appService.upsertProductoLocal({
       id: payload.id,
       nombre: payload.nombre,
@@ -36,8 +33,7 @@ export class EventsController {
   }
 
   @EventPattern(RoutingKeys.ProductoActualizado)
-  async handleProductoActualizado(@Payload() envelope: DomainEventEnvelope<ProductoActualizadoPayload>) {
-    const payload = envelope.data ?? (envelope as unknown as ProductoActualizadoPayload);
+  async handleProductoActualizado(@Payload() payload: ProductoActualizadoPayload) {
     await this.appService.upsertProductoLocal({
       id: payload.id,
       nombre: payload.nombre,
