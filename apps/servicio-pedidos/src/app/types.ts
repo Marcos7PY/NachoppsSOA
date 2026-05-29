@@ -3,6 +3,7 @@ export interface PedidoItemMapeado {
   nombre: string;
   cantidad: number;
   precioUnitario: number;
+  stockActual?: number | null;
   area: string;
   notas?: string;
   comensal: number;

@@ -149,6 +149,7 @@ export class AppService {
         nombre: p.nombre,
         cantidad: item.cantidad,
         precioUnitario: Number(p.precio),
+        stockActual: p.stockActual,
         area: p.categoriaNombre?.toLowerCase().includes('bebida') ? 'BAR' : 'COCINA',
         notas: item.notas,
         comensal: item.identificadorComensal || 1,
@@ -166,6 +167,30 @@ export class AppService {
 
   private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
+      const cantidadesPorProducto = items.reduce((acc, item) => {
+        if (item.stockActual !== null && item.stockActual !== undefined) {
+          acc.set(item.productoId, (acc.get(item.productoId) ?? 0) + item.cantidad);
+        }
+        return acc;
+      }, new Map<string, number>());
+
+      for (const [productoId, cantidad] of cantidadesPorProducto) {
+        const reservado = await prisma.productoLocal.updateMany({
+          where: {
+            id: productoId,
+            stockActual: { gte: cantidad },
+          },
+          data: {
+            stockActual: { decrement: cantidad },
+          },
+        });
+
+        if (reservado.count === 0) {
+          const producto = items.find((item) => item.productoId === productoId);
+          throw new BadRequestException(`Stock insuficiente para ${producto?.nombre ?? productoId}.`);
+        }
+      }
+
       const pedido = await prisma.pedido.create({
         data: {
           mesaId,
