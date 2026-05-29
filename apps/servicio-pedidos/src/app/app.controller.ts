@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
-import { EventPattern, Payload,  } from '@nestjs/microservices';
+import { Controller, Get, Post, Body, Param, Patch, Query, UseInterceptors } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { AppService } from './app.service';
 import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
+import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
+@UseInterceptors(RabbitMQRetryInterceptor)
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

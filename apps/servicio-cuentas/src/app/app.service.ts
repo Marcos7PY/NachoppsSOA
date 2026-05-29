@@ -10,7 +10,8 @@ import {
   RoutingKeys,
   CuentaCerradaPayload,
   TicketGeneradoPayload,
-  DomainEventEnvelope,
+  PedidoActualizadoPayload,
+  PedidoCreadoPayload,
   PagoRegistradoPayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
@@ -83,8 +84,7 @@ export class AppService {
   }
 
   // A2+M5: idempotencia + advisory lock + recompute Decimal
-  async procesarPedidoCreado(envelope: DomainEventEnvelope<any>): Promise<void> {
-    const payload = envelope.data ?? envelope;
+  async procesarPedidoCreado(payload: PedidoCreadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
     if (!pedidoDto || !pedidoDto.mesaId || !pedidoDto.id) {
       this.logger.warn('PedidoCreado sin mesaId/id — ignorado');
@@ -139,8 +139,7 @@ export class AppService {
   }
 
   // A2+M5: idempotencia + advisory lock + recompute Decimal para actualizaciones
-  async procesarPedidoActualizado(envelope: DomainEventEnvelope<any>): Promise<void> {
-    const payload = envelope.data ?? envelope;
+  async procesarPedidoActualizado(payload: PedidoActualizadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
     if (!pedidoDto || !pedidoDto.mesaId) return;
 
@@ -177,9 +176,7 @@ export class AppService {
     this.logger.log(`Snapshot de pedido ${pedidoDto.id} actualizado en cuenta de mesa ${pedidoDto.mesaId}`);
   }
 
-  async procesarPagoRegistrado(envelope: DomainEventEnvelope<PagoRegistradoPayload>): Promise<void> {
-    const payload = envelope.data ?? (envelope as unknown as PagoRegistradoPayload);
-
+  async procesarPagoRegistrado(payload: PagoRegistradoPayload): Promise<void> {
     const cuenta = await this.prisma.cuenta.findUnique({
       where: { id: payload.cuentaId },
     });

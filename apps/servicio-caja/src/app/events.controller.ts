@@ -1,6 +1,6 @@
 import { Controller, Logger, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
-import { DomainEventEnvelope, CuentaAbiertaPayload, CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
+import { CuentaAbiertaPayload, CuentaCerradaPayload, RoutingKeys } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
@@ -15,18 +15,8 @@ export class EventsController {
 
   @EventPattern(RoutingKeys.CuentaAbierta)
   async handleCuentaAbierta(
-    @Payload() envelope: DomainEventEnvelope<CuentaAbiertaPayload>,
+    @Payload() payload: CuentaAbiertaPayload,
   ) {
-    const idempotencyKey = envelope.metadata?.idempotencyKey;
-    if (idempotencyKey) {
-      const isNew = await this.prisma.$checkAndRecordIdempotencyKey(idempotencyKey);
-      if (!isNew) {
-        this.logger.warn(`Evento duplicado ignorado: ${idempotencyKey}`);
-        return;
-      }
-    }
-
-    const payload = envelope.data ?? (envelope as unknown as CuentaAbiertaPayload);
     await this.prisma.cuentaAbierta.upsert({
       where: { cuentaId: payload.cuentaId },
       create: { cuentaId: payload.cuentaId, mesaId: payload.mesaId, total: 0, estado: 'ABIERTA' },
@@ -38,18 +28,8 @@ export class EventsController {
 
   @EventPattern(RoutingKeys.CuentaCerrada)
   async handleCuentaCerrada(
-    @Payload() envelope: DomainEventEnvelope<CuentaCerradaPayload>,
+    @Payload() payload: CuentaCerradaPayload,
   ) {
-    const idempotencyKey = envelope.metadata?.idempotencyKey;
-    if (idempotencyKey) {
-      const isNew = await this.prisma.$checkAndRecordIdempotencyKey(idempotencyKey);
-      if (!isNew) {
-        this.logger.warn(`Evento duplicado ignorado: ${idempotencyKey}`);
-        return;
-      }
-    }
-
-    const payload = envelope.data ?? (envelope as unknown as CuentaCerradaPayload);
     await this.prisma.cuentaAbierta.update({
       where: { cuentaId: payload.cuentaId },
       data: { estado: 'CERRADA', total: payload.total },

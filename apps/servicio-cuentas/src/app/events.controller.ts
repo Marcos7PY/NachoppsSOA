@@ -1,6 +1,6 @@
 import { Controller, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
-import { DomainEventEnvelope, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
+import { PedidoActualizadoPayload, PedidoCreadoPayload, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
 import { AppService } from './app.service';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
@@ -14,22 +14,22 @@ export class EventsController {
 
   @EventPattern(RoutingKeys.PedidoCreado)
   async handlePedidoCreado(
-    @Payload() envelope: DomainEventEnvelope<any>,
+    @Payload() payload: PedidoCreadoPayload,
   ): Promise<void> {
-    await this.appService.procesarPedidoCreado(envelope);
+    await this.appService.procesarPedidoCreado(payload);
   }
 
   @EventPattern(RoutingKeys.PedidoActualizado)
   async handlePedidoActualizado(
-    @Payload() envelope: DomainEventEnvelope<any>,
+    @Payload() payload: PedidoActualizadoPayload,
   ): Promise<void> {
-    await this.appService.procesarPedidoActualizado(envelope);
+    await this.appService.procesarPedidoActualizado(payload);
   }
 
   @EventPattern(RoutingKeys.PagoRegistrado)
   async handlePagoRegistrado(
-    @Payload() envelope: DomainEventEnvelope<PagoRegistradoPayload>,
+    @Payload() payload: PagoRegistradoPayload,
   ): Promise<void> {
-    await this.appService.procesarPagoRegistrado(envelope);
+    await this.appService.procesarPagoRegistrado(payload);
   }
 }

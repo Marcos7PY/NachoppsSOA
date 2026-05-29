@@ -357,10 +357,13 @@ async function main() {
   await test('3.2 Verificar Mesa 3 LIBRE tras primer ciclo', async () => {
     await expectWithRetry(
       async () => {
-        const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
-        return res.data;
+        const [mesaRes, cuentaRes] = await Promise.all([
+          axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() }),
+          axios.get(`${BASE}/cuentas/${cuenta3aId}`, { headers: authHeaders() }),
+        ]);
+        return { mesa: mesaRes.data, cuenta: cuentaRes.data };
       },
-      (m) => m.estado === 'LIBRE'
+      (res) => res.mesa.estado === 'LIBRE' && res.cuenta.estado === 'CERRADA'
     );
   });
 
@@ -386,8 +389,13 @@ async function main() {
   });
 
   await test('3.5 Verificar Mesa 3 OCUPADA nuevamente', async () => {
-    const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
-    if (res.data.estado !== 'OCUPADA') throw new Error(`Estado: ${res.data.estado}`);
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (m) => m.estado === 'OCUPADA'
+    );
   });
 
   await test('3.6 Pagar nueva cuenta y verificar cierre', async () => {
