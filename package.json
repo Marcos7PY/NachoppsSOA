@@ -5,8 +5,7 @@
   "scripts": {
     "poblar": "npx tsx scripts/poblar-datos.ts",
     "probar": "npx tsx scripts/pruebas-integracion.ts",
-    "poblar-y-probar": "npx tsx scripts/poblar-datos.ts && npx tsx scripts/pruebas-integracion.ts",
-    "postinstall": "npx prisma generate"
+    "poblar-y-probar": "npx tsx scripts/poblar-datos.ts && npx tsx scripts/pruebas-integracion.ts"
   },
   "private": true,
   "devDependencies": {
