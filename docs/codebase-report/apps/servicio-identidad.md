@@ -6,7 +6,7 @@ Este documento detalla la estructura y componentes principales del microservicio
 
 El controlador principal para la gestión de autenticación y usuarios se encuentra en `apps/servicio-identidad/src/auth/auth.controller.ts`.
 
-> **Nota sobre validación:** Los DTOs de entrada utilizados en este controlador (`LoginCommand`, `CrearUsuarioCommand`, `CambiarRolCommand`) se importan desde la librería compartida `@org/contracts` (`libs/contracts/src/domains/identidad.ts`). Estos objetos están definidos como `interface` nativas de TypeScript, por lo que **no implementan decoradores de `class-validator`**.
+> **Nota sobre validación:** Los DTOs de entrada utilizados en este controlador (`LoginCommand`, `CrearUsuarioCommand`, `CambiarRolCommand`) se importan desde la librería compartida `@org/contracts` (`libs/contracts/src/domains/identidad.ts`). Estos objetos están definidos como **clases** e implementan decoradores de `class-validator`. El servicio cuenta con un `ValidationPipe` global.
 
 ### Endpoint: Login
 - **Ruta y Método:** `@Post('auth/login')` (`apps/servicio-identidad/src/auth/auth.controller.ts:27`)

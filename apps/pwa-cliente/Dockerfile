@@ -14,7 +14,7 @@ RUN npm ci --ignore-scripts
 COPY . .
 
 # Recrear los symlinks de workspaces para que Vite pueda resolverlos
-RUN npm install
+RUN npm install --ignore-scripts
 
 # Construir PWA
 RUN cd apps/pwa-cliente && npx vite build

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, ParseUUIDPipe } from '@nestjs/common';
 import { AppService } from './app.service';
 import { CrearMesaCommand, ActualizarEstadoMesaCommand } from '@org/contracts';
 
@@ -12,7 +12,7 @@ export class AppController {
   }
 
   @Get(':id')
-  obtenerMesa(@Param('id') id: string) {
+  obtenerMesa(@Param('id', ParseUUIDPipe) id: string) {
     return this.appService.obtenerMesa(id);
   }
 
@@ -22,7 +22,7 @@ export class AppController {
   }
 
   @Patch(':id/estado')
-  actualizarEstado(@Param('id') id: string, @Body() body: ActualizarEstadoMesaCommand) {
+  actualizarEstado(@Param('id', ParseUUIDPipe) id: string, @Body() body: ActualizarEstadoMesaCommand) {
     return this.appService.actualizarEstado(id, body);
   }
 }

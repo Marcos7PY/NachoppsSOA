@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-
 }
 
 model Categoria {
@@ -34,4 +33,16 @@ model Producto {
 
   @@index([categoriaId])
   @@map("productos")
+}
+
+model OutboxEvent {
+  id         String   @id @default(uuid())
+  routingKey String
+  payload    String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@map("outbox_events")
 }

@@ -44,6 +44,10 @@ describe('AppService — Caja', () => {
       outboxEvent: {
         create: vi.fn(),
       },
+      cuentaAbierta: {
+        findUnique: vi.fn(),
+        upsert: vi.fn(),
+      },
       $executeRaw: vi.fn(),
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
@@ -55,7 +59,9 @@ describe('AppService — Caja', () => {
 
   describe('registrarPago', () => {
     it('debe registrar un pago y publicar evento', async () => {
+      mockPrisma.cuentaAbierta.findUnique.mockResolvedValue(null);
       vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
       mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
       const transaccionCreada = {
         id: 't-001',
@@ -87,7 +93,9 @@ describe('AppService — Caja', () => {
     });
 
     it('debe rechazar si el monto excede el total de la cuenta', async () => {
+      mockPrisma.cuentaAbierta.findUnique.mockResolvedValue(null);
       vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
       mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 10 } });
 
       await expect(

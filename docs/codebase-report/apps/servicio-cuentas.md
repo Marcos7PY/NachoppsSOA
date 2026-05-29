@@ -10,28 +10,28 @@
   - **Entrada (DTO):** `@Body() command: AbrirCuentaCommand` — `mesaId`: string (requerido). Sin decoradores `class-validator`.
   - **Forma de la Respuesta:** `{ message: string; cuenta: CuentaDto }`
   - **Códigos de estado HTTP:** 201 (creación exitosa), 400 (Bad Request si la mesa ya tiene cuenta).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 - **GET `/mesa/:mesaId`**
   - **Método:** `obtenerCuentaPorMesa`
   - **Decoradores Aplicados:** `@Get('mesa/:mesaId')`, `@Param('mesaId')`
   - **Forma de la Respuesta:** `CuentaDto`
   - **Códigos de estado HTTP:** 200 (éxito), 404 (Not Found).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 - **GET `/`**
   - **Método:** `listarCuentas`
   - **Decoradores Aplicados:** `@Get()`
   - **Forma de la Respuesta:** `{ cuentas: CuentaDto[] }`
   - **Códigos de estado HTTP:** 200 (éxito).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 - **GET `/:id`**
   - **Método:** `obtenerCuenta`
   - **Decoradores Aplicados:** `@Get(':id')`, `@Param('id')`
   - **Forma de la Respuesta:** `CuentaDto`
   - **Códigos de estado HTTP:** 200 (éxito), 404 (Not Found).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 - **POST `/:id/dividir`**
   - **Método:** `dividirCuenta`
@@ -39,7 +39,7 @@
   - **Entrada (DTO):** `DividirCuentaCommand` — `metodo`: 'IGUALES' | 'POR_ITEMS' (requerido), `numPartes`: number (opcional). Sin decoradores `class-validator`.
   - **Forma de la Respuesta:** `any` (objeto con el método y las partes)
   - **Códigos de estado HTTP:** 201 (éxito), 400 (Bad Request), 404 (Not Found).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 - **POST `/:id/cerrar`**
   - **Método:** `cerrarCuenta`
@@ -47,7 +47,7 @@
   - **Entrada (DTO):** `CerrarCuentaCommand` — `descuento`: number (opcional). Sin decoradores `class-validator`.
   - **Forma de la Respuesta:** `{ message: string; ticket: TicketDto }`
   - **Códigos de estado HTTP:** 201 (éxito), 400 (Bad Request), 404 (Not Found).
-  - **Guards:** Ninguno.
+  - **Guards:** Globalmente protegido por JwtAuthGuard.
 
 ### EventsController (`apps/servicio-cuentas/src/app/events.controller.ts`)
 - **Decoradores de la clase:** `@UseInterceptors(RabbitMQRetryInterceptor)`, `@Controller()`
@@ -131,4 +131,4 @@ Todos los eventos que publica este servicio (`CuentaAbierta`, `CuentaCerrada`, `
 PrismaService local. Patrón Database-per-Service. La librería global shared-prisma no es utilizada.
 
 ### Seguridad y Autenticación
-Sin guards propios. Depende del API Gateway (Kong) para validación de JWT.
+Implementa `JwtAuthGuard` como un guard global en `app.module.ts`, por lo que todas las rutas están protegidas validando el token JWT.

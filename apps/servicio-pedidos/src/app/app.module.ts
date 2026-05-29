@@ -20,7 +20,7 @@ import { RoutingKeys } from '@org/contracts';
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
       queue: 'pedidos_queue',
-      bindings: [RoutingKeys.PagoRegistrado, RoutingKeys.MesaCreada, RoutingKeys.MesaActualizada]
+      bindings: [RoutingKeys.PagoRegistrado, RoutingKeys.MesaCreada, RoutingKeys.MesaActualizada, RoutingKeys.ProductoCreado, RoutingKeys.ProductoActualizado]
     }),
   ],
   controllers: [AppController, EventsController],

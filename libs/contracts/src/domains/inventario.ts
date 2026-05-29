@@ -74,3 +74,37 @@ export class CrearProductoCommand {
   @IsNumber()
   stockActual?: number;
 }
+
+export class ProductoCreadoPayload {
+  @IsString()
+  id: string;
+  @IsString()
+  nombre: string;
+  @IsNumber()
+  precio: number;
+  @IsOptional()
+  @IsNumber()
+  stockActual?: number | null;
+  @IsOptional()
+  @IsString()
+  categoriaNombre?: string;
+  @IsBoolean()
+  disponible: boolean;
+}
+
+export class ProductoActualizadoPayload {
+  @IsString()
+  id: string;
+  @IsString()
+  nombre: string;
+  @IsNumber()
+  precio: number;
+  @IsOptional()
+  @IsNumber()
+  stockActual?: number | null;
+  @IsOptional()
+  @IsString()
+  categoriaNombre?: string;
+  @IsBoolean()
+  disponible: boolean;
+}

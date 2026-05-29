@@ -9,7 +9,7 @@
 - **Archivo:** `libs/observabilidad/src/lib/observabilidad.module.ts`
 - **Decoradores:** `@Global()`, `@Module(...)`
 - **Importaciones que registra:**
-  - `PrometheusModule.register({ defaultMetrics: { enabled: true }, path: '/metrics' })`
+  - `PrometheusModule.register({ defaultMetrics: { enabled: true }, path: '/telemetry/metrics' })`
   - `WinstonModule.forRoot({ transports: [ new winston.transports.Console({ format: winston.format.combine(winston.format.timestamp(), winston.format.json()) }) ] })`
 - **Providers:** Registra `MetricsInterceptor` como un interceptor global de la aplicación (`APP_INTERCEPTOR`).
 - **Exporta:** `PrometheusModule`, `WinstonModule`.

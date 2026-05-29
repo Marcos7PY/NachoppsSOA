@@ -28,6 +28,10 @@ describe('AppService — Inventario', () => {
         findUnique: vi.fn(),
         create: vi.fn(),
       },
+      outboxEvent: {
+        create: vi.fn().mockResolvedValue({}),
+      },
+      $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
 
     service = new AppService(mockPrisma as any);
@@ -41,6 +45,7 @@ describe('AppService — Inventario', () => {
           nombre: 'Cerveza',
           stockActual: 15,
           disponible: true,
+          categoria: { nombre: 'Bebidas' },
         })
         .mockResolvedValueOnce({
           id: 'prod-001',
@@ -73,6 +78,7 @@ describe('AppService — Inventario', () => {
         nombre: 'Plato Especial',
         stockActual: null,
         disponible: true,
+        categoria: { nombre: 'Cocina' },
       });
 
       await service.reducirStockAutomatico('prod-002', 5);

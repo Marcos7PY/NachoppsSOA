@@ -35,6 +35,11 @@ export class AppController {
     return this.appService.obtenerProducto(id);
   }
 
+  @Post('productos/lote')
+  obtenerProductosLote(@Body('ids') ids: string[]) {
+    return this.appService.obtenerProductosLote(ids);
+  }
+
   @Post('productos')
   crearProducto(@Body() body: CrearProductoCommand) {
     return this.appService.crearProducto(body);

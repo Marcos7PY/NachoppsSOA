@@ -10,7 +10,7 @@
 - **Decoradores:** `@Global()`, `@Module(...)`
 - **Importaciones que registra:**
   - `PassportModule.register({ defaultStrategy: 'jwt' })`
-  - `JwtModule.register({ secret: process.env.JWT_SECRET ?? 'nachopps_jwt_secret_dev', signOptions: { expiresIn: '24h', issuer: 'nachopps-identidad' } })`
+  - `JwtModule.registerAsync({ useFactory: () => { ... } })` exigiendo explícitamente `process.env.JWT_SECRET`.
 - **Providers:** Registra `JwtStrategy`.
 - **Exporta:** `JwtModule`, `PassportModule`.
 - **Nota:** Al ser `@Global()`, cualquier microservicio que importe `SharedAuthModule` tendrá disponible automáticamente la estrategia JWT y las herramientas de validación de tokens.
@@ -29,6 +29,8 @@
 - **Firma:** `export class JwtAuthGuard extends AuthGuard('jwt')`
 - **Funcionamiento paso a paso:**
   1. Extiende de la clase base `AuthGuard` indicándole la estrategia `'jwt'`.
-  2. Sobrescribe el método `handleRequest(err, user, info, context)`.
-  3. Si hay un error (`err`) o no se extrajo el usuario (`!user`), lanza una excepción: `new UnauthorizedException('Token inválido o expirado')`.
-  4. Caso contrario, retorna el `user`.
+  2. Sobrescribe el método `canActivate(context)`. Si la ruta solicitada es `/api/telemetry/metrics` o `/telemetry/metrics`, retorna `true` permitiendo el bypass de autenticación (esto es crucial para que Prometheus pueda raspar las métricas internamente sin tokens).
+  3. Si no es bypass, delega a `super.canActivate(context)` que ejecuta Passport.
+  4. Sobrescribe el método `handleRequest(err, user, info, context)`.
+  5. Si hay un error (`err`) o no se extrajo el usuario (`!user`), lanza una excepción: `new UnauthorizedException('Token inválido o expirado')`.
+  6. Caso contrario, retorna el `user`.

@@ -12,7 +12,7 @@ import { MetricsInterceptor } from './metrics.interceptor';
       defaultMetrics: {
         enabled: true,
       },
-      path: '/metrics',
+      path: '/telemetry/metrics',
     }),
     WinstonModule.forRoot({
       transports: [

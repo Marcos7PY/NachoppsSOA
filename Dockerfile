@@ -4,9 +4,17 @@ WORKDIR /usr/src/app
 ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
 
-COPY . .
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* nx.json tsconfig.base.json ./
+COPY apps/${APP_NAME}/package.json ./apps/${APP_NAME}/package.json
+COPY libs/ ./libs/
+COPY apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
 
-RUN npm install
+# Optimización: Usa la caché nativa de Docker BuildKit para no descargar el internet 9 veces
+RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts
+
+COPY apps/${APP_NAME} ./apps/${APP_NAME}
+
+RUN npx prisma generate --schema=./apps/${APP_NAME}/prisma/schema.prisma
 
 RUN npx nx build ${APP_NAME} --configuration=production
 

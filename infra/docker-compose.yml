@@ -347,7 +347,7 @@ services:
     image: infra-pwa-cliente
     container_name: nachopps-pwa-cliente
     ports: ["4200:80"]
-    profiles: ["all"]
+    profiles: ["pwa-only"]
 
   # ═══════════════════════════════════════════════════
   # KONG API GATEWAY (con jwt-cache)
@@ -384,6 +384,36 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  # ═══════════════════════════════════════════════════
+  # OBSERVABILIDAD
+  # ═══════════════════════════════════════════════════
+  otel-collector:
+    image: jaegertracing/all-in-one:latest
+    container_name: nachopps-jaeger
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+      - "4317:4317"
+    profiles: ["infra", "all", "dev"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: nachopps-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles: ["infra", "all", "dev"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nachopps-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    profiles: ["infra", "all", "dev"]
 
 volumes:
   nachopps-db-reservas:

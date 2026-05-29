@@ -926,9 +926,4 @@ workspace "Nachopps Restobar" "Plataforma SOA para gestión integral del restoba
 7. **12 riesgos técnicos** mapeados con impacto, probabilidad y mitigación.
 8. **Siguiente paso natural:** APF3/implementación — pasar de contratos preliminares a OpenAPI 3.x completo por servicio, prototipo del flujo crítico (reserva → pedido → cuenta → pago → libración de mesa), pruebas de carga sobre el presupuesto de latencia, e implementación del patrón Saga del flujo de cobro.
 
-**Riesgos abiertos que requieren decisión antes de la siguiente fase:**
 
-- ¿Cuándo descontar stock: al crear el pedido o al cerrar la cuenta? (Inventario)
-- ¿`dividirCuenta()` genera múltiples tickets o un reparto sobre un único ticket? (Cuentas)
-- ¿Política de expiración automática de reservas no confirmadas (¿15 min?)? (Reservas)
-- ¿Modo degradado cuando Identidad cae más allá del TTL de caché del Gateway?

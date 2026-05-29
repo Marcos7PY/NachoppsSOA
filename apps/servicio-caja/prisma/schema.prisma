@@ -43,3 +43,12 @@ model CierreCaja {
 
   @@map("cierres_caja")
 }
+
+model CuentaAbierta {
+  cuentaId String   @id
+  mesaId   String
+  total    Decimal  @db.Decimal(10, 2)
+  estado   String
+
+  @@map("cuentas_abiertas")
+}

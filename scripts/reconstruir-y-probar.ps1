@@ -67,8 +67,8 @@ foreach ($svc in $services) {
     }
 }
 
-Write-Host "`n   Construyendo Kong + PWA..." -NoNewline
-$buildOutput = docker compose -f infra/docker-compose.yml --profile all build kong pwa-cliente 2>&1
+Write-Host "`n   Construyendo Kong..." -NoNewline
+$buildOutput = docker compose -f infra/docker-compose.yml --profile all build kong 2>&1
 $exitCode = $LASTEXITCODE
 if ($exitCode -eq 0) {
     Write-Host " OK" -ForegroundColor Green
@@ -90,6 +90,9 @@ if ($upExit -ne 0) {
 Write-Host "   Stack levantado (exit: $upExit)" -ForegroundColor Green
 
 # Aplicar schemas de Prisma desde el host (más rápido que dentro de contenedores)
+Write-Host "`n   Esperando 15 segundos a que las bases de datos Postgres estén listas para recibir conexiones..." -ForegroundColor Yellow
+Start-Sleep -Seconds 15
+
 Write-Host "`n   Aplicando schemas de Prisma..." -ForegroundColor Yellow
 
 $dbPorts = @{

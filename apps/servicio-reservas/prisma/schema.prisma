@@ -4,9 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-
-}
+  provider = "postgresql"}
 
 model Reserva {
   id              String   @id @default(uuid())

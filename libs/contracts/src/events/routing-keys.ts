@@ -31,6 +31,8 @@ export const RoutingKeys = {
   // Inventario
   StockBajo: 'stock.bajo',
   StockDescontado: 'stock.descontado',
+  ProductoCreado: 'producto.creado',
+  ProductoActualizado: 'producto.actualizado',
 
   // Identidad
   UsuarioAutenticado: 'usuario.autenticado',

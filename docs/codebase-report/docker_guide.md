@@ -5,23 +5,32 @@ El monorepo NachoPps incluye una orquestación completa mediante Docker Compose 
 - RabbitMQ para mensajería asíncrona.
 - Kong API Gateway para enrutamiento y JWT.
 - 9 Microservicios Backend.
+- Stack de Observabilidad: Prometheus, Jaeger y Grafana.
 - PWA (Frontend).
 
 ## 1. Levantar Todo (Inicialización Completa)
 
 Para inicializar el proyecto desde cero (o diariamente), existe un script de PowerShell que orquesta no solo los contenedores, sino también las migraciones de base de datos y la inserción de datos iniciales.
 
-**Comando:**
+**Comando (Levantar Infraestructura Base):**
 ```powershell
-.\levantar-todo.ps1
+.\scripts\levantar-infra.ps1
+```
+*(Inicia bases de datos, RabbitMQ, Kong, y Observabilidad. Ideal antes del desarrollo local con Nx)*
+
+**Comando (Reconstrucción Total y Pruebas):**
+```powershell
+.\scripts\reconstruir-y-probar.ps1
 ```
 
-**¿Qué hace este script bajo el capó?**
-1. Ejecuta `docker compose --profile all up -d --wait` para encender toda la infraestructura y servicios.
-2. Espera a que los endpoints de salud (Healthchecks) de todos los microservicios estén respondiendo correctamente en sus respectivos puertos.
-3. Ejecuta `npx prisma db push` dentro de cada contenedor para sincronizar el esquema actual a su respectiva base de datos Postgres sin necesidad de generar archivos de migración locales.
-4. Siembra (Seed) un usuario administrador por defecto (`admin@nachopps.pe` / `nachopps123`) en la base de datos del `servicio-identidad`.
-5. Ejecuta un flujo de prueba automatizado haciendo login a través de Kong y consumiendo un endpoint protegido de cada microservicio para garantizar que el cluster entero está sano.
+**¿Qué hace `reconstruir-y-probar.ps1` bajo el capó?**
+1. Ejecuta limpieza de imágenes previas de microservicios.
+2. Reconstruye las imágenes de Docker desde cero usando los Dockerfile de cada app.
+3. Ejecuta `docker compose --profile all up -d` para encender toda la infraestructura y servicios.
+4. Espera a que las bases de datos Postgres estén listas.
+5. Ejecuta `npx prisma db push` para sincronizar los esquemas.
+6. Siembra (Seed) un usuario administrador por defecto (`admin@nachopps.pe` / `nachopps123`).
+7. Ejecuta un flujo exhaustivo de pruebas automatizadas end-to-end garantizando que el cluster entero está sano.
 
 ## 2. Detener el Sistema (Sin perder datos)
 
@@ -48,7 +57,7 @@ Si la base de datos se corrompe, los esquemas de Prisma se desincronizan severam
 ```powershell
 docker compose -f infra/docker-compose.yml --profile all down -v
 ```
-*(La bandera `-v` o `--volumes` elimina todos los volúmenes listados al final del `docker-compose.yml`, como `nachopps-db-pedidos`, `nachopps-db-identidad`, etc. La próxima vez que corras `.\levantar-todo.ps1`, el sistema arrancará completamente en blanco).*
+*(La bandera `-v` o `--volumes` elimina todos los volúmenes listados al final del `docker-compose.yml`. La próxima vez que arranques, el sistema empezará completamente en blanco).*
 
 ## 4. Visualización de Logs en Tiempo Real
 
@@ -71,3 +80,6 @@ Una vez levantado el sistema, estas son las puertas de enlace principales:
 - **Kong API Gateway (Backend Unificado):** `http://localhost:8000`
 - **PWA Cliente (Frontend):** `http://localhost:4200`
 - **RabbitMQ Management UI:** `http://localhost:15672` (Credenciales: `nachopps` / `nachopps_secret`)
+- **Grafana (Dashboards y Métricas):** `http://localhost:3000` (Credenciales: `admin` / `admin`)
+- **Prometheus (Targets de Métricas):** `http://localhost:9090`
+- **Jaeger UI (Trazas Distribuidas OTel):** `http://localhost:16686`

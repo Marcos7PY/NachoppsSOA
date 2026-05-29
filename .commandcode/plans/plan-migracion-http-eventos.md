@@ -1,7 +1,7 @@
 # Plan de Migración: HTTP → Eventos (ADR-002/004)
 
 **Fecha:** 2026-05-28
-**Estado:** 🔴 Pendiente
+**Estado:** ✅ Implementado
 **Objetivo:** Eliminar las 2 únicas llamadas HTTP entre servicios y reemplazarlas con proyecciones locales sincronizadas por eventos RabbitMQ.
 
 ---

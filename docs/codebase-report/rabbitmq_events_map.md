@@ -56,7 +56,7 @@ export interface DomainEventEnvelope<TPayload> {
 ### 5. `cuenta.cerrada` (`RoutingKeys.CuentaCerrada`)
 - **Publicado por:** `servicio-cuentas` — vía Outbox en `cerrarCuenta`
 - **Consumido por:**
-  - `servicio-caja`: Agrega la orden completada al historial financiero diario.
+  - `servicio-caja`: Actualiza proyección local `CuentaAbierta` a estado CERRADA.
   - `servicio-mesas`: Libera la mesa en el plano (marca LIBRE).
   - `servicio-reportes`: Registra la venta diaria vía `ventaDiaria.upsert`.
 
@@ -64,6 +64,7 @@ export interface DomainEventEnvelope<TPayload> {
 - **Publicado por:** `servicio-cuentas` — vía Outbox en `abrirCuenta`
 - **Consumido por:**
   - `servicio-mesas`: Bloquea la mesa marcándola como OCUPADA.
+  - `servicio-caja`: Sincroniza proyección local `CuentaAbierta` para consulta sin HTTP.
 
 ### 7. `ticket.generado` (`RoutingKeys.TicketGenerado`)
 - **Publicado por:** `servicio-cuentas` — vía Outbox en `cerrarCuenta`
@@ -87,7 +88,17 @@ export interface DomainEventEnvelope<TPayload> {
 - **Publicado por:** `servicio-reservas`
 - **Consumido por:** `servicio-notificaciones`: Envía notificación de cancelación.
 
-### 12. `usuario.autenticado` (`RoutingKeys.UsuarioAutenticado`)
+### 12. `producto.creado` (`RoutingKeys.ProductoCreado`)
+- **Publicado por:** `servicio-inventario` — vía Outbox en `crearProducto`
+- **Consumido por:**
+  - `servicio-pedidos`: Sincroniza proyección local `ProductoLocal` para validar items sin HTTP.
+
+### 13. `producto.actualizado` (`RoutingKeys.ProductoActualizado`)
+- **Publicado por:** `servicio-inventario` — vía Outbox en `actualizarStock`, `reducirStockAutomatico`
+- **Consumido por:**
+  - `servicio-pedidos`: Actualiza proyección local `ProductoLocal` (precio, stock, nombre, categoría).
+
+### 14. `usuario.autenticado` (`RoutingKeys.UsuarioAutenticado`)
 - **Publicado por:** `servicio-identidad`
 - **Consumido por:** Auditoría / observabilidad.
 

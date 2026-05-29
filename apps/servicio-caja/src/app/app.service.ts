@@ -38,16 +38,16 @@ export class AppService {
   }
 
   async registrarPago(command: PagarPedidoCommand): Promise<{ message?: string; transaccion: TransaccionDto }> {
-    // Transacción de base de datos para asegurar serialización con advisory locks
     const transaccion = await this.prisma.$transaction(async (prisma) => {
-      // 1. Tomar un lock consultivo (advisory lock) basado en el hash del cuentaId
-      // El número 1234 es un namespace arbitrario para que los hashes no choquen con otras funciones
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.cuentaId}), 1, 8))::bit(32)::int)`;
 
-      // 2. Obtener cuenta remota
-      let cuenta: CuentaRemota;
+      let cuenta = await prisma.cuentaAbierta.findUnique({
+        where: { cuentaId: command.cuentaId },
+      });
+
+      let cuentaRemota: CuentaRemota;
       try {
-        cuenta = await this.fetchCuenta(command.cuentaId);
+        cuentaRemota = await this.fetchCuenta(command.cuentaId);
       } catch (error: unknown) {
         const axiosError = error as { response?: { status: number }; code?: string };
         if (axiosError.response?.status === 404) {
@@ -56,26 +56,42 @@ export class AppService {
         throw new ServiceUnavailableException('No se pudo obtener la cuenta. Reintente.');
       }
 
+      cuenta = await prisma.cuentaAbierta.upsert({
+        where: { cuentaId: command.cuentaId },
+        create: {
+          cuentaId: cuentaRemota.id,
+          mesaId: cuentaRemota.mesaId,
+          total: cuentaRemota.total,
+          estado: cuentaRemota.estado,
+        },
+        update: {
+          total: cuentaRemota.total,
+          estado: cuentaRemota.estado,
+        },
+      });
+
       if (cuenta.estado !== 'ABIERTA') {
         throw new BadRequestException(`La cuenta ya está ${cuenta.estado.toLowerCase()}.`);
       }
 
-      // 3. Obtener el total pagado hasta ahora localmente para esta cuenta
       const pagosPrevios = await prisma.transaccion.aggregate({
         where: { cuentaId: command.cuentaId },
         _sum: { monto: true }
       });
       const montoTotalPagado = Number(pagosPrevios._sum.monto || 0);
 
-      // Si el monto previamente pagado + el nuevo pago superan o igualan el total, 
-      // significa que ya fue pagada (o esto causará sobrepago)
-      if (montoTotalPagado + command.montoRecibido > cuenta.total) {
+      if (montoTotalPagado + command.montoRecibido > Number(cuenta.total)) {
         throw new BadRequestException(
           `Pago duplicado o excedente. Total de cuenta: ${cuenta.total}, Ya pagado: ${montoTotalPagado}, Intentando pagar: ${command.montoRecibido}.`
         );
       }
 
-      // 4. Crear la transacción local y el OutboxEvent atómicamente
+      if (montoTotalPagado + command.montoRecibido < Number(cuenta.total)) {
+        throw new BadRequestException(
+          `Pago insuficiente. Total de cuenta: ${cuenta.total}, Ya pagado: ${montoTotalPagado}, Intentando pagar: ${command.montoRecibido}. Faltan: ${Number(cuenta.total) - (montoTotalPagado + command.montoRecibido)}.`
+        );
+      }
+
       const tx = await prisma.transaccion.create({
         data: {
           cuentaId: command.cuentaId,

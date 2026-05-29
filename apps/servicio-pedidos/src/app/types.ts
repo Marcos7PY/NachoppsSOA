@@ -1,10 +1,3 @@
-export interface ProductoRemoto {
-  nombre: string;
-  precio: number;
-  stockActual: number | null;
-  categoria?: { nombre: string } | null;
-}
-
 export interface PedidoItemMapeado {
   productoId: string;
   nombre: string;

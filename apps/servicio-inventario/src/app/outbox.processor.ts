@@ -28,7 +28,7 @@ export class OutboxProcessor {
       for (const event of pendingEvents) {
         try {
           const payload = JSON.parse(event.payload);
-          await this.rabbitmq.publish(event.routingKey as any, payload, 'servicio-pedidos');
+          await this.rabbitmq.publish(event.routingKey as any, payload, 'servicio-inventario');
           
           await this.prisma.outboxEvent.update({
             where: { id: event.id },

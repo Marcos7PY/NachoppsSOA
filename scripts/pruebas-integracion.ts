@@ -1,5 +1,5 @@
 /**
- * NachoPps — Pruebas Exhaustivas de Integración
+ * NachoPps — Pruebas Exhaustivas de Integración (Versión Estable Asíncrona)
  *
  * Uso: npx tsx scripts/pruebas-integracion.ts
  * Requiere: Stack Docker corriendo + datos poblados (scripts/poblar-datos.ts)
@@ -12,12 +12,12 @@ import axios, { AxiosError } from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // Config
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 
 const BASE = 'http://localhost:8000';
-const SLEEP_MS = 4000; // tiempo para propagación de eventos RabbitMQ
+const SLEEP_MS = 4000; // Tiempo máximo de cortesía entre flujos principales
 
 interface TestResult {
   name: string;
@@ -33,12 +33,42 @@ const flowResults: Map<string, { total: number; passed: number; failed: number; 
 let currentFlow = '';
 let token = '';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // Helpers
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Evalúa una condición repetidamente hasta que sea verdadera o se agote el tiempo de espera.
+ * Resuelve el problema de condiciones de carrera con RabbitMQ de manera eficiente.
+ */
+async function expectWithRetry<T>(
+  fetchDataFn: () => Promise<T>,
+  conditionFn: (data: T) => boolean,
+  timeout = 8000,
+  interval = 200
+): Promise<T> {
+  const startTime = Date.now();
+  let lastError: any = null;
+
+  while (Date.now() - startTime < timeout) {
+    try {
+      const data = await fetchDataFn();
+      if (conditionFn(data)) return data;
+    } catch (e) {
+      lastError = e; // Guarda el último error (ej. 404) por si se agota el timeout
+    }
+    await sleep(interval);
+  }
+
+  const errorMsg = lastError?.response?.data
+    ? JSON.stringify(lastError.response.data)
+    : lastError?.message || 'Condición no cumplida';
+    
+  throw new Error(`Timeout de ${timeout}ms superado. Último estado/error: ${errorMsg}`);
 }
 
 function authHeaders(): Record<string, string> {
@@ -100,9 +130,9 @@ async function servirPedidosDeMesa(mesaId: string) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // Main
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 
 async function main() {
   console.log('═══════════════════════════════════════════════════════');
@@ -149,7 +179,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════
   // FLUJO 1 — Ciclo básico: pedido → cuenta automática → pago → liberación mesa
   // ═══════════════════════════════════════════════════════════
-  flow('Flujo 1 — Ciclo básico: Pedido → Cuenta auto → Pago → Liberación');
+  flow('Flujo 1 — Ciclo básico: Pedido → Cuenta auto → Pago → Liberation');
   let pedido1Id = '';
   let cuenta1Id = '';
   let mesa1Id = mesaMap[1]?.id;
@@ -167,24 +197,26 @@ async function main() {
     if (!pedido1Id) throw new Error('No se recibió ID de pedido');
   });
 
-  await sleep(SLEEP_MS);
-
   await test('1.2 Verificar cuenta ABIERTA automática para Mesa 1', async () => {
-    const res = await axios.get(`${BASE}/cuentas/mesa/${mesa1Id}`, { headers: authHeaders() });
-    const cuenta = res.data;
-    if (!cuenta || !cuenta.id) throw new Error('No se encontró cuenta');
-    if (cuenta.estado !== 'ABIERTA') throw new Error(`Estado: ${cuenta.estado}, esperado: ABIERTA`);
+    const cuenta = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${mesa1Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.id && c.estado === 'ABIERTA'
+    );
     if (cuenta.total <= 0) throw new Error(`Total: ${cuenta.total}, esperado > 0`);
     cuenta1Id = cuenta.id;
   });
 
   await test('1.3 Verificar Mesa 1 OCUPADA', async () => {
-    for (let i = 0; i < 5; i++) {
-      const res = await axios.get(`${BASE}/mesas/${mesa1Id}`, { headers: authHeaders() });
-      if (res.data.estado === 'OCUPADA') return;
-      await sleep(500);
-    }
-    throw new Error(`Estado no cambió a OCUPADA`);
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/mesas/${mesa1Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (m) => m.estado === 'OCUPADA'
+    );
   });
 
   await test('1.4 Registrar pago de la cuenta (EFECTIVO)', async () => {
@@ -199,17 +231,24 @@ async function main() {
     if (res.status !== 201) throw new Error(`Status: ${res.status}`);
   });
 
-  await sleep(SLEEP_MS);
-
   await test('1.5 Verificar cuenta CERRADA tras pago', async () => {
-    const res = await axios.get(`${BASE}/cuentas/${cuenta1Id}`, { headers: authHeaders() });
-    if (res.data.estado === 'ABIERTA') throw new Error('Cuenta sigue ABIERTA tras pago');
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/${cuenta1Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c.estado === 'CERRADA'
+    );
   });
 
   await test('1.6 Verificar Mesa 1 LIBRE tras pago', async () => {
-    const res = await axios.get(`${BASE}/mesas/${mesa1Id}`, { headers: authHeaders() });
-    const mesa = res.data;
-    if (mesa.estado !== 'LIBRE') throw new Error(`Estado: ${mesa.estado}, esperado: LIBRE`);
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/mesas/${mesa1Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (m) => m.estado === 'LIBRE'
+    );
   });
 
   await test('1.7 Verificar transacción registrada en caja', async () => {
@@ -247,22 +286,20 @@ async function main() {
     if (!pedido2bId) throw new Error('No se recibió ID');
   });
 
-  await sleep(SLEEP_MS);
-
   await test('2.3 Verificar una sola cuenta ABIERTA para Mesa 2', async () => {
-    const res = await axios.get(`${BASE}/cuentas/mesa/${mesa2Id}`, { headers: authHeaders() });
-    if (!res.data || !res.data.id) throw new Error('No se encontró cuenta');
-    cuenta2Id = res.data.id;
-    if (res.data.estado !== 'ABIERTA') throw new Error('Cuenta no está ABIERTA');
+    const cuenta = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${mesa2Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.id && c.estado === 'ABIERTA'
+    );
+    cuenta2Id = cuenta.id;
   });
 
   await test('2.4 Verificar que el total incluye ambos pedidos', async () => {
     const res = await axios.get(`${BASE}/cuentas/${cuenta2Id}`, { headers: authHeaders() });
-    const pedidosSnap = res.data.pedidos;
-    if (!Array.isArray(pedidosSnap) || pedidosSnap.length < 2) {
-      // Si pedidos es JSON vacío porque la cuenta se abrió vía evento, verificamos al menos total > 0
-      if (res.data.total <= 0) throw new Error(`Total inválido: ${res.data.total}`);
-    }
+    if (res.data.total <= 0) throw new Error(`Total inválido: ${res.data.total}`);
   });
 
   await test('2.5 Pagar cuenta de Mesa 2', async () => {
@@ -275,13 +312,15 @@ async function main() {
     }, { headers: authHeaders() });
   });
 
-  await sleep(SLEEP_MS);
-
   await test('2.6 Verificar cuenta CERRADA + Mesa 2 LIBRE', async () => {
-    const cRes = await axios.get(`${BASE}/cuentas/${cuenta2Id}`, { headers: authHeaders() });
-    if (cRes.data.estado === 'ABIERTA') throw new Error('Cuenta sigue ABIERTA');
-    const mRes = await axios.get(`${BASE}/mesas/${mesa2Id}`, { headers: authHeaders() });
-    if (mRes.data.estado !== 'LIBRE') throw new Error(`Mesa: ${mRes.data.estado}`);
+    await expectWithRetry(
+      async () => {
+        const cRes = await axios.get(`${BASE}/cuentas/${cuenta2Id}`, { headers: authHeaders() });
+        const mRes = await axios.get(`${BASE}/mesas/${mesa2Id}`, { headers: authHeaders() });
+        return { cuenta: cRes.data, mesa: mRes.data };
+      },
+      (res) => res.cuenta.estado === 'CERRADA' && res.mesa.estado === 'LIBRE'
+    );
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -293,42 +332,52 @@ async function main() {
   let cuenta3bId = '';
 
   await test('3.1 Crear y pagar primer pedido Mesa 3', async () => {
-    const res = await axios.post(`${BASE}/pedidos`, {
+    await axios.post(`${BASE}/pedidos`, {
       mesaId: mesa3Id,
       items: [{ productoId: incaKola.id, cantidad: 2 }],
     }, { headers: authHeaders() });
-    await sleep(SLEEP_MS);
 
-    const cRes = await axios.get(`${BASE}/cuentas/mesa/${mesa3Id}`, { headers: authHeaders() });
-    cuenta3aId = cRes.data.id;
+    const cRes = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${mesa3Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.id && c.estado === 'ABIERTA'
+    );
+    cuenta3aId = cRes.id;
 
     await servirPedidosDeMesa(mesa3Id);
     await axios.post(`${BASE}/caja/pagos`, {
       cuentaId: cuenta3aId,
-      montoRecibido: cRes.data.total,
+      montoRecibido: cRes.total,
       metodo: 'EFECTIVO',
     }, { headers: authHeaders() });
   });
 
-  await sleep(SLEEP_MS);
-
   await test('3.2 Verificar Mesa 3 LIBRE tras primer ciclo', async () => {
-    for (let i = 0; i < 5; i++) {
-      const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
-      if (res.data.estado === 'LIBRE') return;
-      await sleep(500);
-    }
-    throw new Error(`Estado no cambió a LIBRE`);
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/mesas/${mesa3Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (m) => m.estado === 'LIBRE'
+    );
   });
 
   await test('3.3 Nuevo pedido para Mesa 3 → debe generar nueva cuenta', async () => {
-    const res = await axios.post(`${BASE}/pedidos`, {
+    await axios.post(`${BASE}/pedidos`, {
       mesaId: mesa3Id,
       items: [{ productoId: incaKola.id, cantidad: 1 }],
     }, { headers: authHeaders() });
-    await sleep(SLEEP_MS);
-    const cRes = await axios.get(`${BASE}/cuentas/mesa/${mesa3Id}`, { headers: authHeaders() });
-    cuenta3bId = cRes.data.id;
+
+    const cRes = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${mesa3Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.id && c.estado === 'ABIERTA' && c.id !== cuenta3aId
+    );
+    cuenta3bId = cRes.id;
   });
 
   await test('3.4 Verificar que es una cuenta DISTINTA a la anterior', async () => {
@@ -349,9 +398,14 @@ async function main() {
       montoRecibido: cRes.data.total,
       metodo: 'YAPE',
     }, { headers: authHeaders() });
-    await sleep(SLEEP_MS);
-    const final = await axios.get(`${BASE}/cuentas/${cuenta3bId}`, { headers: authHeaders() });
-    if (final.data.estado === 'ABIERTA') throw new Error('Cuenta no se cerró');
+
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/${cuenta3bId}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c.estado === 'CERRADA'
+    );
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -376,17 +430,20 @@ async function main() {
     }
   });
 
-  await sleep(SLEEP_MS);
+  await sleep(2000); // Pequeña holgura para procesamiento paralelo masivo
 
   const cuentasSimIds: string[] = [];
 
   await test('4.2 Verificar 3 cuentas ABIERTA distintas', async () => {
     for (const m of mesasSim) {
-      const res = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
-      if (!res.data || res.data.estado !== 'ABIERTA') {
-        throw new Error(`Mesa ${m.numero}: cuenta no ABIERTA`);
-      }
-      cuentasSimIds.push(res.data.id);
+      const cuenta = await expectWithRetry(
+        async () => {
+          const res = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
+          return res.data;
+        },
+        (c) => c && c.estado === 'ABIERTA'
+      );
+      cuentasSimIds.push(cuenta.id);
     }
   });
 
@@ -402,23 +459,19 @@ async function main() {
     }
   });
 
-  await sleep(SLEEP_MS);
-
   await test('4.4 Verificar 3 cuentas CERRADA + 3 mesas LIBRE', async () => {
     for (let i = 0; i < mesasSim.length; i++) {
       const m = mesasSim[i];
       const cuentaId = cuentasSimIds[i];
-      let ok = false;
-      for (let j = 0; j < 5; j++) {
-        const cRes = await axios.get(`${BASE}/cuentas/${cuentaId}`, { headers: authHeaders() });
-        const mRes = await axios.get(`${BASE}/mesas/${m.id}`, { headers: authHeaders() });
-        if (cRes.data?.estado === 'CERRADA' && mRes.data?.estado === 'LIBRE') {
-          ok = true;
-          break;
-        }
-        await sleep(500);
-      }
-      if (!ok) throw new Error(`Mesa ${m.numero}: no cerró correctamente`);
+      
+      await expectWithRetry(
+        async () => {
+          const cRes = await axios.get(`${BASE}/cuentas/${cuentaId}`, { headers: authHeaders() });
+          const mRes = await axios.get(`${BASE}/mesas/${m.id}`, { headers: authHeaders() });
+          return { cuenta: cRes.data, mesa: mRes.data };
+        },
+        (res) => res.cuenta?.estado === 'CERRADA' && res.mesa?.estado === 'LIBRE'
+      );
     }
   });
 
@@ -442,24 +495,34 @@ async function main() {
         mesaId: m.id,
         items: [{ productoId: agua?.id || productos[0].id, cantidad: 1 }],
       }, { headers: authHeaders() });
-      await sleep(2000);
 
-      const cRes = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
-      const total = cRes.data?.total || 10;
+      // Espera dinámica para evitar el Error 404
+      const cuentaData = await expectWithRetry(
+        async () => {
+          const res = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
+          return res.data;
+        },
+        (c) => c && c.id && c.estado === 'ABIERTA'
+      );
+
+      const total = cuentaData.total || 10;
 
       await servirPedidosDeMesa(m.id);
       await axios.post(`${BASE}/caja/pagos`, {
-        cuentaId: cRes.data.id,
+        cuentaId: cuentaData.id,
         montoRecibido: total,
         metodo,
       }, { headers: authHeaders() });
-      await sleep(2000);
 
-      const transRes = await axios.get(`${BASE}/caja`, { headers: authHeaders() });
-      const transacciones = transRes.data.transacciones || transRes.data || [];
-      const t = transacciones.find((tx: any) => tx.cuentaId === cRes.data.id);
-      if (!t) throw new Error('Transacción no encontrada');
-      if (t.metodo !== metodo) throw new Error(`Método: ${t.metodo}, esperado: ${metodo}`);
+      // Espera dinámica para verificar el registro de caja asíncrono
+      await expectWithRetry(
+        async () => {
+          const transRes = await axios.get(`${BASE}/caja`, { headers: authHeaders() });
+          const transacciones = transRes.data.transacciones || transRes.data || [];
+          return transacciones.find((tx: any) => tx.cuentaId === cuentaData.id);
+        },
+        (t) => t && t.metodo === metodo
+      );
     });
   }
 
@@ -469,28 +532,26 @@ async function main() {
   flow('Flujo 6 — Validaciones y edge cases');
 
   await test('6.1 Pago con monto insuficiente → debe rechazar', async () => {
-    // Usar Mesa 1 que está libre después del Flujo 1
     await axios.post(`${BASE}/pedidos`, {
       mesaId: mesa1Id,
       items: [{ productoId: ceviche.id, cantidad: 1 }],
     }, { headers: authHeaders() });
-    let cRes: any;
-    for (let i = 0; i < 5; i++) {
-      try {
-        cRes = await axios.get(`${BASE}/cuentas/mesa/${mesa1Id}`, { headers: authHeaders() });
-        if (cRes.data && cRes.data.estado === 'ABIERTA') break;
-      } catch (e) {}
-      await sleep(500);
-    }
-    if (!cRes || !cRes.data) throw new Error('Cuenta no se abrió');
-    const total = cRes.data.total;
+
+    const cRes = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${mesa1Id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.estado === 'ABIERTA'
+    );
+    const total = cRes.total;
 
     let rejected = false;
     try {
       await servirPedidosDeMesa(mesa1Id);
       await axios.post(`${BASE}/caja/pagos`, {
-        cuentaId: cRes.data.id,
-        montoRecibido: total - 10, // insuficiente
+        cuentaId: cRes.id,
+        montoRecibido: total - 10,
         metodo: 'EFECTIVO',
       }, { headers: authHeaders() });
     } catch (e: unknown) {
@@ -501,24 +562,23 @@ async function main() {
     // Limpiar: pagar correctamente
     await servirPedidosDeMesa(mesa1Id);
     await axios.post(`${BASE}/caja/pagos`, {
-      cuentaId: cRes.data.id,
+      cuentaId: cRes.id,
       montoRecibido: total,
       metodo: 'EFECTIVO',
     }, { headers: authHeaders() });
-    await sleep(SLEEP_MS);
+    await sleep(1000);
   });
 
   await test('6.2 Pago a cuenta ya cerrada → debe rechazar', async () => {
     const cRes = await axios.get(`${BASE}/cuentas/${cuenta1Id}`, { headers: authHeaders() });
     if (cRes.data.estado === 'ABIERTA') {
-      // Si sigue abierta, cerrarla primero
       await servirPedidosDeMesa(mesa1Id);
       await axios.post(`${BASE}/caja/pagos`, {
         cuentaId: cuenta1Id,
         montoRecibido: cRes.data.total,
         metodo: 'EFECTIVO',
       }, { headers: authHeaders() });
-      await sleep(2000);
+      await sleep(1000);
     }
 
     let rejected = false;
@@ -568,11 +628,10 @@ async function main() {
     const m12 = mesaMap[12];
     if (!m12) throw new Error('Mesa 12 no encontrada');
 
-    // Verificar que la mesa está libre
+    // Verificar si está libre u ocupada de ejecuciones previas y sanear
     const mRes = await axios.get(`${BASE}/mesas/${m12.id}`, { headers: authHeaders() });
-    if (mRes.data.estado !== 'LIBRE') {
-      // Liberarla si es necesario (puede estar ocupada de una corrida anterior)
-      if (mRes.data.cuentaAsociada) {
+    if (mRes.data.estado !== 'LIBRE' && mRes.data.cuentaAsociada) {
+      try {
         const cRes = await axios.get(`${BASE}/cuentas/mesa/${m12.id}`, { headers: authHeaders() });
         if (cRes.data && cRes.data.estado === 'ABIERTA') {
           await servirPedidosDeMesa(m12.id);
@@ -581,9 +640,9 @@ async function main() {
             montoRecibido: cRes.data.total || 100,
             metodo: 'EFECTIVO',
           }, { headers: authHeaders() });
-          await sleep(3000);
+          await sleep(2000);
         }
-      }
+      } catch (e) {}
     }
 
     // Crear pedido sin abrir cuenta manualmente
@@ -591,22 +650,24 @@ async function main() {
       mesaId: m12.id,
       items: [{ productoId: incaKola.id, cantidad: 1 }],
     }, { headers: authHeaders() });
-    await sleep(2000);
 
-    // Verificar que la cuenta se creó automáticamente
-    const cRes = await axios.get(`${BASE}/cuentas/mesa/${m12.id}`, { headers: authHeaders() });
-    if (!cRes.data || cRes.data.estado !== 'ABIERTA') {
-      throw new Error('No se creó cuenta automáticamente');
-    }
+    // Esperar asincronía de creación de cuenta automática
+    const cRes = await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/cuentas/mesa/${m12.id}`, { headers: authHeaders() });
+        return res.data;
+      },
+      (c) => c && c.estado === 'ABIERTA'
+    );
 
     // Limpiar
     await servirPedidosDeMesa(m12.id);
     await axios.post(`${BASE}/caja/pagos`, {
-      cuentaId: cRes.data.id,
-      montoRecibido: cRes.data.total,
+      cuentaId: cRes.id,
+      montoRecibido: cRes.total,
       metodo: 'EFECTIVO',
     }, { headers: authHeaders() });
-    await sleep(SLEEP_MS);
+    await sleep(1000);
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -619,7 +680,7 @@ async function main() {
 
   await test('7.1 Obtener stock inicial de un producto', async () => {
     const productosValidos = productos.filter((p: any) => p.stockActual !== null && p.stockActual > 10);
-    productoTrack = productosValidos[productosValidos.length - 1]; // Tomar el último para evitar colisiones
+    productoTrack = productosValidos[productosValidos.length - 1];
     if (!productoTrack) throw new Error('No hay producto con stock suficiente');
 
     const res = await axios.get(`${BASE}/inventario/productos/${productoTrack.id}`, { headers: authHeaders() });
@@ -635,32 +696,29 @@ async function main() {
     }, { headers: authHeaders() });
   });
 
-  await sleep(3000);
-
   await test('7.3 Verificar stock reducido correctamente', async () => {
-    let stockActual = 0;
-    for (let i = 0; i < 5; i++) {
-      const res = await axios.get(`${BASE}/inventario/productos/${productoTrack.id}`, { headers: authHeaders() });
-      stockActual = res.data.stockActual ?? res.data.producto?.stockActual ?? 0;
-      if (stockActual === stockInicial - 3) break;
-      await sleep(500);
-    }
-    if (stockActual !== stockInicial - 3) {
-      throw new Error(`Stock: ${stockActual}, esperado: ${stockInicial - 3}`);
-    }
+    await expectWithRetry(
+      async () => {
+        const res = await axios.get(`${BASE}/inventario/productos/${productoTrack.id}`, { headers: authHeaders() });
+        return res.data.stockActual ?? res.data.producto?.stockActual ?? 0;
+      },
+      (stockActual) => stockActual === stockInicial - 3
+    );
 
     // Limpiar
     const m = mesaMap[1];
-    const cRes = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
-    if (cRes.data && cRes.data.estado === 'ABIERTA') {
-      await servirPedidosDeMesa(m.id);
-      await axios.post(`${BASE}/caja/pagos`, {
-        cuentaId: cRes.data.id,
-        montoRecibido: cRes.data.total,
-        metodo: 'EFECTIVO',
-      }, { headers: authHeaders() });
-    }
-    await sleep(SLEEP_MS);
+    try {
+      const cRes = await axios.get(`${BASE}/cuentas/mesa/${m.id}`, { headers: authHeaders() });
+      if (cRes.data && cRes.data.estado === 'ABIERTA') {
+        await servirPedidosDeMesa(m.id);
+        await axios.post(`${BASE}/caja/pagos`, {
+          cuentaId: cRes.data.id,
+          montoRecibido: cRes.data.total,
+          metodo: 'EFECTIVO',
+        }, { headers: authHeaders() });
+      }
+    } catch (e) {}
+    await sleep(1000);
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -687,9 +745,7 @@ async function main() {
     });
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // Generar Informe
-  // ═══════════════════════════════════════════════════════════
+  // Generar Informe Final
   generateReport(servicesToCheck);
 }
 
@@ -720,7 +776,7 @@ function generateReport(servicesChecked: Array<{ name: string }>) {
 | Fallaron | ${failedTests} ❌ |
 | Tasa de éxito | ${totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0}% |
 | Duración total | ${(totalDuration / 1000).toFixed(1)}s |
-| Tiempo de espera entre eventos | ${SLEEP_MS}ms |
+| Estrategia de sincronización | Polling dinámico adaptativo (expectWithRetry) |
 
 ---
 
@@ -743,7 +799,6 @@ function generateReport(servicesChecked: Array<{ name: string }>) {
     md += `\n**Resultado del flujo:** ${flowPassed} (${flowData.passed}/${flowData.total} pasaron)\n\n`;
   }
 
-  // ── Observaciones ─────────────────────────────
   md += `---
 
 ## 🔍 Observaciones y Hallazgos

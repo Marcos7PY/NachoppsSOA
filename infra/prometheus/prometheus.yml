@@ -3,15 +3,15 @@ global:
 
 scrape_configs:
   - job_name: 'nestjs-microservices'
-    metrics_path: '/api/metrics'
+    metrics_path: '/api/telemetry/metrics'
     static_configs:
       - targets: 
-        - 'servicio-identidad:3001'
-        - 'servicio-mesas:3002'
-        - 'servicio-pedidos:3004'
-        - 'servicio-cuentas:3005'
-        - 'servicio-reservas:3006'
-        - 'servicio-inventario:3007'
-        - 'servicio-notificaciones:3008'
-        - 'servicio-caja:3009'
-        - 'servicio-reportes:3010'
+        - 'servicio-identidad:3000'
+        - 'servicio-mesas:3000'
+        - 'servicio-pedidos:3000'
+        - 'servicio-cuentas:3000'
+        - 'servicio-reservas:3000'
+        - 'servicio-inventario:3000'
+        - 'servicio-notificaciones:3000'
+        - 'servicio-caja:3000'
+        - 'servicio-reportes:3000'

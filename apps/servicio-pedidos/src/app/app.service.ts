@@ -11,14 +11,21 @@ import {
   RoutingKeys,
   PagoRegistradoPayload
 } from '@org/contracts';
-import { CircuitBreakerOptions } from '@org/resiliencia';
 import axios from 'axios';
 import {
-  ProductoRemoto,
   PedidoItemMapeado,
   MesaLocalEntity,
   PedidoEntity,
 } from './types';
+
+interface ProductoRemotoLote {
+  id: string;
+  nombre: string;
+  precio: number;
+  stockActual: number | null;
+  categoria?: { nombre: string } | null;
+  disponible: boolean;
+}
 
 @Injectable()
 export class AppService {
@@ -53,52 +60,100 @@ export class AppService {
     return mesa;
   }
 
-  private async validarYMapearItems(itemsToProcess: PedidoItemInput[]): Promise<PedidoItemMapeado[]> {
-    return Promise.all(
-      itemsToProcess.map(async (item) => {
-        try {
-          const producto = await this.fetchProducto(item.productoId);
+  private async asegurarProductosLocales(productoIds: string[]): Promise<void> {
+    const existentes = await this.prisma.productoLocal.findMany({
+      where: { id: { in: productoIds } }
+    });
+    const existentesIds = new Set(existentes.map(p => p.id));
+    const faltantes = productoIds.filter(id => !existentesIds.has(id));
 
-          if (item.cantidad < 1) {
-            throw new BadRequestException(`La cantidad para ${producto.nombre} debe ser al menos 1.`);
-          }
+    if (faltantes.length > 0) {
+      this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
+      let token: string;
+      try {
+        token = this.jwtService.sign(
+          { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
+          { expiresIn: '1h' },
+        );
+      } catch {
+        throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');
+      }
 
-          if (producto.stockActual !== null && producto.stockActual < item.cantidad) {
-            throw new BadRequestException(`Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}`);
-          }
+      try {
+        const { data } = await axios.post<ProductoRemotoLote[]>(
+          `${this.INVENTARIO_URL}/productos/lote`,
+          { ids: faltantes },
+          {
+            timeout: this.HTTP_TIMEOUT_MS,
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
 
-          return {
-            productoId: item.productoId,
-            nombre: producto.nombre,
-            cantidad: item.cantidad,
-            precioUnitario: producto.precio,
-            area: producto.categoria?.nombre?.toLowerCase().includes('bebida') ? 'BAR' : 'COCINA',
-            notas: item.notas,
-            comensal: item.identificadorComensal || 1,
-            modificadores: item.modificadores || []
-          } satisfies PedidoItemMapeado;
-        } catch (error: unknown) {
-          const axiosError = error as { response?: { status: number }; code?: string; message?: string };
-
-          if (axiosError.response?.status === 404) {
-            throw new NotFoundException(`Producto ${item.productoId} no encontrado.`);
-          }
-          if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-            throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
-          }
-          if (axiosError.code === 'ECONNREFUSED') {
-            throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
-          }
-
-          if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof ServiceUnavailableException) {
-            throw error;
-          }
-
-          this.logger.error(`Error inesperado consultando inventario: ${(axiosError as Error).message}`);
-          throw new InternalServerErrorException('Error al validar productos. Reintente.');
+        const productos = Array.isArray(data) ? data : (data as any).productos ?? [];
+        for (const p of productos) {
+          await this.prisma.productoLocal.upsert({
+            where: { id: p.id },
+            create: {
+              id: p.id,
+              nombre: p.nombre,
+              precio: p.precio,
+              stockActual: p.stockActual ?? null,
+              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+              disponible: p.disponible ?? true,
+            },
+            update: {
+              nombre: p.nombre,
+              precio: p.precio,
+              stockActual: p.stockActual ?? null,
+              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+              disponible: p.disponible ?? true,
+            },
+          });
         }
-      })
-    );
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status: number }; code?: string; message?: string };
+        if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
+          throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
+        }
+        if (axiosError.code === 'ECONNREFUSED') {
+          throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
+        }
+        this.logger.error(`Error en cold-start de productos: ${axiosError.message}`);
+        throw new InternalServerErrorException('No se pudieron cargar productos desde inventario. Reintente.');
+      }
+    }
+  }
+
+  private async validarYMapearItems(itemsToProcess: PedidoItemInput[]): Promise<PedidoItemMapeado[]> {
+    const ids = itemsToProcess.map(i => i.productoId);
+    await this.asegurarProductosLocales(ids);
+
+    const productos = await this.prisma.productoLocal.findMany({
+      where: { id: { in: ids } }
+    });
+    const mapa = new Map(productos.map(p => [p.id, p]));
+
+    return itemsToProcess.map(item => {
+      const p = mapa.get(item.productoId);
+      if (!p) throw new NotFoundException(`Producto ${item.productoId} no encontrado`);
+      if (item.cantidad < 1) {
+        throw new BadRequestException(`La cantidad para ${p.nombre} debe ser al menos 1.`);
+      }
+      if (p.stockActual !== null && p.stockActual < item.cantidad) {
+        throw new BadRequestException(`Stock insuficiente para ${p.nombre}. Disponible: ${p.stockActual}`);
+      }
+
+      return {
+        productoId: p.id,
+        nombre: p.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: Number(p.precio),
+        area: p.categoriaNombre?.toLowerCase().includes('bebida') ? 'BAR' : 'COCINA',
+        notas: item.notas,
+        comensal: item.identificadorComensal || 1,
+        modificadores: item.modificadores || [],
+      } satisfies PedidoItemMapeado;
+    });
   }
 
   private calcularTotal(items: PedidoItemMapeado[]): number {
@@ -273,27 +328,39 @@ export class AppService {
     });
   }
 
-  private getServiceToken(): string {
-    return this.jwtService.sign(
-      { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
-      { expiresIn: '1h' },
-    );
-  }
-
-  @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30000 })
-  private async fetchProducto(productoId: string): Promise<ProductoRemoto> {
-    const res = await axios.get<ProductoRemoto>(`${this.INVENTARIO_URL}/productos/${productoId}`, {
-      timeout: this.HTTP_TIMEOUT_MS,
-      headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-    });
-    return res.data;
-  }
-
   async upsertMesaLocal(mesa: { id: string; numero: number }): Promise<void> {
     await this.prisma.mesaLocal.upsert({
       where: { id: mesa.id },
       update: { numero: mesa.numero },
       create: { id: mesa.id, numero: mesa.numero }
+    });
+  }
+
+  async upsertProductoLocal(producto: {
+    id: string;
+    nombre: string;
+    precio: number;
+    stockActual: number | null;
+    categoriaNombre: string;
+    disponible: boolean;
+  }): Promise<void> {
+    await this.prisma.productoLocal.upsert({
+      where: { id: producto.id },
+      update: {
+        nombre: producto.nombre,
+        precio: producto.precio,
+        stockActual: producto.stockActual,
+        categoriaNombre: producto.categoriaNombre,
+        disponible: producto.disponible,
+      },
+      create: {
+        id: producto.id,
+        nombre: producto.nombre,
+        precio: producto.precio,
+        stockActual: producto.stockActual,
+        categoriaNombre: producto.categoriaNombre,
+        disponible: producto.disponible,
+      },
     });
   }
 

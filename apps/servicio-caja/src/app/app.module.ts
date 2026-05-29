@@ -9,6 +9,7 @@ import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { ScheduleModule } from '@nestjs/schedule';
+import { RoutingKeys } from '@org/contracts';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
       queue: 'caja_queue',
-      bindings: ['pedido.entregado']
+      bindings: ['pedido.entregado', RoutingKeys.CuentaAbierta, RoutingKeys.CuentaCerrada]
     }),
   ],
   controllers: [AppController, EventsController],
