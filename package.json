@@ -6,7 +6,8 @@
     "poblar": "npx tsx scripts/poblar-datos.ts",
     "probar": "npx tsx scripts/pruebas-integracion.ts",
     "poblar-y-probar": "npx tsx scripts/poblar-datos.ts && npx tsx scripts/pruebas-integracion.ts",
-    "probar:concurrencia": "node stress-tests/run-concurrency-limits.js"
+    "probar:concurrencia": "node stress-tests/run-concurrency-limits.js",
+    "probar:seguridad": "node stress-tests/run-security-limits.js"
   },
   "private": true,
   "devDependencies": {

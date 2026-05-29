@@ -608,7 +608,7 @@ async function main() {
     try {
       await axios.post(`${BASE}/pedidos`, {
         mesaId: mesa1Id,
-        items: [{ productoId: '99999999-9999-9999-9999-999999999999', cantidad: 1 }],
+        items: [{ productoId: '00000000-0000-4000-8000-000000000000', cantidad: 1 }],
       }, { headers: authHeaders() });
     } catch (e: unknown) {
       rejected = (e as AxiosError).response?.status === 404;

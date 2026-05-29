@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class StockBajoPayload {
   @IsString()
@@ -73,6 +73,13 @@ export class CrearProductoCommand {
   @IsOptional()
   @IsNumber()
   stockActual?: number;
+}
+
+export class ObtenerProductosLoteCommand {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('all', { each: true })
+  ids: string[];
 }
 
 export class ProductoCreadoPayload {
