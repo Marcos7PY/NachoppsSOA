@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 
-const PRODUCER = 'servicio-pedidos';
+const PRODUCER = 'servicio-reservas';
 const MAX_ATTEMPTS = 5;
 const RETENCION_PROCESSED_HORAS = 24;
 const RETENCION_FAILED_HORAS = 168; // 7 días

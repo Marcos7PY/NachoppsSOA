@@ -17,7 +17,6 @@ import {
   RolUsuario,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
-import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 import { toUsuarioDto } from './usuarios.mapper';
 
 const SALT_ROUNDS = 10;
@@ -29,7 +28,6 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly publisher: RabbitMQPublisherService,
   ) {}
 
   /* ── Login ─────────────────────────────────────────── */
@@ -56,20 +54,17 @@ export class AuthService {
 
     const access_token = this.jwt.sign(payload);
 
-    // Registrar auditoría
-    await this.registrarAuditoria('LOGIN', usuario.id, 'servicio-identidad');
-
-    // Publicar evento UsuarioAutenticado
-    const eventoPayload: UsuarioAutenticadoPayload = {
-      userId: usuario.id,
-      rol: usuario.rol as RolUsuario,
-      email: usuario.email,
-    };
-    await this.publisher.publish(
-      RoutingKeys.UsuarioAutenticado,
-      eventoPayload,
-      'servicio-identidad',
-    );
+    // M2.B: auditoría + outbox en la misma transacción (atomicidad garantizada)
+    await this.prisma.$transaction(async (prisma) => {
+      await prisma.auditoriaLog.create({ data: { accion: 'LOGIN', usuarioId: usuario.id, servicio: 'servicio-identidad' } });
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.UsuarioAutenticado,
+          payload: JSON.stringify({ userId: usuario.id, rol: usuario.rol as RolUsuario, email: usuario.email } satisfies UsuarioAutenticadoPayload),
+          status: 'PENDING',
+        },
+      });
+    });
 
     this.logger.log(`✅ Login exitoso: ${usuario.email} (${usuario.rol})`);
 

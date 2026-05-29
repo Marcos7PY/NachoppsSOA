@@ -7,7 +7,10 @@ import {
   Param,
   UseGuards,
   Request,
+  HttpCode,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   LoginCommand,
@@ -22,13 +25,28 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  /* ── Públicos (sin JWT) ────────────────────────────── */
-
-  @Post('auth/login')
-  async login(@Body() command: LoginCommand) {
-    return this.authService.login(command);
+  @Get()
+  healthCheck() {
+    return { status: 'OK', service: 'Identidad' };
   }
 
+  /* ── Públicos (sin JWT) ────────────────────────────── */
+
+  @HttpCode(200)
+  @Post('auth/login')
+  async login(@Body() command: LoginCommand, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(command);
+    res.cookie('access_token', result.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // true solo sobre HTTPS
+      sameSite: 'lax',                                // localhost:5173 → :8000 es same-site
+      maxAge: 1000 * 60 * 60 * 12,                    // 12h, igual que expiresIn del token
+      path: '/',
+    });
+    return result;
+  }
+
+  @HttpCode(200)
   @Post('auth/validate')
   async validate(@Body() body: { token: string }) {
     return this.authService.validarToken(body.token);

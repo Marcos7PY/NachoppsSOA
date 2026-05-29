@@ -57,7 +57,7 @@ export class AppService {
       include: { categoria: true }
     });
     if (!producto) throw new NotFoundException('Producto no encontrado');
-    return producto;
+    return { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto;
   }
 
   async obtenerProductosLote(ids: string[]): Promise<{ productos: ProductoDto[] }> {
@@ -89,7 +89,7 @@ export class AppService {
       const payload: ProductoCreadoPayload = {
         id: p.id,
         nombre: p.nombre,
-        precio: p.precio,
+        precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: categoria.nombre,
         disponible: p.disponible,
@@ -106,7 +106,7 @@ export class AppService {
       return p;
     });
     
-    return { message: 'Producto creado exitosamente', producto };
+    return { message: 'Producto creado exitosamente', producto: { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto };
   }
 
   async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
@@ -125,7 +125,7 @@ export class AppService {
       const payload: ProductoActualizadoPayload = {
         id: p.id,
         nombre: p.nombre,
-        precio: p.precio,
+        precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: producto.categoria?.nombre,
         disponible: p.disponible,
@@ -142,7 +142,7 @@ export class AppService {
       return p;
     });
 
-    return { message: 'Stock actualizado', producto: actualizado };
+    return { message: 'Stock actualizado', producto: { ...actualizado, precio: actualizado.precio.toNumber() } as unknown as ProductoDto };
   }
 
   async reducirStockAutomatico(id: string, cantidad: number): Promise<void> {
@@ -186,7 +186,7 @@ export class AppService {
         payload: JSON.stringify({
           id: producto.id,
           nombre: producto.nombre,
-          precio: producto.precio,
+          precio: producto.precio.toNumber(),
           stockActual: productoDespues?.stockActual,
           categoriaNombre: producto.categoria?.nombre,
           disponible: productoDespues?.disponible ?? producto.disponible,
@@ -196,5 +196,30 @@ export class AppService {
     });
 
     this.logger.log(`Stock reducido para ${productoDespues?.nombre ?? id}: -> ${productoDespues?.stockActual}`);
+  }
+
+  // A2: idempotencia por pedido.id — reclama la clave atómicamente
+  async procesarPedidoCreado(pedido: any): Promise<void> {
+    if (!pedido?.id || !Array.isArray(pedido.items)) {
+      this.logger.warn('PedidoCreado sin id/items — ignorado');
+      return;
+    }
+    const key = `pedido.creado:${pedido.id}`;
+
+    try {
+      await this.prisma.idempotencyKey.create({ data: { key } });
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        this.logger.warn(`Pedido ${pedido.id} ya procesado — stock no se reduce de nuevo`);
+        return;
+      }
+      throw e;
+    }
+
+    for (const item of pedido.items) {
+      if (item.productoId && item.cantidad) {
+        await this.reducirStockAutomatico(item.productoId, item.cantidad);
+      }
+    }
   }
 }

@@ -79,6 +79,14 @@ services:
         strip_path: true
         methods:
           - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 5          # 5 intentos/min por IP en login
+              policy: local
+              limit_by: ip
+              fault_tolerant: true
+              hide_client_headers: false
 
   - name: servicio-identidad
     url: http://host.docker.internal:3001/api
@@ -88,6 +96,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: identidad
         paths: [/identidad]
@@ -102,6 +112,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: mesas
         paths: [/mesas]
@@ -116,6 +128,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: pedidos
         paths: [/pedidos]
@@ -130,6 +144,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: cuentas
         paths: [/cuentas]
@@ -144,6 +160,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: reservas
         paths: [/reservas]
@@ -158,6 +176,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: inventario
         paths: [/inventario]
@@ -172,6 +192,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: notificaciones
         paths: [/notificaciones]
@@ -186,6 +208,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: caja
         paths: [/caja]
@@ -200,6 +224,8 @@ services:
           key_claim_name: iss
           claims_to_verify:
             - exp
+          cookie_names:
+            - access_token
     routes:
       - name: reportes
         paths: [/reportes]

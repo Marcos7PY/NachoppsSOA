@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, HttpCode } from '@nestjs/common';
 import { AppService } from './app.service';
 import {
   AbrirCuentaCommand,
@@ -30,6 +30,7 @@ export class AppController {
     return this.appService.obtenerCuenta(id);
   }
 
+  @HttpCode(200)
   @Post(':id/dividir')
   dividirCuenta(@Param('id', ParseUUIDPipe) id: string, @Body() command: DividirCuentaCommand) {
     return this.appService.dividirCuenta(id, command);

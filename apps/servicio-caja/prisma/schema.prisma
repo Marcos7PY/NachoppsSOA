@@ -26,6 +26,7 @@ model OutboxEvent {
   routingKey String
   payload    String
   status     String   @default("PENDING") // PENDING, PROCESSED, FAILED
+  attempts   Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

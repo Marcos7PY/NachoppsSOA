@@ -17,7 +17,7 @@ model Cuenta {
   id        String       @id @default(uuid())
   mesaId    String
   pedidos   Json
-  total     Float        @default(0)
+  total     Decimal      @default(0) @db.Decimal(10, 2)
   estado    CuentaEstado @default(ABIERTA)
   ticket    String?
   createdAt DateTime     @default(now())
@@ -32,6 +32,7 @@ model OutboxEvent {
   routingKey String
   payload    String
   status     String   @default("PENDING") // PENDING, PROCESSED, FAILED
+  attempts   Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

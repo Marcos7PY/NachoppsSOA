@@ -10,7 +10,6 @@ import {
   ReservaEstado,
   RoutingKeys,
 } from '@org/contracts';
-import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { toReservaDto } from './reservas.mapper';
 
@@ -18,7 +17,6 @@ import { toReservaDto } from './reservas.mapper';
 export class ReservasService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly publisher: RabbitMQPublisherService,
   ) {}
 
   async listar(): Promise<{ reservas: ReturnType<typeof toReservaDto>[] }> {
@@ -34,24 +32,33 @@ export class ReservasService {
 
     await this.assertSlotDisponible(command.fecha, command.hora);
 
-    const reserva = await this.prisma.reserva.create({
-      data: {
-        clienteId: command.clienteId ?? null,
-        clienteNombre,
-        clienteTelefono: command.clienteTelefono ?? null,
-        fecha: new Date(command.fecha),
-        hora: command.hora,
-        mesaPreferida: command.mesaPreferida,
-        numComensales,
-        estado: ReservaEstado.Pendiente,
-      },
+    // M2.A: crear reserva + outbox en la misma transacción
+    const reserva = await this.prisma.$transaction(async (prisma) => {
+      const r = await prisma.reserva.create({
+        data: {
+          clienteId: command.clienteId ?? null,
+          clienteNombre,
+          clienteTelefono: command.clienteTelefono ?? null,
+          fecha: new Date(command.fecha),
+          hora: command.hora,
+          mesaPreferida: command.mesaPreferida,
+          numComensales,
+          estado: ReservaEstado.Pendiente,
+        },
+      });
+
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.ReservaCreada,
+          payload: JSON.stringify({ reserva: toReservaDto(r) } satisfies ReservaCreadaPayload),
+          status: 'PENDING',
+        },
+      });
+
+      return r;
     });
 
     const dto = toReservaDto(reserva);
-    const payload: ReservaCreadaPayload = { reserva: dto };
-
-    await this.publisher.publish(RoutingKeys.ReservaCreada, payload, 'servicio-reservas');
-
     return { message: 'Reserva creada', reserva: dto };
   }
 
@@ -72,13 +79,23 @@ export class ReservasService {
   async cancelar(id: string, motivo?: string) {
     await this.findOrThrow(id);
 
-    const updated = await this.prisma.reserva.update({
-      where: { id },
-      data: { estado: ReservaEstado.Cancelada },
-    });
+    // M2.A: cancelar reserva + outbox en la misma transacción
+    const updated = await this.prisma.$transaction(async (prisma) => {
+      const r = await prisma.reserva.update({
+        where: { id },
+        data: { estado: ReservaEstado.Cancelada },
+      });
 
-    const payload: ReservaCanceladaPayload = { reservaId: id, motivo };
-    await this.publisher.publish(RoutingKeys.ReservaCancelada, payload, 'servicio-reservas');
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.ReservaCancelada,
+          payload: JSON.stringify({ reservaId: id, motivo } satisfies ReservaCanceladaPayload),
+          status: 'PENDING',
+        },
+      });
+
+      return r;
+    });
 
     return { message: 'Reserva cancelada', reserva: toReservaDto(updated) };
   }

@@ -12,8 +12,8 @@ done
 echo "==> [entrypoint] Database is reachable on $DB_HOST:$DB_PORT"
 
 sleep 3
-echo "==> [entrypoint] Running Prisma migrations..."
-DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy --schema=./apps/${APP_NAME}/prisma/schema.prisma || true
+echo "==> [entrypoint] Applying Prisma schema..."
+npx prisma db push --accept-data-loss --schema=./apps/${APP_NAME}/prisma/schema.prisma --url "$DATABASE_URL"
 
 echo "==> [entrypoint] Starting ${APP_NAME}..."
 MAIN_JS=$(find dist/apps/${APP_NAME} -name "main.js" -path "*/src/main.js" | head -1)
