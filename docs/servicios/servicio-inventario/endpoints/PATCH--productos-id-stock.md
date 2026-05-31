@@ -4,25 +4,25 @@ servicio: servicio-inventario
 metodo: PATCH
 ruta: /productos/:id/stock
 handler: apps/servicio-inventario/src/app/app.controller.ts:48
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:48, apps/servicio-inventario/src/app/app.controller.ts:49, apps/servicio-inventario/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:48, apps/servicio-inventario/src/app/app.controller.ts:49, apps/servicio-inventario/src/app/app.service.ts:112]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # PATCH /productos/:id/stock
 
-**Proposito.** Expone el handler `actualizarStock` del controlador `app.controller.ts`. [apps/servicio-inventario/src/app/app.controller.ts:48]
+**Proposito.** Ajusta stock de un producto y publica actualizacion de producto. [apps/servicio-inventario/src/app/app.controller.ts:48]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-inventario/src/app/app.controller.ts:48]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-inventario/src/app/app.module.ts:2, apps/servicio-inventario/src/app/app.controller.ts:48]
 
-**Entrada.** La firma del handler es `actualizarStock(@Param('id') id: string, @Body('stock') stock: number) {`. [apps/servicio-inventario/src/app/app.controller.ts:49]
+**Entrada.** `id: string` via Param. [apps/servicio-inventario/src/app/app.controller.ts:49]
 
-**Salida.** La respuesta sale del handler `actualizarStock`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-inventario/src/app/app.controller.ts:49]
+**Salida.** Respuesta derivada del handler `actualizarStock` y del servicio `actualizarStock`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-inventario/src/app/app.controller.ts:49]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-inventario/src/app/app.controller.ts:49, apps/servicio-inventario/src/app/app.service.ts:1]
+**Efectos.** Usa `producto.findUnique`, `producto.update`, `outboxEvent.create`. La operacion incluye una transaccion Prisma. [apps/servicio-inventario/src/app/app.service.ts:112] Emite o consume eventos `RoutingKeys.ProductoActualizado`. [apps/servicio-inventario/src/app/app.service.ts:138]
 
-**Modelos del servicio.** [Categoria](../datos/Categoria.md), [Producto](../datos/Producto.md), [OutboxEvent](../datos/OutboxEvent.md), [IdempotencyKey](../datos/IdempotencyKey.md)
+**Invariantes que toca.** [idempotencia-directa](../../../invariantes/idempotencia-directa.md), [reposicion-como-delta](../../../invariantes/reposicion-como-delta.md)
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-inventario/src/app/app.controller.ts:49, apps/servicio-inventario/src/app/app.service.ts:1]
+- 404 por `NotFoundException`: if (!producto) throw new NotFoundException('Producto no encontrado');. [apps/servicio-inventario/src/app/app.service.ts:114]

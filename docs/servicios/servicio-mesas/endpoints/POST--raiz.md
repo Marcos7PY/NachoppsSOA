@@ -4,25 +4,25 @@ servicio: servicio-mesas
 metodo: POST
 ruta: /
 handler: apps/servicio-mesas/src/app/app.controller.ts:19
-fuente: [apps/servicio-mesas/src/app/app.controller.ts:19, apps/servicio-mesas/src/app/app.controller.ts:20, apps/servicio-mesas/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-mesas/src/app/app.controller.ts:19, apps/servicio-mesas/src/app/app.controller.ts:20, apps/servicio-mesas/src/app/app.service.ts:19, libs/contracts/src/domains/mesas.ts:47]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # POST /
 
-**Proposito.** Expone el handler `crearMesa` del controlador `app.controller.ts`. [apps/servicio-mesas/src/app/app.controller.ts:19]
+**Proposito.** Crea una mesa. [apps/servicio-mesas/src/app/app.controller.ts:19]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-mesas/src/app/app.controller.ts:19]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-mesas/src/app/app.module.ts:2, apps/servicio-mesas/src/app/app.controller.ts:19]
 
-**Entrada.** La firma del handler es `crearMesa(@Body() body: CrearMesaCommand) {`. [apps/servicio-mesas/src/app/app.controller.ts:20]
+**Entrada.** DTO `CrearMesaCommand` con campos: `numero: number` (@IsNumber()). [libs/contracts/src/domains/mesas.ts:49] `capacidad: number` (@IsNumber() @IsNumber()). [libs/contracts/src/domains/mesas.ts:51] `ubicacion?: string` (@IsNumber() @IsOptional() @IsString()). [libs/contracts/src/domains/mesas.ts:54]
 
-**Salida.** La respuesta sale del handler `crearMesa`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-mesas/src/app/app.controller.ts:20]
+**Salida.** Respuesta derivada del handler `crearMesa` y del servicio `crearMesa`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-mesas/src/app/app.controller.ts:20]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-mesas/src/app/app.controller.ts:20, apps/servicio-mesas/src/app/app.service.ts:1]
+**Efectos.** Usa `mesa.findUnique`, `mesa.create`, `outboxEvent.create`. La operacion incluye una transaccion Prisma. [apps/servicio-mesas/src/app/app.service.ts:19] Emite o consume eventos `RoutingKeys.MesaCreada`. [apps/servicio-mesas/src/app/app.service.ts:37]
 
-**Modelos del servicio.** [Mesa](../datos/Mesa.md), [OutboxEvent](../datos/OutboxEvent.md), [IdempotencyKey](../datos/IdempotencyKey.md)
+**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-mesas/src/app/app.controller.ts:20, apps/servicio-mesas/src/app/app.service.ts:1]
+- 409 por `ConflictException`: throw new ConflictException(La mesa número ${command.numero} ya existe.);. [apps/servicio-mesas/src/app/app.service.ts:22]

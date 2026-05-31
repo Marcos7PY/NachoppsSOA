@@ -4,25 +4,25 @@ servicio: servicio-identidad
 metodo: GET
 ruta: /usuarios
 handler: apps/servicio-identidad/src/auth/auth.controller.ts:74
-fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:74, apps/servicio-identidad/src/auth/auth.controller.ts:75, apps/servicio-identidad/src/auth/auth.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:74, apps/servicio-identidad/src/auth/auth.controller.ts:75, apps/servicio-identidad/src/auth/auth.service.ts:135]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # GET /usuarios
 
-**Proposito.** Expone el handler `listarUsuarios` del controlador `auth.controller.ts`. [apps/servicio-identidad/src/auth/auth.controller.ts:74]
+**Proposito.** Lista usuarios para administracion. [apps/servicio-identidad/src/auth/auth.controller.ts:74]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-identidad/src/auth/auth.controller.ts:74]
+**Autorizacion.** `JwtAuthGuard` y `RolesGuard` en el endpoint; roles exigidos: ADMIN. [apps/servicio-identidad/src/auth/auth.controller.ts:57, apps/servicio-identidad/src/auth/auth.controller.ts:66]
 
-**Entrada.** La firma del handler es `async listarUsuarios() {`. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
+**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
 
-**Salida.** La respuesta sale del handler `listarUsuarios`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
+**Salida.** Respuesta derivada del handler `listarUsuarios` y del servicio `listarUsuarios`; codigos esperados: 200 si el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-identidad/src/auth/auth.controller.ts:75, apps/servicio-identidad/src/auth/auth.service.ts:1]
+**Efectos.** Usa `usuario.findMany`. [apps/servicio-identidad/src/auth/auth.service.ts:135]
 
-**Modelos del servicio.** [Usuario](../datos/Usuario.md), [AuditoriaLog](../datos/AuditoriaLog.md), [OutboxEvent](../datos/OutboxEvent.md)
+**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-identidad/src/auth/auth.controller.ts:75, apps/servicio-identidad/src/auth/auth.service.ts:1]
+- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-identidad/src/auth/auth.service.ts:135]

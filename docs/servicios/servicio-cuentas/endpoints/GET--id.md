@@ -4,25 +4,25 @@ servicio: servicio-cuentas
 metodo: GET
 ruta: /:id
 handler: apps/servicio-cuentas/src/app/app.controller.ts:28
-fuente: [apps/servicio-cuentas/src/app/app.controller.ts:28, apps/servicio-cuentas/src/app/app.controller.ts:29, apps/servicio-cuentas/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-cuentas/src/app/app.controller.ts:28, apps/servicio-cuentas/src/app/app.controller.ts:29, apps/servicio-cuentas/src/app/app.service.ts:202]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # GET /:id
 
-**Proposito.** Expone el handler `obtenerCuenta` del controlador `app.controller.ts`. [apps/servicio-cuentas/src/app/app.controller.ts:28]
+**Proposito.** obtenerCuenta atiende GET /:id en servicio-cuentas usando `obtenerCuenta`. [apps/servicio-cuentas/src/app/app.controller.ts:28]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-cuentas/src/app/app.controller.ts:28]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-cuentas/src/app/app.module.ts:2, apps/servicio-cuentas/src/app/app.controller.ts:28]
 
-**Entrada.** La firma del handler es `obtenerCuenta(@Param('id', ParseUUIDPipe) id: string) {`. [apps/servicio-cuentas/src/app/app.controller.ts:29]
+**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-cuentas/src/app/app.controller.ts:29]
 
-**Salida.** La respuesta sale del handler `obtenerCuenta`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-cuentas/src/app/app.controller.ts:29]
+**Salida.** Respuesta derivada del handler `obtenerCuenta` y del servicio `obtenerCuenta`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-cuentas/src/app/app.controller.ts:29]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-cuentas/src/app/app.controller.ts:29, apps/servicio-cuentas/src/app/app.service.ts:1]
+**Efectos.** Usa `cuenta.findUnique`. [apps/servicio-cuentas/src/app/app.service.ts:202]
 
-**Modelos del servicio.** [Cuenta](../datos/Cuenta.md), [OutboxEvent](../datos/OutboxEvent.md)
+**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-cuentas/src/app/app.controller.ts:29, apps/servicio-cuentas/src/app/app.service.ts:1]
+- 404 por `NotFoundException`: throw new NotFoundException(Cuenta con ID ${id} no encontrada);. [apps/servicio-cuentas/src/app/app.service.ts:205]

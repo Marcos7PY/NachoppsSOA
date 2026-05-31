@@ -4,25 +4,25 @@ servicio: servicio-inventario
 metodo: POST
 ruta: /productos
 handler: apps/servicio-inventario/src/app/app.controller.ts:43
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:43, apps/servicio-inventario/src/app/app.controller.ts:44, apps/servicio-inventario/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:43, apps/servicio-inventario/src/app/app.controller.ts:44, apps/servicio-inventario/src/app/app.service.ts:71, libs/contracts/src/domains/inventario.ts:60]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # POST /productos
 
-**Proposito.** Expone el handler `crearProducto` del controlador `app.controller.ts`. [apps/servicio-inventario/src/app/app.controller.ts:43]
+**Proposito.** Crea un producto de inventario. [apps/servicio-inventario/src/app/app.controller.ts:43]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-inventario/src/app/app.controller.ts:43]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-inventario/src/app/app.module.ts:2, apps/servicio-inventario/src/app/app.controller.ts:43]
 
-**Entrada.** La firma del handler es `crearProducto(@Body() body: CrearProductoCommand) {`. [apps/servicio-inventario/src/app/app.controller.ts:44]
+**Entrada.** DTO `CrearProductoCommand` con campos: `categoriaId: string` (@IsString()). [libs/contracts/src/domains/inventario.ts:62] `nombre: string` (@IsString() @IsString()). [libs/contracts/src/domains/inventario.ts:64] `descripcion?: string` (@IsString() @IsOptional() @IsString()). [libs/contracts/src/domains/inventario.ts:67] `precio: number` (@IsOptional() @IsString() @IsNumber()). [libs/contracts/src/domains/inventario.ts:69] `disponible?: boolean` (@IsNumber() @IsOptional() @IsBoolean()). [libs/contracts/src/domains/inventario.ts:72] `stockActual?: number` (@IsOptional() @IsBoolean() @IsOptional() @IsNumber()). [libs/contracts/src/domains/inventario.ts:75]
 
-**Salida.** La respuesta sale del handler `crearProducto`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-inventario/src/app/app.controller.ts:44]
+**Salida.** Respuesta derivada del handler `crearProducto` y del servicio `crearProducto`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-inventario/src/app/app.controller.ts:44]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-inventario/src/app/app.controller.ts:44, apps/servicio-inventario/src/app/app.service.ts:1]
+**Efectos.** Usa `categoria.findUnique`, `producto.create`, `outboxEvent.create`. La operacion incluye una transaccion Prisma. [apps/servicio-inventario/src/app/app.service.ts:71] Emite o consume eventos `RoutingKeys.ProductoCreado`. [apps/servicio-inventario/src/app/app.service.ts:100]
 
-**Modelos del servicio.** [Categoria](../datos/Categoria.md), [Producto](../datos/Producto.md), [OutboxEvent](../datos/OutboxEvent.md), [IdempotencyKey](../datos/IdempotencyKey.md)
+**Invariantes que toca.** [idempotencia-directa](../../../invariantes/idempotencia-directa.md), [reposicion-como-delta](../../../invariantes/reposicion-como-delta.md)
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-inventario/src/app/app.controller.ts:44, apps/servicio-inventario/src/app/app.service.ts:1]
+- 404 por `NotFoundException`: throw new NotFoundException(Categoría con ID ${command.categoriaId} no encontrada);. [apps/servicio-inventario/src/app/app.service.ts:74]

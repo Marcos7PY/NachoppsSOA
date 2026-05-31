@@ -4,8 +4,8 @@ routingKey: reserva.creada
 exchange: nachopps_exchange (topic)
 payload: libs/contracts/src/domains/reservas.ts:69
 fuente: [libs/contracts/src/events/routing-keys.ts:7, libs/contracts/src/domains/reservas.ts:69, apps/servicio-reservas/src/app/reservas.service.spec.ts:76, apps/servicio-reservas/src/app/reservas.service.ts:60, apps/servicio-notificaciones/src/app/app.controller.ts:45, libs/contracts/src/messaging/exchange.ts:2, libs/contracts/src/messaging/envelope.ts:13]
-revisado: 2026-05-30
-commit: 4c186bb
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # reserva.creada
@@ -25,4 +25,4 @@ commit: 4c186bb
 
 **Camino de fallo.** El publicador compartido declara DLQ por cola cuando recibe `queue` y `bindings`. [libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts:34] El interceptor RMQ aplica tres reintentos con demora inicial de 1000ms y NACK al agotar intentos. [libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:45, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
 
-**Invariantes.** Ver [catalogo de invariantes](../invariantes/_indice.md).
+**Invariantes.** [slot-reserva-activo-unico](../invariantes/slot-reserva-activo-unico.md), [exactamente-un-exito-bajo-carrera](../invariantes/exactamente-un-exito-bajo-carrera.md)

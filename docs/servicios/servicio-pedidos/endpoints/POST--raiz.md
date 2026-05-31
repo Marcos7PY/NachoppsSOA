@@ -4,25 +4,28 @@ servicio: servicio-pedidos
 metodo: POST
 ruta: /
 handler: apps/servicio-pedidos/src/app/app.controller.ts:12
-fuente: [apps/servicio-pedidos/src/app/app.controller.ts:12, apps/servicio-pedidos/src/app/app.controller.ts:13, apps/servicio-pedidos/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-pedidos/src/app/app.controller.ts:12, apps/servicio-pedidos/src/app/app.controller.ts:13, apps/servicio-pedidos/src/app/app.service.ts:45, libs/contracts/src/domains/pedidos.ts:107]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # POST /
 
-**Proposito.** Expone el handler `crearPedido` del controlador `app.controller.ts`. [apps/servicio-pedidos/src/app/app.controller.ts:12]
+**Proposito.** Crea un pedido para una mesa, valida items, reserva stock local y deja eventos en Outbox. [apps/servicio-pedidos/src/app/app.controller.ts:12]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-pedidos/src/app/app.controller.ts:12]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-pedidos/src/app/app.module.ts:2, apps/servicio-pedidos/src/app/app.controller.ts:12]
 
-**Entrada.** La firma del handler es `crearPedido(@Body() body: CrearPedidoCommand) {`. [apps/servicio-pedidos/src/app/app.controller.ts:13]
+**Entrada.** DTO `CrearPedidoCommand` con campos: `mesaId: string` (@IsString() @IsNotEmpty()). [libs/contracts/src/domains/pedidos.ts:110] `items: PedidoItemInput[]` (@IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => PedidoItemInput)). [libs/contracts/src/domains/pedidos.ts:115]
 
-**Salida.** La respuesta sale del handler `crearPedido`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-pedidos/src/app/app.controller.ts:13]
+**Salida.** Respuesta derivada del handler `crearPedido` y del servicio `crearPedido`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-pedidos/src/app/app.controller.ts:13]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-pedidos/src/app/app.controller.ts:13, apps/servicio-pedidos/src/app/app.service.ts:1]
+**Efectos.** Usa `mesaLocal.findUnique`, `productoLocal.findMany`, `productoLocal.upsert`, `pedido.create`, `outboxEvent.createMany`, `SQL raw`, `executeRaw`. La operacion incluye una transaccion Prisma. [apps/servicio-pedidos/src/app/app.service.ts:45] Emite o consume eventos `RoutingKeys.PedidoCreado`, `RoutingKeys.PedidoActualizado`. [apps/servicio-pedidos/src/app/app.service.ts:230]
 
-**Modelos del servicio.** [Pedido](../datos/Pedido.md), [PedidoItem](../datos/PedidoItem.md), [MesaLocal](../datos/MesaLocal.md), [Modificador](../datos/Modificador.md), [OutboxEvent](../datos/OutboxEvent.md), [ProductoLocal](../datos/ProductoLocal.md)
+**Invariantes que toca.** [no-oversell](../../../invariantes/no-oversell.md), [exactamente-un-exito-bajo-carrera](../../../invariantes/exactamente-un-exito-bajo-carrera.md)
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-pedidos/src/app/app.controller.ts:13, apps/servicio-pedidos/src/app/app.service.ts:1]
+- 400 por `BadRequestException`: throw new BadRequestException(La cantidad para ${p.nombre} debe ser al menos 1.);. [apps/servicio-pedidos/src/app/app.service.ts:143]
+- 404 por `NotFoundException`: throw new NotFoundException(La mesa con ID ${mesaId} no existe o no está sincronizada.);. [apps/servicio-pedidos/src/app/app.service.ts:61]
+- 503 por `ServiceUnavailableException`: throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');. [apps/servicio-pedidos/src/app/app.service.ts:82]
+- 500 por `InternalServerErrorException`: throw new InternalServerErrorException('No se pudieron cargar productos desde inventario. Reintente.');. [apps/servicio-pedidos/src/app/app.service.ts:125]

@@ -2,17 +2,17 @@
 tipo: invariante
 slug: reposicion-como-delta
 estado: verificada
-fuente: [libs/contracts/src/domains/inventario.ts:128, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-pedidos/src/app/app.service.ts:411, apps/servicio-pedidos/src/app/app.service.ts:457, apps/servicio-pedidos/src/app/app.service.ts:462, apps/servicio-pedidos/src/app/app.service.ts:464, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:50, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:58]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # reposicion-como-delta
 
-**Enunciado.** El contrato de producto actualizado transporta `stockSyncMode` y `stockDelta` para sincronizacion de stock. [libs/contracts/src/domains/inventario.ts:128]
+**Enunciado.** Una reposicion aumenta la proyeccion local de pedidos por delta y no por valor absoluto stale. [apps/servicio-pedidos/src/app/app.service.ts:411]
 
-**Por que importa.** Protege consistencia de negocio en las rutas y consumidores enlazados. [libs/contracts/src/domains/inventario.ts:128]
+**Por que importa.** Si falla, una reposicion recibida con una foto de inventario atrasada puede re-inflar el stock local despues de consumos ya reservados. [apps/servicio-pedidos/src/app/app.service.ts:462]
 
-**Mecanismo que la garantiza.** Ver mecanismo citado. [libs/contracts/src/domains/inventario.ts:128]
+**Mecanismo que la garantiza.** El consumidor de pedidos calcula `allowStockIncrease` solo para `stockSyncMode === 'REPOSICION' && stockDelta > 0`; al actualizar la proyeccion, cuando esa condicion se cumple suma `stockDelta` al `existente.stockActual` en lugar de copiar `stockActual` absoluto del payload. [apps/servicio-pedidos/src/app/app.service.ts:411, apps/servicio-pedidos/src/app/app.service.ts:457, apps/servicio-pedidos/src/app/app.service.ts:462, apps/servicio-pedidos/src/app/app.service.ts:464]
 
-**Prueba que la verifica.** Reporte enlazado como evidencia de ejecucion. [stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:1]
+**Prueba que la verifica.** R2 reporta OK para reposicion como delta durante ventana stale; el detalle muestra payload absoluto 99 y stock final 10 cuando el delta malicioso era -4, sin inflar la proyeccion. [stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:50, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:58]

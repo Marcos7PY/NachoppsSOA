@@ -4,25 +4,25 @@ servicio: servicio-reservas
 metodo: POST
 ruta: /
 handler: apps/servicio-reservas/src/app/app.controller.ts:19
-fuente: [apps/servicio-reservas/src/app/app.controller.ts:19, apps/servicio-reservas/src/app/app.controller.ts:20, apps/servicio-reservas/src/app/reservas.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-reservas/src/app/app.controller.ts:19, apps/servicio-reservas/src/app/app.controller.ts:20, apps/servicio-reservas/src/app/reservas.service.ts:35, libs/contracts/src/domains/reservas.ts:37]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # POST /
 
-**Proposito.** Expone el handler `crear` del controlador `app.controller.ts`. [apps/servicio-reservas/src/app/app.controller.ts:19]
+**Proposito.** Crea una reserva para fecha y hora solicitadas. [apps/servicio-reservas/src/app/app.controller.ts:19]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-reservas/src/app/app.controller.ts:19]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-reservas/src/app/app.module.ts:2, apps/servicio-reservas/src/app/app.controller.ts:19]
 
-**Entrada.** La firma del handler es `crear(@Body() body: CrearReservaCommand) {`. [apps/servicio-reservas/src/app/app.controller.ts:20]
+**Entrada.** DTO `CrearReservaCommand` con campos: `clienteId?: string` (@IsOptional() @IsString()). [libs/contracts/src/domains/reservas.ts:40] `clienteNombre?: string` (@IsOptional() @IsString() @Transform(({ obj, value }) => value ?? obj.nombreCliente)). [libs/contracts/src/domains/reservas.ts:45] `clienteTelefono?: string` (@Transform(({ obj, value }) => value ?? obj.nombreCliente) @IsOptional() @IsString()). [libs/contracts/src/domains/reservas.ts:49] `fecha: string` (@IsString() @IsString() @IsNotEmpty()). [libs/contracts/src/domains/reservas.ts:53] `hora: string` (@IsNotEmpty() @IsString() @IsNotEmpty()). [libs/contracts/src/domains/reservas.ts:57] `mesaPreferida?: string` (@IsNotEmpty() @IsOptional() @IsString()). [libs/contracts/src/domains/reservas.ts:61] `numComensales?: number` (@IsOptional() @IsNumber() @Transform(({ obj, value }) => value ?? obj.personas)). [libs/contracts/src/domains/reservas.ts:66]
 
-**Salida.** La respuesta sale del handler `crear`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-reservas/src/app/app.controller.ts:20]
+**Salida.** Respuesta derivada del handler `crear` y del servicio `crear`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-reservas/src/app/app.controller.ts:20]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-reservas/src/app/app.controller.ts:20, apps/servicio-reservas/src/app/reservas.service.ts:1]
+**Efectos.** Usa `reserva.create`, `outboxEvent.create`. La operacion incluye una transaccion Prisma. [apps/servicio-reservas/src/app/reservas.service.ts:35] Emite o consume eventos `RoutingKeys.ReservaCreada`. [apps/servicio-reservas/src/app/reservas.service.ts:60]
 
-**Modelos del servicio.** [Reserva](../datos/Reserva.md), [OutboxEvent](../datos/OutboxEvent.md)
+**Invariantes que toca.** [slot-reserva-activo-unico](../../../invariantes/slot-reserva-activo-unico.md), [exactamente-un-exito-bajo-carrera](../../../invariantes/exactamente-un-exito-bajo-carrera.md)
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-reservas/src/app/app.controller.ts:20, apps/servicio-reservas/src/app/reservas.service.ts:1]
+- 409 por `ConflictException`: throw new ConflictException('No hay disponibilidad para la fecha y hora solicitadas');. [apps/servicio-reservas/src/app/reservas.service.ts:70]

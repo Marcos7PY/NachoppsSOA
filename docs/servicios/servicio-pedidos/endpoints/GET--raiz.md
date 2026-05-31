@@ -4,25 +4,25 @@ servicio: servicio-pedidos
 metodo: GET
 ruta: /
 handler: apps/servicio-pedidos/src/app/app.controller.ts:17
-fuente: [apps/servicio-pedidos/src/app/app.controller.ts:17, apps/servicio-pedidos/src/app/app.controller.ts:18, apps/servicio-pedidos/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-pedidos/src/app/app.controller.ts:17, apps/servicio-pedidos/src/app/app.controller.ts:18, apps/servicio-pedidos/src/app/app.service.ts:247]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # GET /
 
-**Proposito.** Expone el handler `listarPedidos` del controlador `app.controller.ts`. [apps/servicio-pedidos/src/app/app.controller.ts:17]
+**Proposito.** Lista pedidos, opcionalmente filtrados por mesa. [apps/servicio-pedidos/src/app/app.controller.ts:17]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-pedidos/src/app/app.controller.ts:17]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-pedidos/src/app/app.module.ts:2, apps/servicio-pedidos/src/app/app.controller.ts:17]
 
-**Entrada.** La firma del handler es `listarPedidos(@Query('mesaId') mesaId?: string) {`. [apps/servicio-pedidos/src/app/app.controller.ts:18]
+**Entrada.** `mesaId: string` via Query. [apps/servicio-pedidos/src/app/app.controller.ts:18]
 
-**Salida.** La respuesta sale del handler `listarPedidos`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-pedidos/src/app/app.controller.ts:18]
+**Salida.** Respuesta derivada del handler `listarPedidos` y del servicio `listarPedidos`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-pedidos/src/app/app.controller.ts:18]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-pedidos/src/app/app.controller.ts:18, apps/servicio-pedidos/src/app/app.service.ts:1]
+**Efectos.** Usa `pedido.findMany`. [apps/servicio-pedidos/src/app/app.service.ts:247]
 
-**Modelos del servicio.** [Pedido](../datos/Pedido.md), [PedidoItem](../datos/PedidoItem.md), [MesaLocal](../datos/MesaLocal.md), [Modificador](../datos/Modificador.md), [OutboxEvent](../datos/OutboxEvent.md), [ProductoLocal](../datos/ProductoLocal.md)
+**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-pedidos/src/app/app.controller.ts:18, apps/servicio-pedidos/src/app/app.service.ts:1]
+- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-pedidos/src/app/app.service.ts:247]

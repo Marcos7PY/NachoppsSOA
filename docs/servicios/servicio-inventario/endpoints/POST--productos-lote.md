@@ -4,25 +4,25 @@ servicio: servicio-inventario
 metodo: POST
 ruta: /productos/lote
 handler: apps/servicio-inventario/src/app/app.controller.ts:38
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:38, apps/servicio-inventario/src/app/app.controller.ts:39, apps/servicio-inventario/src/app/app.service.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:38, apps/servicio-inventario/src/app/app.controller.ts:39, apps/servicio-inventario/src/app/app.service.ts:63, libs/contracts/src/domains/inventario.ts:78]
+revisado: 2026-05-31
+commit: c5c7891
 ---
 
 # POST /productos/lote
 
-**Proposito.** Expone el handler `obtenerProductosLote` del controlador `app.controller.ts`. [apps/servicio-inventario/src/app/app.controller.ts:38]
+**Proposito.** obtenerProductosLote atiende POST /productos/lote en servicio-inventario usando `obtenerProductosLote`. [apps/servicio-inventario/src/app/app.controller.ts:38]
 
-**Autorizacion.** Este atomo solo afirma la decoracion visible en el handler; revisar guards globales o modulos del servicio junto con este controlador. [apps/servicio-inventario/src/app/app.controller.ts:38]
+**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-inventario/src/app/app.module.ts:2, apps/servicio-inventario/src/app/app.controller.ts:38]
 
-**Entrada.** La firma del handler es `obtenerProductosLote(@Body() body: ObtenerProductosLoteCommand) {`. [apps/servicio-inventario/src/app/app.controller.ts:39]
+**Entrada.** DTO `ObtenerProductosLoteCommand` con campos: `ids: string[]` (@IsArray() @ArrayMinSize(1) @IsUUID('all', { each: true })). [libs/contracts/src/domains/inventario.ts:82]
 
-**Salida.** La respuesta sale del handler `obtenerProductosLote`; el tipo exacto no se declara en la firma del controlador cuando TypeScript no lo explicita. [apps/servicio-inventario/src/app/app.controller.ts:39]
+**Salida.** Respuesta derivada del handler `obtenerProductosLote` y del servicio `obtenerProductosLote`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-inventario/src/app/app.controller.ts:39]
 
-**Efectos.** El handler delega en el codigo del controlador y, cuando corresponde, en el servicio del mismo proyecto. [apps/servicio-inventario/src/app/app.controller.ts:39, apps/servicio-inventario/src/app/app.service.ts:1]
+**Efectos.** Usa `producto.findMany`. [apps/servicio-inventario/src/app/app.service.ts:63]
 
-**Modelos del servicio.** [Categoria](../datos/Categoria.md), [Producto](../datos/Producto.md), [OutboxEvent](../datos/OutboxEvent.md), [IdempotencyKey](../datos/IdempotencyKey.md)
+**Invariantes que toca.** [idempotencia-directa](../../../invariantes/idempotencia-directa.md), [reposicion-como-delta](../../../invariantes/reposicion-como-delta.md)
 
-**Invariantes que toca.** Ver [catalogo de invariantes](../../../invariantes/_indice.md) para las pruebas enlazadas a rutas, eventos y modelos.
+**Errores.**
 
-**Errores.** Los errores verificables para este endpoint se obtienen de las ramas del controlador y servicio citados. [apps/servicio-inventario/src/app/app.controller.ts:39, apps/servicio-inventario/src/app/app.service.ts:1]
+- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-inventario/src/app/app.service.ts:63]
