@@ -36,6 +36,7 @@ async function bootstrap() {
           'x-dead-letter-routing-key': 'dlq.reportes_queue'
         }
       },
+      noAck: false,
     },
   });
 

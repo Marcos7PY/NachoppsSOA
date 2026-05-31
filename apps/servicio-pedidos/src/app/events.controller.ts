@@ -22,25 +22,11 @@ export class EventsController {
 
   @EventPattern(RoutingKeys.ProductoCreado)
   async handleProductoCreado(@Payload() payload: ProductoCreadoPayload) {
-    await this.appService.upsertProductoLocal({
-      id: payload.id,
-      nombre: payload.nombre,
-      precio: payload.precio,
-      stockActual: payload.stockActual ?? null,
-      categoriaNombre: payload.categoriaNombre ?? 'COCINA',
-      disponible: payload.disponible,
-    });
+    await this.appService.procesarProductoCreado(payload);
   }
 
   @EventPattern(RoutingKeys.ProductoActualizado)
   async handleProductoActualizado(@Payload() payload: ProductoActualizadoPayload) {
-    await this.appService.upsertProductoLocal({
-      id: payload.id,
-      nombre: payload.nombre,
-      precio: payload.precio,
-      stockActual: payload.stockActual ?? null,
-      categoriaNombre: payload.categoriaNombre ?? 'COCINA',
-      disponible: payload.disponible,
-    });
+    await this.appService.procesarProductoActualizado(payload);
   }
 }

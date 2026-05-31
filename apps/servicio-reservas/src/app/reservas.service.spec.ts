@@ -6,14 +6,9 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
   return { ...overrides } as any;
 }
 
-function createMockPublisher() {
-  return { publish: vi.fn().mockResolvedValue(undefined) };
-}
-
 describe('ReservasService — Reservas', () => {
   let service: ReservasService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
-  let mockPublisher: ReturnType<typeof createMockPublisher>;
 
   const reservaBase = {
     id: 'r-001',
@@ -38,9 +33,12 @@ describe('ReservasService — Reservas', () => {
         update: vi.fn(),
         count: vi.fn(),
       },
+      outboxEvent: {
+        create: vi.fn(),
+      },
     });
-    mockPublisher = createMockPublisher();
-    service = new ReservasService(mockPrisma, mockPublisher as any);
+    mockPrisma.$transaction = vi.fn(async (callback) => callback(mockPrisma));
+    service = new ReservasService(mockPrisma);
   });
 
   describe('listar', () => {
@@ -73,15 +71,31 @@ describe('ReservasService — Reservas', () => {
       });
 
       expect(result.message).toBe('Reserva creada');
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        RoutingKeys.ReservaCreada,
-        expect.any(Object),
-        'servicio-reservas',
-      );
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          routingKey: RoutingKeys.ReservaCreada,
+          status: 'PENDING',
+        }),
+      });
     });
 
     it('debe lanzar ConflictException si no hay disponibilidad', async () => {
       mockPrisma.reserva.count.mockResolvedValue(1);
+      await expect(service.crear({
+        clienteId: 'c-001',
+        clienteNombre: 'Juan',
+        clienteTelefono: '999',
+        fecha: '2026-06-15',
+        hora: '19:00',
+        mesaPreferida: 5,
+        numComensales: 4,
+      })).rejects.toThrow('No hay disponibilidad');
+    });
+
+    it('debe traducir la carrera de unicidad a ConflictException', async () => {
+      mockPrisma.reserva.count.mockResolvedValue(0);
+      mockPrisma.reserva.create.mockRejectedValue({ code: 'P2002' });
+
       await expect(service.crear({
         clienteId: 'c-001',
         clienteNombre: 'Juan',
@@ -116,11 +130,13 @@ describe('ReservasService — Reservas', () => {
 
       const result = await service.cancelar('r-001', 'Cliente cancelo');
       expect(result.reserva.estado).toBe(ReservaEstado.Cancelada);
-      expect(mockPublisher.publish).toHaveBeenCalledWith(
-        RoutingKeys.ReservaCancelada,
-        { reservaId: 'r-001', motivo: 'Cliente cancelo' },
-        'servicio-reservas',
-      );
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          routingKey: RoutingKeys.ReservaCancelada,
+          payload: JSON.stringify({ reservaId: 'r-001', motivo: 'Cliente cancelo' }),
+          status: 'PENDING',
+        }),
+      });
     });
 
     it('debe lanzar NotFoundException si no existe', async () => {

@@ -129,6 +129,8 @@ export class AppService {
         stockActual: p.stockActual,
         categoriaNombre: producto.categoria?.nombre,
         disponible: p.disponible,
+        stockSyncMode: cantidad > 0 ? 'REPOSICION' : 'CONSUMO_PEDIDO',
+        stockDelta: cantidad,
       };
 
       await prisma.outboxEvent.create({
@@ -146,7 +148,11 @@ export class AppService {
   }
 
   async reducirStockAutomatico(id: string, cantidad: number): Promise<void> {
-    const producto = await this.prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
+    await this.reducirStockAutomaticoConPrisma(this.prisma, id, cantidad);
+  }
+
+  private async reducirStockAutomaticoConPrisma(prisma: any, id: string, cantidad: number): Promise<void> {
+    const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
     
     if (!producto) {
       this.logger.warn(`Producto ${id} no encontrado para reducción de stock`);
@@ -157,7 +163,7 @@ export class AppService {
       return;
     }
 
-    const actualizado = await this.prisma.producto.updateMany({
+    const actualizado = await prisma.producto.updateMany({
       where: {
         id,
         stockActual: { gte: cantidad }
@@ -172,15 +178,15 @@ export class AppService {
       return;
     }
 
-    const productoDespues = await this.prisma.producto.findUnique({ where: { id } });
+    const productoDespues = await prisma.producto.findUnique({ where: { id } });
     if (productoDespues && productoDespues.stockActual === 0 && productoDespues.disponible) {
-      await this.prisma.producto.update({
+      await prisma.producto.update({
         where: { id },
         data: { disponible: false }
       });
     }
 
-    await this.prisma.outboxEvent.create({
+    await prisma.outboxEvent.create({
       data: {
         routingKey: RoutingKeys.ProductoActualizado,
         payload: JSON.stringify({
@@ -190,6 +196,8 @@ export class AppService {
           stockActual: productoDespues?.stockActual,
           categoriaNombre: producto.categoria?.nombre,
           disponible: productoDespues?.disponible ?? producto.disponible,
+          stockSyncMode: 'CONSUMO_PEDIDO',
+          stockDelta: -cantidad,
         } satisfies ProductoActualizadoPayload),
         status: 'PENDING',
       }
@@ -204,22 +212,27 @@ export class AppService {
       this.logger.warn('PedidoCreado sin id/items — ignorado');
       return;
     }
+    if (pedido.items.some((item: any) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
+      throw new Error(`Fallo QA controlado para pedido ${pedido.id}`);
+    }
     const key = `pedido.creado:${pedido.id}`;
 
     try {
-      await this.prisma.idempotencyKey.create({ data: { key } });
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key } });
+
+        for (const item of pedido.items) {
+          if (item.productoId && item.cantidad) {
+            await this.reducirStockAutomaticoConPrisma(prisma, item.productoId, item.cantidad);
+          }
+        }
+      });
     } catch (e: any) {
       if (e?.code === 'P2002') {
         this.logger.warn(`Pedido ${pedido.id} ya procesado — stock no se reduce de nuevo`);
         return;
       }
       throw e;
-    }
-
-    for (const item of pedido.items) {
-      if (item.productoId && item.cantidad) {
-        await this.reducirStockAutomatico(item.productoId, item.cantidad);
-      }
     }
   }
 }

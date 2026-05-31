@@ -78,4 +78,11 @@ export class OutboxProcessor {
       this.logger.log(`Purga outbox: ${r1.count} PROCESSED + ${r2.count} FAILED eliminados`);
     }
   }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async purgarIdempotencyKeys() {
+    const cutoff = new Date(Date.now() - 7 * 24 * 3600_000);
+    const r = await this.prisma.idempotencyKey.deleteMany({ where: { createdAt: { lt: cutoff } } });
+    if (r.count > 0) this.logger.log(`Purga idempotency_keys: ${r.count} eliminadas`);
+  }
 }

@@ -7,7 +7,9 @@
     "probar": "npx tsx scripts/pruebas-integracion.ts",
     "poblar-y-probar": "npx tsx scripts/poblar-datos.ts && npx tsx scripts/pruebas-integracion.ts",
     "probar:concurrencia": "node stress-tests/run-concurrency-limits.js",
-    "probar:seguridad": "node stress-tests/run-security-limits.js"
+    "probar:seguridad": "node stress-tests/run-security-limits.js",
+    "probar:stock": "node stress-tests/run-stock-idempotency-dlq.js",
+    "probar:alta-contencion": "node stress-tests/run-high-contention.js"
   },
   "private": true,
   "devDependencies": {

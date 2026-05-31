@@ -45,8 +45,8 @@ plugins:
 
   - name: rate-limiting
     config:
-      minute: 3000
-      hour: 30000
+      minute: ${KONG_RATE_LIMIT_MINUTE}
+      hour: ${KONG_RATE_LIMIT_HOUR}
       policy: local
       fault_tolerant: true
       hide_client_headers: false

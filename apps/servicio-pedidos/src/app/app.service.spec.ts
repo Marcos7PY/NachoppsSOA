@@ -34,11 +34,21 @@ describe('AppService — Pedidos', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma = createMockPrismaService({
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRaw: vi.fn().mockResolvedValue([{ stockActual: 1 }]),
       pedido: {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         update: vi.fn(),
       },
+      productoLocal: {
+        findUnique: vi.fn(),
+        upsert: vi.fn(),
+      },
+      idempotencyKey: {
+        create: vi.fn().mockResolvedValue({}),
+      },
+      $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
     mockPublisher = createMockPublisher();
 
@@ -85,6 +95,184 @@ describe('AppService — Pedidos', () => {
     it('no debe lanzar error si no hay pedidos para la mesa', async () => {
       vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
       await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+    });
+  });
+
+  describe('upsertProductoLocal', () => {
+    it('no debe re-inflar stock local si producto.actualizado de consumo llega stale-alto', async () => {
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 7,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      await service.upsertProductoLocal({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 12,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+        allowStockIncrease: false,
+      });
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 7 }),
+      }));
+    });
+
+    it('debe permitir aumento de stock local cuando la actualizacion es reposicion', async () => {
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 7,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      await service.upsertProductoLocal({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 12,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+        allowStockIncrease: true,
+        stockDelta: 5,
+        stockSyncMode: 'REPOSICION',
+      });
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 12 }),
+      }));
+    });
+  });
+
+  describe('procesarProductoActualizado', () => {
+    it('debe aplicar reposicion como delta una sola vez si hay redelivery secuencial', async () => {
+      const duplicate = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+      mockPrisma.idempotencyKey.create
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(duplicate);
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 7,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      const payload = {
+        eventId: 'evt-repo-1',
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 20,
+        stockDelta: 5,
+        stockSyncMode: 'REPOSICION',
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      } as any;
+
+      await service.procesarProductoActualizado(payload);
+      await service.procesarProductoActualizado(payload);
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 12 }),
+      }));
+    });
+
+    it('no debe inflar si un consumo stale-alto viene mal etiquetado como reposicion sin delta positivo', async () => {
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 7,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      await service.procesarProductoActualizado({
+        eventId: 'evt-bad-label',
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 20,
+        stockDelta: -4,
+        stockSyncMode: 'REPOSICION',
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      } as any);
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 7 }),
+      }));
+    });
+
+    it('no debe modificar stock local ante eco de consumo desde inventario', async () => {
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 4,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      await service.procesarProductoActualizado({
+        eventId: 'evt-consumo',
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 2,
+        stockDelta: -1,
+        stockSyncMode: 'CONSUMO_PEDIDO',
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      } as any);
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 4 }),
+      }));
+    });
+  });
+
+  describe('procesarProductoCreado', () => {
+    it('no debe re-inflar stock local si producto.creado llega tarde sobre una proyeccion existente', async () => {
+      mockPrisma.productoLocal.findUnique.mockResolvedValue({
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 3,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      });
+      mockPrisma.productoLocal.upsert.mockResolvedValue({});
+
+      await service.procesarProductoCreado({
+        eventId: 'evt-created-late',
+        id: 'prod-1',
+        nombre: 'Nachos',
+        precio: 10,
+        stockActual: 20,
+        categoriaNombre: 'COCINA',
+        disponible: true,
+      } as any);
+
+      expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        update: expect.objectContaining({ stockActual: 3 }),
+      }));
     });
   });
 });

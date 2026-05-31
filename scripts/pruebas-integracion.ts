@@ -165,12 +165,27 @@ async function main() {
   console.log(`   Productos: ${productos.length} | Mesas: ${mesas.length}`);
 
   // ── Identificar productos para pruebas ───────────
-  const ceviche = prodMap['Ceviche Clásico'] || productos[0];
-  const incaKola = prodMap['Inca Kola'] || productos.find((p: any) => p.categoriaId && !p.nombre.toLowerCase().includes('pisco'));
-  const lomo = prodMap['Lomo Saltado'] || productos.find((p: any) => p.precio > 35);
-  const aji = prodMap['Ají de Gallina'] || productos.find((p: any) => p.precio > 30 && p.nombre !== lomo?.nombre);
-  const agua = prodMap['Agua Mineral'] || productos.find((p: any) => p.precio <= 10 && p.nombre !== 'Inca Kola');
-  const pisco = prodMap['Pisco Sour'] || productos.find((p: any) => p.nombre.toLowerCase().includes('pisco'));
+  const productosConStock = productos.filter((p: any) => p.stockActual !== null && p.stockActual > 20);
+  const usados = new Set<string>();
+  const pickProducto = (
+    preferido: string,
+    fallback: (p: any) => boolean = () => true,
+    minStock = 5,
+  ) => {
+    const candidatoPreferido = prodMap[preferido];
+    const elegido = candidatoPreferido?.stockActual > minStock && !usados.has(candidatoPreferido.id)
+      ? candidatoPreferido
+      : productosConStock.find((p: any) => !usados.has(p.id) && p.stockActual > minStock && fallback(p));
+    if (elegido?.id) usados.add(elegido.id);
+    return elegido;
+  };
+
+  const ceviche = pickProducto('Ceviche Clásico');
+  const incaKola = pickProducto('Inca Kola', (p: any) => !p.nombre.toLowerCase().includes('pisco'));
+  const lomo = pickProducto('Lomo Saltado', (p: any) => Number(p.precio) > 20);
+  const aji = pickProducto('Ají de Gallina', (p: any) => Number(p.precio) > 20);
+  const agua = pickProducto('Agua Mineral', (p: any) => Number(p.precio) <= 20);
+  const pisco = pickProducto('Pisco Sour', (p: any) => p.nombre.toLowerCase().includes('pisco'));
 
   if (!ceviche || !incaKola || !lomo) {
     console.warn('⚠️  Faltan productos de referencia — algunos tests pueden fallar');
