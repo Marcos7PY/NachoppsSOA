@@ -92,3 +92,12 @@ model ProductoLocal {
 
   @@map("productos_locales")
 }
+
+model IdempotencyKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("idempotency_keys")
+}

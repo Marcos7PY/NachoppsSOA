@@ -368,7 +368,9 @@ services:
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PLUGINS: "bundled,jwt-cache"
-      KONG_JWT_SECRET: "nachopps_jwt_secret_dev"
+      KONG_JWT_SECRET: ${KONG_JWT_SECRET:-nachopps_jwt_secret_dev}
+      KONG_RATE_LIMIT_MINUTE: ${KONG_RATE_LIMIT_MINUTE:-3000}
+      KONG_RATE_LIMIT_HOUR: ${KONG_RATE_LIMIT_HOUR:-30000}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: "jwt_cache 12m"
     ports:
       - "8000:8000"

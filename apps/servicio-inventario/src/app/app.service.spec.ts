@@ -31,6 +31,9 @@ describe('AppService — Inventario', () => {
       outboxEvent: {
         create: vi.fn().mockResolvedValue({}),
       },
+      idempotencyKey: {
+        create: vi.fn().mockResolvedValue({}),
+      },
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
 
@@ -43,6 +46,7 @@ describe('AppService — Inventario', () => {
         .mockResolvedValueOnce({
           id: 'prod-001',
           nombre: 'Cerveza',
+          precio: { toNumber: () => 8.5 },
           stockActual: 15,
           disponible: true,
           categoria: { nombre: 'Bebidas' },
@@ -84,6 +88,63 @@ describe('AppService — Inventario', () => {
       await service.reducirStockAutomatico('prod-002', 5);
 
       expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('procesarPedidoCreado', () => {
+    it('debe fallar antes de registrar idempotencia con marcador QA de DLQ', async () => {
+      await expect(
+        service.procesarPedidoCreado({
+          id: 'pedido-force-dlq',
+          items: [{ productoId: 'prod-003', cantidad: 1, notas: '__QA_INVENTARIO_FORCE_DLQ__' }],
+        }),
+      ).rejects.toThrow('Fallo QA controlado');
+
+      expect(mockPrisma.idempotencyKey.create).not.toHaveBeenCalled();
+      expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('debe ignorar redelivery del mismo pedido sin descontar stock dos veces', async () => {
+      const duplicate = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' });
+      mockPrisma.idempotencyKey.create
+        .mockResolvedValueOnce({})
+        .mockRejectedValueOnce(duplicate);
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-003',
+          nombre: 'Nachos',
+          precio: { toNumber: () => 12.5 },
+          stockActual: 10,
+          disponible: true,
+          categoria: { nombre: 'Cocina' },
+        })
+        .mockResolvedValueOnce({
+          id: 'prod-003',
+          nombre: 'Nachos',
+          stockActual: 7,
+          disponible: true,
+        });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
+
+      const pedido = {
+        id: 'pedido-redelivery-1',
+        items: [{ productoId: 'prod-003', cantidad: 3 }],
+      };
+
+      await service.procesarPedidoCreado(pedido);
+      await service.procesarPedidoCreado(pedido);
+
+      expect(mockPrisma.idempotencyKey.create).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.producto.updateMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.producto.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'prod-003',
+          stockActual: { gte: 3 },
+        },
+        data: {
+          stockActual: { decrement: 3 },
+        },
+      });
     });
   });
 });

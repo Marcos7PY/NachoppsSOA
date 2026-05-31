@@ -83,6 +83,9 @@ export class ObtenerProductosLoteCommand {
 }
 
 export class ProductoCreadoPayload {
+  @IsOptional()
+  @IsString()
+  eventId?: string;
   @IsString()
   id: string;
   @IsString()
@@ -100,6 +103,9 @@ export class ProductoCreadoPayload {
 }
 
 export class ProductoActualizadoPayload {
+  @IsOptional()
+  @IsString()
+  eventId?: string;
   @IsString()
   id: string;
   @IsString()
@@ -114,4 +120,10 @@ export class ProductoActualizadoPayload {
   categoriaNombre?: string;
   @IsBoolean()
   disponible: boolean;
+  @IsOptional()
+  @IsString()
+  stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
+  @IsOptional()
+  @IsNumber()
+  stockDelta?: number;
 }

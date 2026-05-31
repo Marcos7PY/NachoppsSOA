@@ -9,7 +9,9 @@ import {
   PedidoEstado,
   ItemArea,
   RoutingKeys,
-  PagoRegistradoPayload
+  PagoRegistradoPayload,
+  ProductoCreadoPayload,
+  ProductoActualizadoPayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import axios from 'axios';
@@ -168,24 +170,22 @@ export class AppService {
   private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
       const cantidadesPorProducto = items.reduce((acc, item) => {
-        if (item.stockActual !== null && item.stockActual !== undefined) {
-          acc.set(item.productoId, (acc.get(item.productoId) ?? 0) + item.cantidad);
-        }
+        acc.set(item.productoId, (acc.get(item.productoId) ?? 0) + item.cantidad);
         return acc;
       }, new Map<string, number>());
 
       for (const [productoId, cantidad] of cantidadesPorProducto) {
-        const reservado = await prisma.productoLocal.updateMany({
-          where: {
-            id: productoId,
-            stockActual: { gte: cantidad },
-          },
-          data: {
-            stockActual: { decrement: cantidad },
-          },
-        });
+        await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${productoId}))`);
+        const reservado = await prisma.$queryRaw<{ stockActual: number }[]>(Prisma.sql`
+          UPDATE productos_locales
+          SET "stockActual" = "stockActual" - ${cantidad}
+          WHERE id = ${productoId}
+            AND "stockActual" IS NOT NULL
+            AND "stockActual" >= ${cantidad}
+          RETURNING "stockActual"
+        `);
 
-        if (reservado.count === 0) {
+        if (reservado.length === 0) {
           const producto = items.find((item) => item.productoId === productoId);
           throw new BadRequestException(`Stock insuficiente para ${producto?.nombre ?? productoId}.`);
         }
@@ -372,13 +372,105 @@ export class AppService {
     stockActual: number | null;
     categoriaNombre: string;
     disponible: boolean;
+    allowStockIncrease?: boolean;
+    stockDelta?: number;
+    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
   }): Promise<void> {
-    await this.prisma.productoLocal.upsert({
+    await this.upsertProductoLocalConPrisma(this.prisma, producto);
+  }
+
+  async procesarProductoCreado(payload: ProductoCreadoPayload): Promise<void> {
+    await this.procesarEventoProducto(
+      RoutingKeys.ProductoCreado,
+      payload,
+      (prisma) => this.upsertProductoLocalConPrisma(prisma, {
+        id: payload.id,
+        nombre: payload.nombre,
+        precio: payload.precio,
+        stockActual: payload.stockActual ?? null,
+        categoriaNombre: payload.categoriaNombre ?? 'COCINA',
+        disponible: payload.disponible,
+        allowStockIncrease: false,
+      }),
+    );
+  }
+
+  async procesarProductoActualizado(payload: ProductoActualizadoPayload): Promise<void> {
+    await this.procesarEventoProducto(
+      RoutingKeys.ProductoActualizado,
+      payload,
+      (prisma) => this.upsertProductoLocalConPrisma(prisma, {
+        id: payload.id,
+        nombre: payload.nombre,
+        precio: payload.precio,
+        stockActual: payload.stockActual ?? null,
+        stockDelta: payload.stockDelta,
+        stockSyncMode: payload.stockSyncMode,
+        categoriaNombre: payload.categoriaNombre ?? 'COCINA',
+        disponible: payload.disponible,
+        allowStockIncrease: payload.stockSyncMode === 'REPOSICION' && (payload.stockDelta ?? 0) > 0,
+      }),
+    );
+  }
+
+  private async procesarEventoProducto(
+    routingKey: string,
+    payload: { id: string; eventId?: string; stockSyncMode?: string; stockDelta?: number; stockActual?: number | null },
+    apply: (prisma: any) => Promise<void>,
+  ): Promise<void> {
+    const fallbackKey = routingKey === RoutingKeys.ProductoActualizado
+      ? `${payload.id}:${payload.stockSyncMode ?? 'SIN_MODO'}:${payload.stockDelta ?? 'SIN_DELTA'}:${payload.stockActual ?? 'SIN_STOCK'}`
+      : payload.id;
+    const idempotencyKey = `${routingKey}:${payload.eventId ?? fallbackKey}`;
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: idempotencyKey } });
+        await apply(prisma);
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        this.logger.warn(`Evento ${idempotencyKey} ya procesado — proyeccion de productos no se aplica de nuevo`);
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async upsertProductoLocalConPrisma(prisma: any, producto: {
+    id: string;
+    nombre: string;
+    precio: number;
+    stockActual: number | null;
+    stockDelta?: number;
+    stockSyncMode?: 'REPOSICION' | 'CONSUMO_PEDIDO';
+    categoriaNombre: string;
+    disponible: boolean;
+    allowStockIncrease?: boolean;
+  }): Promise<void> {
+    await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${producto.id}))`);
+    const existente = await prisma.productoLocal.findUnique({ where: { id: producto.id } });
+    let stockActual = producto.stockActual;
+
+    if (existente) {
+      stockActual = existente.stockActual;
+      if (
+        producto.stockSyncMode === 'REPOSICION' &&
+        producto.allowStockIncrease &&
+        Number.isFinite(producto.stockDelta) &&
+        (producto.stockDelta ?? 0) > 0
+      ) {
+        stockActual = existente.stockActual === null
+          ? producto.stockActual
+          : existente.stockActual + (producto.stockDelta ?? 0);
+      }
+    }
+
+    await prisma.productoLocal.upsert({
       where: { id: producto.id },
       update: {
         nombre: producto.nombre,
         precio: producto.precio,
-        stockActual: producto.stockActual,
+        stockActual,
         categoriaNombre: producto.categoriaNombre,
         disponible: producto.disponible,
       },
@@ -386,7 +478,7 @@ export class AppService {
         id: producto.id,
         nombre: producto.nombre,
         precio: producto.precio,
-        stockActual: producto.stockActual,
+        stockActual,
         categoriaNombre: producto.categoriaNombre,
         disponible: producto.disponible,
       },

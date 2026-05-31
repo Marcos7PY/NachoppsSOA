@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   CrearReservaCommand,
@@ -12,12 +13,17 @@ import {
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
 import { toReservaDto } from './reservas.mapper';
+import { Reserva } from '../generated/prisma';
 
 @Injectable()
-export class ReservasService {
+export class ReservasService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  async onModuleInit() {
+    await this.ensureActiveSlotUniqueness();
+  }
 
   async listar(): Promise<{ reservas: ReturnType<typeof toReservaDto>[] }> {
     const reservas = await this.prisma.reserva.findMany({
@@ -32,31 +38,39 @@ export class ReservasService {
 
     await this.assertSlotDisponible(command.fecha, command.hora);
 
-    // M2.A: crear reserva + outbox en la misma transacción
-    const reserva = await this.prisma.$transaction(async (prisma) => {
-      const r = await prisma.reserva.create({
-        data: {
-          clienteId: command.clienteId ?? null,
-          clienteNombre,
-          clienteTelefono: command.clienteTelefono ?? null,
-          fecha: new Date(command.fecha),
-          hora: command.hora,
-          mesaPreferida: command.mesaPreferida,
-          numComensales,
-          estado: ReservaEstado.Pendiente,
-        },
-      });
+    let reserva: Reserva;
+    try {
+      // M2.A: crear reserva + outbox en la misma transacción
+      reserva = await this.prisma.$transaction(async (prisma) => {
+        const r = await prisma.reserva.create({
+          data: {
+            clienteId: command.clienteId ?? null,
+            clienteNombre,
+            clienteTelefono: command.clienteTelefono ?? null,
+            fecha: new Date(command.fecha),
+            hora: command.hora,
+            mesaPreferida: command.mesaPreferida,
+            numComensales,
+            estado: ReservaEstado.Pendiente,
+          },
+        });
 
-      await prisma.outboxEvent.create({
-        data: {
-          routingKey: RoutingKeys.ReservaCreada,
-          payload: JSON.stringify({ reserva: toReservaDto(r) } satisfies ReservaCreadaPayload),
-          status: 'PENDING',
-        },
-      });
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.ReservaCreada,
+            payload: JSON.stringify({ reserva: toReservaDto(r) } satisfies ReservaCreadaPayload),
+            status: 'PENDING',
+          },
+        });
 
-      return r;
-    });
+        return r;
+      });
+    } catch (error) {
+      if (this.isUniqueConstraintViolation(error)) {
+        throw new ConflictException('No hay disponibilidad para la fecha y hora solicitadas');
+      }
+      throw error;
+    }
 
     const dto = toReservaDto(reserva);
     return { message: 'Reserva creada', reserva: dto };
@@ -122,6 +136,39 @@ export class ReservasService {
     if (!disponible) {
       throw new ConflictException('No hay disponibilidad para la fecha y hora solicitadas');
     }
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
+  }
+
+  private async ensureActiveSlotUniqueness() {
+    await this.prisma.$executeRawUnsafe(`
+      WITH ranked_active_reservations AS (
+        SELECT
+          id,
+          ROW_NUMBER() OVER (
+            PARTITION BY fecha, hora
+            ORDER BY "createdAt", id
+          ) AS rn
+        FROM "Reserva"
+        WHERE estado IN ('PENDIENTE', 'CONFIRMADA')
+      )
+      UPDATE "Reserva"
+      SET estado = 'CANCELADA',
+          "updatedAt" = CURRENT_TIMESTAMP
+      WHERE id IN (
+        SELECT id
+        FROM ranked_active_reservations
+        WHERE rn > 1
+      )
+    `);
+
+    await this.prisma.$executeRawUnsafe(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "Reserva_fecha_hora_active_unique"
+      ON "Reserva"("fecha", "hora")
+      WHERE estado IN ('PENDIENTE', 'CONFIRMADA')
+    `);
   }
 
   private async findOrThrow(id: string) {

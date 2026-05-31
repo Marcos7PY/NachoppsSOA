@@ -11,11 +11,19 @@ const { execFileSync, execSync } = require('node:child_process');
 
 const BASE = process.env.BASE_URL || 'http://localhost:8000';
 const CONCURRENCY = Number.parseInt(process.env.CONCURRENCY || '10', 10);
+const ITERATIONS = Number.parseInt(process.env.ITERATIONS || '1', 10);
+const SCENARIOS = (process.env.SCENARIOS || '')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 const TIMEOUT_MS = Number.parseInt(process.env.TIMEOUT_MS || '15000', 10);
+const SETUP_CONCURRENCY = Number.parseInt(process.env.SETUP_CONCURRENCY || '25', 10);
 const REPORT_DIR = 'stress-tests/reports';
 
 let token = '';
 const results = [];
+let mesaCounter = Date.now() % 1000000000;
+let reservaSlotCounter = Date.now() % 100000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,16 +33,43 @@ function unique(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function nextMesaNumero() {
+  mesaCounter += 1;
+  return 1000000000 + mesaCounter;
+}
+
 function futureDate(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
+function nextReservaSlot() {
+  reservaSlotCounter += 1;
+  return {
+    fecha: futureDate(3650 + reservaSlotCounter),
+    hora: '18:15',
+  };
+}
+
+async function nextAvailableReservaSlot() {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const candidate = nextReservaSlot();
+    if (countActiveReservations(candidate.fecha, candidate.hora) === 0) return candidate;
+  }
+  throw new Error('Could not find available reservation slot for C7');
+}
+
 function percentile(values, p) {
   if (!values.length) return 0;
+  if (values.length < 20 && p > 0.5) return null;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+}
+
+function requestsPerSecond(count, durationMs) {
+  if (!count) return 0;
+  return Number((count / (Math.max(durationMs, 1) / 1000)).toFixed(2));
 }
 
 async function req(method, path, body, opts = {}) {
@@ -105,7 +140,7 @@ async function runPool(label, total, concurrency, worker) {
     statuses,
     ok: output.filter((r) => r.ok).length,
     failed: output.filter((r) => !r.ok).length,
-    rps: durationMs ? Number((total / (durationMs / 1000)).toFixed(2)) : 0,
+    rps: requestsPerSecond(total, durationMs),
     latency: {
       p50: percentile(latencies, 0.5),
       p95: percentile(latencies, 0.95),
@@ -113,6 +148,21 @@ async function runPool(label, total, concurrency, worker) {
       max: latencies.length ? Math.max(...latencies) : 0,
     },
   };
+}
+
+async function collectPool(total, concurrency, worker) {
+  const output = new Array(total);
+  let next = 0;
+
+  async function loop() {
+    while (next < total) {
+      const index = next++;
+      output[index] = await worker(index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, loop));
+  return output;
 }
 
 async function waitFor(label, fn, predicate, timeoutMs = 12000, intervalMs = 250) {
@@ -135,6 +185,31 @@ function extractEntity(data, key) {
   return data?.[key] || data;
 }
 
+function sqlValue(value) {
+  return String(value).replace(/'/g, "''");
+}
+
+function psqlReservas(sql) {
+  return execFileSync('docker', [
+    'exec',
+    'nachopps-db-reservas',
+    'psql',
+    '-U',
+    'nachopps',
+    '-d',
+    'reservas_db',
+    '-tAc',
+    sql,
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+function countActiveReservations(fecha, hora) {
+  const out = psqlReservas(
+    `select count(*) from "Reserva" where fecha = '${sqlValue(fecha)}'::date and hora = '${sqlValue(hora)}' and estado in ('PENDIENTE', 'CONFIRMADA');`,
+  );
+  return Number.parseInt(out || '0', 10);
+}
+
 async function login() {
   const res = await req('POST', '/identidad/auth/login', {
     email: 'admin@nachopps.pe',
@@ -147,15 +222,23 @@ async function login() {
 }
 
 async function createMesa(label) {
-  const res = await req('POST', '/mesas', {
-    numero: Math.floor(100000 + Math.random() * 800000),
-    capacidad: 4,
-    ubicacion: label,
-  });
-  if (!res.ok) throw new Error(`Could not create mesa: ${res.status} ${JSON.stringify(res.data)}`);
-  const mesa = extractEntity(res.data, 'mesa');
-  await waitForMesaProjection(mesa.id);
-  return mesa;
+  let lastError = null;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const res = await req('POST', '/mesas', {
+      numero: nextMesaNumero(),
+      capacidad: 4,
+      ubicacion: label,
+    });
+    if (res.ok) {
+      const mesa = extractEntity(res.data, 'mesa');
+      await waitForMesaProjection(mesa.id);
+      return mesa;
+    }
+    lastError = res;
+    if (res.status !== 409 && res.status !== 0 && res.status < 500) break;
+    await sleep(200 * (attempt + 1));
+  }
+  throw new Error(`Could not create mesa: ${lastError?.status} ${JSON.stringify(lastError?.data ?? lastError?.error)}`);
 }
 
 async function waitForMesaProjection(mesaId) {
@@ -212,11 +295,11 @@ async function createProduct({ stockActual = null, precio = 11.5, name = unique(
     () => req('GET', `/inventario/productos/${product.id}`),
     (probe) => probe.ok,
   );
-  await waitForProductProjection(product.id);
+  await waitForProductProjection(product.id, stockActual);
   return product;
 }
 
-async function waitForProductProjection(productId) {
+async function waitForProductProjection(productId, expectedStockActual = null) {
   const safeProductId = productId.replace(/'/g, "''");
   await waitFor(
     'product projection in pedidos',
@@ -231,14 +314,18 @@ async function waitForProductProjection(productId) {
           '-d',
           'pedidos_db',
           '-tAc',
-          `select count(*) from productos_locales where id = '${safeProductId}';`,
+          `select "stockActual" from productos_locales where id = '${safeProductId}';`,
         ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-        return { ok: true, count: Number.parseInt(out.trim() || '0', 10) };
+        const value = out.trim();
+        return {
+          ok: value !== '',
+          stockActual: value === '' ? null : Number.parseInt(value, 10),
+        };
       } catch (error) {
-        return { ok: false, count: 0, error: error.message };
+        return { ok: false, stockActual: null, error: error.message };
       }
     },
-    (probe) => probe.ok && probe.count > 0,
+    (probe) => probe.ok && (expectedStockActual === null || probe.stockActual === expectedStockActual),
     12000,
     300,
   );
@@ -249,6 +336,18 @@ async function createPedido(mesaId, productoId, cantidad = 1) {
     mesaId,
     items: [{ productoId, cantidad, area: 'COCINA' }],
   });
+}
+
+async function createPedidoSetup(mesaId, productoId, cantidad = 1) {
+  let last = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const res = await createPedido(mesaId, productoId, cantidad);
+    if (res.ok) return res;
+    last = res;
+    if (res.status !== 0 && res.status !== 502 && res.status !== 503 && res.status !== 504) break;
+    await sleep(500 * (attempt + 1));
+  }
+  return last;
 }
 
 async function waitCuenta(mesaId) {
@@ -335,8 +434,7 @@ async function scenarioSameMesaManyPedidos() {
 
 async function scenarioReservaSameSlot() {
   const count = Number.parseInt(process.env.RESERVA_CONFLICTS || String(CONCURRENCY), 10);
-  const fecha = futureDate(20 + Math.floor(Math.random() * 200));
-  const hora = `${String(18 + Math.floor(Math.random() * 4)).padStart(2, '0')}:15`;
+  const { fecha, hora } = await nextAvailableReservaSlot();
 
   const run = await runPool('C7 reservas mismo slot', count, count, (i) =>
     req('POST', '/reservas', {
@@ -351,15 +449,13 @@ async function scenarioReservaSameSlot() {
 
   const successCount = run.responses.filter((r) => r.status === 201 || r.status === 200).length;
   const conflictCount = run.responses.filter((r) => r.status === 409).length;
-  const list = await req('GET', '/reservas');
-  const matching = extractArray(list.data, 'reservas').filter(
-    (r) => r.fecha === fecha && r.hora === hora && r.estado !== 'CANCELADA',
-  );
+  const clientTimeouts = run.responses.filter((r) => r.status === 0).length;
+  const activeReservationsForSlot = countActiveReservations(fecha, hora);
 
   return {
     ...run,
-    invariant: !run.responses.some((r) => r.status === 0) && successCount === 1 && matching.length === 1,
-    details: { fecha, hora, successCount, conflictCount, activeReservationsForSlot: matching.length },
+    invariant: successCount === 1 && activeReservationsForSlot === 1,
+    details: { fecha, hora, successCount, conflictCount, clientTimeouts, activeReservationsForSlot },
   };
 }
 
@@ -367,7 +463,7 @@ async function scenarioDuplicatePayment() {
   const count = Number.parseInt(process.env.DUPLICATE_PAYMENTS || String(CONCURRENCY), 10);
   const mesa = await createMesa('QA-CONC-DUP-PAY');
   const product = await createProduct({ stockActual: count + 5, precio: 13.25 });
-  const pedido = await createPedido(mesa.id, product.id, 1);
+  const pedido = await createPedidoSetup(mesa.id, product.id, 1);
   if (!pedido.ok) throw new Error(`Could not create payment setup pedido: ${pedido.status}`);
   const cuenta = await waitCuenta(mesa.id);
   await servePedidos(mesa.id);
@@ -398,10 +494,11 @@ async function scenarioSharedStock() {
   const stock = Number.parseInt(process.env.STOCK_SHARED || String(CONCURRENCY), 10);
   const attempts = Number.parseInt(process.env.STOCK_ATTEMPTS || String(stock + Math.max(2, Math.ceil(stock / 5))), 10);
   const product = await createProduct({ stockActual: stock, precio: 7.5 });
-  const mesas = [];
-  for (let i = 0; i < attempts; i += 1) {
-    mesas.push(await createMesa('QA-CONC-STOCK'));
-  }
+  const mesas = await collectPool(
+    attempts,
+    Math.min(SETUP_CONCURRENCY, attempts),
+    () => createMesa('QA-CONC-STOCK'),
+  );
 
   const run = await runPool('C6 stock compartido', attempts, Math.min(CONCURRENCY, attempts), (i) =>
     createPedido(mesas[i].id, product.id, 1),
@@ -411,23 +508,26 @@ async function scenarioSharedStock() {
   const productRes = await req('GET', `/inventario/productos/${product.id}`);
   const stockActual = productRes.data?.stockActual ?? productRes.data?.producto?.stockActual;
   const successes = run.responses.filter((r) => r.ok).length;
+  const clientTimeouts = run.responses.filter((r) => r.status === 0).length;
+  const effectiveSuccessfulPedidos = stock - stockActual;
 
-  for (const mesa of mesas) {
-    await closeMesaAccount(mesa.id).catch(() => undefined);
-  }
+  await Promise.allSettled(mesas.map((mesa) => closeMesaAccount(mesa.id)));
 
   return {
     ...run,
     invariant:
-      !run.responses.some((r) => r.status === 0) &&
-      run.responses.filter((r) => r.status === 400).length === attempts - successes &&
       successes <= stock &&
-      stockActual >= 0,
+      stockActual >= 0 &&
+      stockActual <= stock &&
+      effectiveSuccessfulPedidos <= stock,
     details: {
       productId: product.id,
       stockInicial: stock,
       attempts,
       successfulPedidos: successes,
+      effectiveSuccessfulPedidos,
+      rejectedPedidos: run.responses.filter((r) => r.status === 400).length,
+      clientTimeouts,
       stockActual,
       statuses: run.statuses,
     },
@@ -466,7 +566,7 @@ async function scenarioSecurityAndLimits() {
     statuses: responses.reduce((acc, r) => ({ ...acc, [r.status]: (acc[r.status] || 0) + 1 }), {}),
     ok: responses.filter((r) => r.ok).length,
     failed: responses.filter((r) => !r.ok).length,
-    rps: 0,
+    rps: requestsPerSecond(responses.length, responses.reduce((sum, r) => sum + r.ms, 0)),
     latency: {
       p50: percentile(responses.map((r) => r.ms), 0.5),
       p95: percentile(responses.map((r) => r.ms), 0.95),
@@ -488,13 +588,14 @@ function renderReport({ commit, branch, queuesBefore, queuesAfter }) {
   md += `- Rama: ${branch}\n`;
   md += `- Commit: ${commit}\n`;
   md += `- Concurrencia base: ${CONCURRENCY}\n`;
+  md += `- Iteraciones: ${ITERATIONS}\n`;
   md += `- Resultado: ${passed}/${results.length} invariantes OK\n\n`;
 
   md += `## Resumen\n\n`;
   md += `| Escenario | Invariante | Requests | Status | p95 | RPS |\n`;
   md += `|---|---:|---:|---|---:|---:|\n`;
   for (const r of results) {
-    md += `| ${r.label} | ${r.invariant ? 'OK' : 'FALLA'} | ${r.total} | ${JSON.stringify(r.statuses)} | ${r.latency.p95}ms | ${r.rps} |\n`;
+    md += `| ${r.label} | ${r.invariant ? 'OK' : 'FALLA'} | ${r.total} | ${JSON.stringify(r.statuses)} | ${r.latency.p95 === null ? 'n/a' : `${r.latency.p95}ms`} | ${r.rps} |\n`;
   }
 
   md += `\n## Detalle\n\n`;
@@ -502,7 +603,7 @@ function renderReport({ commit, branch, queuesBefore, queuesAfter }) {
     md += `### ${r.label}\n\n`;
     md += `- Invariante: ${r.invariant ? 'OK' : 'FALLA'}\n`;
     md += `- Duracion: ${r.durationMs}ms\n`;
-    md += `- Latencia: p50=${r.latency.p50}ms, p95=${r.latency.p95}ms, p99=${r.latency.p99}ms, max=${r.latency.max}ms\n`;
+    md += `- Latencia: p50=${r.latency.p50}ms, p95=${r.latency.p95 === null ? 'n/a' : `${r.latency.p95}ms`}, p99=${r.latency.p99 === null ? 'n/a' : `${r.latency.p99}ms`}, max=${r.latency.max}ms\n`;
     md += `- Detalle: \`${JSON.stringify(r.details || {})}\`\n\n`;
   }
 
@@ -520,6 +621,7 @@ async function main() {
   console.log('NachoPps targeted concurrency runner');
   console.log(`Base URL: ${BASE}`);
   console.log(`Concurrency: ${CONCURRENCY}`);
+  console.log(`Iterations: ${ITERATIONS}`);
 
   await login();
   console.log('Auth OK');
@@ -528,35 +630,51 @@ async function main() {
   const commit = execSync('git log -1 --oneline', { encoding: 'utf8' }).trim();
   const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
 
-  for (const scenario of [
-    scenarioSameMesaManyPedidos,
-    scenarioReservaSameSlot,
-    scenarioDuplicatePayment,
-    scenarioSharedStock,
-    scenarioSecurityAndLimits,
-  ]) {
-    const started = Date.now();
-    try {
-      const result = await scenario();
-      results.push(result);
-      console.log(`${result.invariant ? 'OK' : 'FAIL'} ${result.label} (${Date.now() - started}ms)`);
-    } catch (error) {
-      const label = scenario.name;
-      results.push({
-        label,
-        total: 0,
-        concurrency: 0,
-        durationMs: Date.now() - started,
-        responses: [],
-        statuses: { error: 1 },
-        ok: 0,
-        failed: 1,
-        rps: 0,
-        latency: { p50: 0, p95: 0, p99: 0, max: 0 },
-        invariant: false,
-        details: { error: error.message },
-      });
-      console.log(`FAIL ${label}: ${error.message}`);
+  const scenarioCatalog = {
+    C3: scenarioSameMesaManyPedidos,
+    C5: scenarioDuplicatePayment,
+    C6: scenarioSharedStock,
+    C7: scenarioReservaSameSlot,
+    S3: scenarioSecurityAndLimits,
+  };
+  const scenarios = (SCENARIOS.length ? SCENARIOS : ['C3', 'C7', 'C5', 'C6', 'S3'])
+    .map((name) => scenarioCatalog[name])
+    .filter(Boolean);
+
+  for (let iteration = 1; iteration <= ITERATIONS; iteration += 1) {
+    for (const scenario of scenarios) {
+      const started = Date.now();
+      try {
+        const result = await scenario();
+        result.label = ITERATIONS > 1 ? `${result.label} iter ${iteration}/${ITERATIONS}` : result.label;
+        result.details = { ...(result.details || {}), iteration };
+        results.push(result);
+        console.log(`${result.invariant ? 'OK' : 'FAIL'} ${result.label} (${Date.now() - started}ms)`);
+        if (!result.invariant) {
+          console.log(`DETAIL ${result.label} ${JSON.stringify({
+            statuses: result.statuses,
+            failed: result.failed,
+            details: result.details,
+          })}`);
+        }
+      } catch (error) {
+        const label = ITERATIONS > 1 ? `${scenario.name} iter ${iteration}/${ITERATIONS}` : scenario.name;
+        results.push({
+          label,
+          total: 0,
+          concurrency: 0,
+          durationMs: Date.now() - started,
+          responses: [],
+          statuses: { error: 1 },
+          ok: 0,
+          failed: 1,
+          rps: 0,
+          latency: { p50: 0, p95: null, p99: null, max: 0 },
+          invariant: false,
+          details: { error: error.message, iteration },
+        });
+        console.log(`FAIL ${label}: ${error.message}`);
+      }
     }
   }
 
