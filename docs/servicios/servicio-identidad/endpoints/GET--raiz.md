@@ -17,12 +17,12 @@ commit: c5c7891
 
 **Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-identidad/src/auth/auth.controller.ts:29]
 
-**Salida.** Respuesta derivada del handler `healthCheck`; codigos esperados: 200 si el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:29]
+**Salida.** Devuelve `{ status: 'OK', service: 'Identidad' }`; codigos esperados: 200 si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:29, apps/servicio-identidad/src/auth/auth.controller.ts:30]
 
-**Efectos.** <!-- sin evidencia: no se detecto llamada de servicio desde el controlador -->
+**Efectos.** No escribe en BD ni emite eventos: el handler retorna un literal de healthcheck y no llama a `AuthService`. [apps/servicio-identidad/src/auth/auth.controller.ts:29, apps/servicio-identidad/src/auth/auth.controller.ts:30]
 
 **Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
 **Errores.**
 
-- No hay llamada de servicio detectable; solo aplica la validacion del handler si corresponde. [apps/servicio-identidad/src/auth/auth.controller.ts:28]
+- No declara ramas de error propias; el handler solo retorna el literal de healthcheck. [apps/servicio-identidad/src/auth/auth.controller.ts:29, apps/servicio-identidad/src/auth/auth.controller.ts:30]

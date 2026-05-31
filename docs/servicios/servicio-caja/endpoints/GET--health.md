@@ -17,12 +17,12 @@ commit: c5c7891
 
 **Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-caja/src/app/app.controller.ts:10]
 
-**Salida.** Respuesta derivada del handler `healthCheck`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-caja/src/app/app.controller.ts:10]
+**Salida.** Devuelve `{ status: 'OK', service: 'Caja' }`; codigos esperados: 200 si el handler completa y 401 si falta o falla JWT por `JwtAuthGuard`. [apps/servicio-caja/src/app/app.controller.ts:10, apps/servicio-caja/src/app/app.controller.ts:11]
 
-**Efectos.** <!-- sin evidencia: no se detecto llamada de servicio desde el controlador -->
+**Efectos.** No escribe en BD ni emite eventos: el handler retorna un literal de healthcheck y no llama a `AppService`. [apps/servicio-caja/src/app/app.controller.ts:10, apps/servicio-caja/src/app/app.controller.ts:11]
 
 **Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
 **Errores.**
 
-- No hay llamada de servicio detectable; solo aplica la validacion del handler si corresponde. [apps/servicio-caja/src/app/app.controller.ts:9]
+- No declara ramas de error propias; el handler solo retorna el literal de healthcheck. [apps/servicio-caja/src/app/app.controller.ts:10, apps/servicio-caja/src/app/app.controller.ts:11]

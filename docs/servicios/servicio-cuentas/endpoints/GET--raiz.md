@@ -17,12 +17,12 @@ commit: c5c7891
 
 **Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-cuentas/src/app/app.controller.ts:14]
 
-**Salida.** Respuesta derivada del handler `healthCheck`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-cuentas/src/app/app.controller.ts:14]
+**Salida.** Devuelve `{ status: 'OK', service: 'Cuentas' }`; codigos esperados: 200 si el handler completa y 401 si falta o falla JWT por `JwtAuthGuard`. [apps/servicio-cuentas/src/app/app.controller.ts:14, apps/servicio-cuentas/src/app/app.controller.ts:15]
 
-**Efectos.** <!-- sin evidencia: no se detecto llamada de servicio desde el controlador -->
+**Efectos.** No escribe en BD ni emite eventos: el handler retorna un literal de healthcheck y no llama a `AppService`. [apps/servicio-cuentas/src/app/app.controller.ts:14, apps/servicio-cuentas/src/app/app.controller.ts:15]
 
 **Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
 
 **Errores.**
 
-- No hay llamada de servicio detectable; solo aplica la validacion del handler si corresponde. [apps/servicio-cuentas/src/app/app.controller.ts:13]
+- No declara ramas de error propias; el handler solo retorna el literal de healthcheck. [apps/servicio-cuentas/src/app/app.controller.ts:14, apps/servicio-cuentas/src/app/app.controller.ts:15]
