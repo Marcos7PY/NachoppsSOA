@@ -2,7 +2,7 @@
 
 import { useAuthStore } from '../../store/auth.store';
 import { getTurnoActual } from '../../config';
-import { useNotificacionesStore } from '../../store/notificaciones.store';
+import { useNotificacionesQuery } from '../../hooks/queries/useNotificacionesQuery';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
@@ -10,7 +10,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 export function Header() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { notificaciones, fetch, markAllRead } = useNotificacionesStore();
+  const { notificaciones, markAllRead } = useNotificacionesQuery();
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -27,10 +27,6 @@ export function Header() {
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light';
   });
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';

@@ -1,11 +1,11 @@
 // services/socket.service.ts - Singleton Socket.IO para actualizaciones en tiempo real
 
 import { io, type Socket } from 'socket.io-client';
-import { useNotificacionesStore } from '../store/notificaciones.store';
 import { queryClient } from '../api/queryClient';
 import { MESAS_QUERY_KEY } from '../hooks/queries/useMesasQuery';
 import { PEDIDOS_QUERY_KEY } from '../hooks/queries/usePedidosQuery';
 import { CUENTAS_QUERY_KEY } from '../hooks/queries/useCuentasQuery';
+import { pushSocketNotification } from '../hooks/queries/useNotificacionesQuery';
 
 interface NotificacionEvento {
   pattern?: string;
@@ -18,6 +18,7 @@ const WS_PATH = import.meta.env.VITE_WS_PATH ?? '/notificaciones/socket.io';
 let socket: Socket | null = null;
 const pendingInvalidations = new Set<string>();
 let invalidationTimer: ReturnType<typeof setTimeout> | null = null;
+const INVALIDATION_DEBOUNCE_MS = 300;
 
 type StoreKey = 'pedidos' | 'mesas' | 'cuentas';
 
@@ -45,9 +46,27 @@ function storesForPattern(pattern?: string) {
 }
 
 function invalidateStores(stores: Set<StoreKey>) {
-  if (stores.has('pedidos')) queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
-  if (stores.has('mesas')) queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
-  if (stores.has('cuentas')) queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
+  if (stores.has('pedidos')) {
+    queryClient.invalidateQueries({
+      queryKey: PEDIDOS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+  if (stores.has('mesas')) {
+    queryClient.invalidateQueries({
+      queryKey: MESAS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+  if (stores.has('cuentas')) {
+    queryClient.invalidateQueries({
+      queryKey: CUENTAS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
 }
 
 function scheduleInvalidate(pattern?: string) {
@@ -67,7 +86,7 @@ function scheduleInvalidate(pattern?: string) {
       );
     });
     invalidateStores(stores);
-  }, 300);
+  }, INVALIDATION_DEBOUNCE_MS);
 }
 
 export const socketService = {
@@ -86,7 +105,7 @@ export const socketService = {
       });
 
       socket.on('pedidoUpdate', (evento: NotificacionEvento) => {
-        useNotificacionesStore.getState().pushFromSocket(evento);
+        pushSocketNotification(evento);
         scheduleInvalidate(evento?.pattern);
       });
     }

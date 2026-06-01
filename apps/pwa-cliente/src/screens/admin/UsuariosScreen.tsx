@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useUsuariosStore } from '../../store/usuarios.store';
+import { useUsuariosQuery } from '../../hooks/queries/useUsuariosQuery';
 import type { CrearUsuarioPayload, RolUsuario } from '../../types/usuario.types';
 
 const ROLES: { value: RolUsuario; label: string }[] = [
@@ -21,6 +21,16 @@ const INITIAL_FORM: CrearUsuarioPayload = {
 
 export function UsuariosScreen() {
   const online = useOnlineStatus();
+  const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
+  const [search, setSearch] = useState('');
+  const [rolFiltro, setRolFiltro] = useState<string>('');
+  const filters = useMemo(
+    () => ({
+      rol: rolFiltro ? (rolFiltro as RolUsuario) : undefined,
+      search: search.trim() || undefined,
+    }),
+    [rolFiltro, search],
+  );
   const {
     usuarios,
     nextCursor,
@@ -34,18 +44,7 @@ export function UsuariosScreen() {
     crear,
     cambiarRol,
     clearFeedback,
-  } = useUsuariosStore();
-
-  const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
-  const [search, setSearch] = useState('');
-  const [rolFiltro, setRolFiltro] = useState<string>('');
-
-  useEffect(() => {
-    fetch({
-      rol: rolFiltro ? (rolFiltro as RolUsuario) : undefined,
-      search: search.trim() || undefined,
-    });
-  }, [rolFiltro, search, fetch]);
+  } = useUsuariosQuery(filters);
 
   const handleCrear = async (event: FormEvent) => {
     event.preventDefault();
@@ -90,12 +89,7 @@ export function UsuariosScreen() {
         </div>
         <button
           className="btn btn-ghost btn-sm"
-          onClick={() =>
-            fetch({
-              rol: rolFiltro ? (rolFiltro as RolUsuario) : undefined,
-              search: search.trim() || undefined,
-            })
-          }
+          onClick={() => void fetch()}
           title="Refrescar"
         >
           <RefreshIcon />
