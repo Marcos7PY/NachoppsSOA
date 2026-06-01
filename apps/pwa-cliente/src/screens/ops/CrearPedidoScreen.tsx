@@ -54,9 +54,6 @@ export function CrearPedidoScreen() {
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [successLocal, setSuccessLocal] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchInventario();
-  }, [fetchInventario]);
 
   // Mesas físicas
   const mesasFisicas = useMemo(() => {
