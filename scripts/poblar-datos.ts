@@ -233,6 +233,40 @@ async function main() {
     }
   }
 
+  // Mesas virtuales para Delivery (#99) y Para Llevar (#98)
+  try {
+    const mesaDelivery = await crearMesa(token, 99, 999, 'Virtual Delivery');
+    mesas.push(mesaDelivery);
+    console.log(`   ✅ Mesa #99 — capacidad 999 — Delivery (Virtual)`);
+  } catch (err: any) {
+    if (err.response?.status === 409) {
+      console.log(`   ⚠️  Mesa #99 ya existe`);
+      const res = await axios.get(`${BASE}/mesas`, { headers: authHeaders(token) });
+      const mesasArr = Array.isArray(res.data) ? res.data : res.data.mesas || [];
+      const found = mesasArr.find((m: any) => m.numero === 99);
+      if (found) mesas.push(found);
+    } else {
+      throw err;
+    }
+  }
+
+  try {
+    const mesaLlevar = await crearMesa(token, 98, 999, 'Virtual Llevar');
+    mesas.push(mesaLlevar);
+    console.log(`   ✅ Mesa #98 — capacidad 999 — Para Llevar (Virtual)`);
+  } catch (err: any) {
+    if (err.response?.status === 409) {
+      console.log(`   ⚠️  Mesa #98 ya existe`);
+      const res = await axios.get(`${BASE}/mesas`, { headers: authHeaders(token) });
+      const mesasArr = Array.isArray(res.data) ? res.data : res.data.mesas || [];
+      const found = mesasArr.find((m: any) => m.numero === 98);
+      if (found) mesas.push(found);
+    } else {
+      throw err;
+    }
+  }
+
+
   // ── Resumen ───────────────────────────────────────
   console.log('\n═══════════════════════════════════════════');
   console.log('  📊 Resumen de Población');

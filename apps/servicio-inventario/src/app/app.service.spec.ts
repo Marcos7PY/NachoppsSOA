@@ -34,6 +34,7 @@ describe('AppService — Inventario', () => {
       idempotencyKey: {
         create: vi.fn().mockResolvedValue({}),
       },
+      $executeRaw: vi.fn(),
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
 
@@ -88,6 +89,70 @@ describe('AppService — Inventario', () => {
       await service.reducirStockAutomatico('prod-002', 5);
 
       expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('publica disponibilidad final false cuando el stock llega a cero', async () => {
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-004',
+          nombre: 'Limonada',
+          precio: { toNumber: () => 9 },
+          stockActual: 1,
+          disponible: true,
+          categoria: { nombre: 'Bebidas' },
+        })
+        .mockResolvedValueOnce({
+          id: 'prod-004',
+          nombre: 'Limonada',
+          stockActual: 0,
+          disponible: true,
+        });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.producto.update.mockResolvedValue({
+        id: 'prod-004',
+        nombre: 'Limonada',
+        stockActual: 0,
+        disponible: false,
+      });
+
+      await service.reducirStockAutomatico('prod-004', 1);
+
+      const payload = JSON.parse(mockPrisma.outboxEvent.create.mock.calls[0][0].data.payload);
+      expect(payload).toMatchObject({
+        stockActual: 0,
+        disponible: false,
+      });
+    });
+  });
+
+  describe('actualizarStock', () => {
+    it('serializa por producto y publica el stock final calculado dentro de la transacción', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({
+        id: 'prod-005',
+        nombre: 'Agua',
+        precio: { toNumber: () => 5 },
+        stockActual: 10,
+        disponible: true,
+        categoria: { nombre: 'Bebidas' },
+      });
+      mockPrisma.producto.update.mockResolvedValue({
+        id: 'prod-005',
+        nombre: 'Agua',
+        precio: { toNumber: () => 5 },
+        stockActual: 15,
+        disponible: true,
+      });
+
+      await service.actualizarStock('prod-005', 5);
+
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith({
+        where: { id: 'prod-005' },
+        data: {
+          stockActual: 15,
+          disponible: true,
+        },
+      });
     });
   });
 

@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-notificaciones/apps/servicio-notificaciones/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

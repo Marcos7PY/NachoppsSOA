@@ -169,7 +169,8 @@ export class AppService {
 
   private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
-      const cantidadesPorProducto = items.reduce((acc, item) => {
+      const itemsConStockControlado = items.filter((item) => typeof item.stockActual === 'number');
+      const cantidadesPorProducto = itemsConStockControlado.reduce((acc, item) => {
         acc.set(item.productoId, (acc.get(item.productoId) ?? 0) + item.cantidad);
         return acc;
       }, new Map<string, number>());
@@ -245,7 +246,10 @@ export class AppService {
 
 
   async listarPedidos(mesaId?: string): Promise<{ pedidos: PedidoDto[] }> {
-    const where = mesaId ? { mesaId } : {};
+    const where: Prisma.PedidoWhereInput = {
+      ...(mesaId ? { mesaId } : {}),
+      estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
+    };
     const pedidos = await this.prisma.pedido.findMany({
       where,
       include: {

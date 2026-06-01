@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-pedidos/apps/servicio-pedidos/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

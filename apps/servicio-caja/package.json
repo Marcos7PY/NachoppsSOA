@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-caja/apps/servicio-caja/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

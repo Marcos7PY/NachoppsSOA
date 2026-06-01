@@ -4,49 +4,9 @@
   "private": true,
   "nx": {
     "name": "pwa-cliente",
-    "targets": {
-      "build": {
-        "executor": "nx:run-commands",
-        "options": {
-          "command": "vite build",
-          "cwd": "apps/pwa-cliente"
-        }
-      },
-      "serve": {
-        "executor": "nx:run-commands",
-        "options": {
-          "command": "vite",
-          "cwd": "apps/pwa-cliente"
-        }
-      },
-      "preview": {
-        "executor": "nx:run-commands",
-        "options": {
-          "command": "vite preview",
-          "cwd": "apps/pwa-cliente"
-        }
-      }
-    },
     "tags": [
       "frontend",
       "pwa"
     ]
-  },
-  "dependencies": {
-    "@radix-ui/react-avatar": "^1.1.0",
-    "@radix-ui/react-dialog": "^1.1.0",
-    "@radix-ui/react-dropdown-menu": "^2.1.0",
-    "@radix-ui/react-label": "^2.1.0",
-    "@radix-ui/react-select": "^2.1.0",
-    "@radix-ui/react-separator": "^1.1.0",
-    "@radix-ui/react-slot": "^1.1.0",
-    "@radix-ui/react-tabs": "^1.1.0",
-    "@radix-ui/react-tooltip": "^1.1.0",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.0",
-    "lucide-react": "^1.16.0",
-    "react-router-dom": "^7.15.1",
-    "tailwind-merge": "^2.6.0",
-    "zustand": "^5.0.13"
   }
 }

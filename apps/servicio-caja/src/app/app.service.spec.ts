@@ -92,6 +92,32 @@ describe('AppService — Caja', () => {
       );
     });
 
+    it('debe consultar cuenta remota antes de abrir la transacción con lock', async () => {
+      vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });
+      mockPrisma.cuentaAbierta.upsert.mockResolvedValue({ cuentaId: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' });
+      mockPrisma.transaccion.aggregate.mockResolvedValue({ _sum: { monto: 0 } });
+      mockPrisma.transaccion.create.mockResolvedValue({
+        id: 't-001',
+        cuentaId: 'c-001',
+        monto: 50,
+        metodo: 'EFECTIVO',
+        referencia: null,
+        notas: null,
+        createdAt: new Date(),
+      });
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      await service.registrarPago({
+        cuentaId: 'c-001',
+        montoRecibido: 50,
+        metodo: 'EFECTIVO',
+      });
+
+      expect(vi.mocked(axios.get).mock.invocationCallOrder[0]).toBeLessThan(
+        mockPrisma.$transaction.mock.invocationCallOrder[0],
+      );
+    });
+
     it('debe rechazar si el monto excede el total de la cuenta', async () => {
       mockPrisma.cuentaAbierta.findUnique.mockResolvedValue(null);
       vi.mocked(axios.get).mockResolvedValue({ data: { id: 'c-001', mesaId: 'm-001', total: 50, estado: 'ABIERTA' } });

@@ -1,10 +1,17 @@
 import axios from 'axios';
 
 describe('GET /api', () => {
-  it('should return a message', async () => {
+  it('debería listar transacciones de caja', async () => {
     const res = await axios.get(`/api`);
 
     expect(res.status).toBe(200);
-    expect(res.data).toEqual({ message: 'Hello API' });
+    expect(Array.isArray(res.data)).toBe(true);
+  });
+
+  it('debería exponer health check', async () => {
+    const res = await axios.get(`/api/health`);
+
+    expect(res.status).toBe(200);
+    expect(res.data).toEqual({ status: 'OK', service: 'Caja' });
   });
 });

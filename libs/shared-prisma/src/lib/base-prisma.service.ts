@@ -4,7 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 export function createBasePrismaService<T extends new (...args: any[]) => any>(PrismaClientClass: T) {
   abstract class BasePrismaService extends PrismaClientClass implements OnModuleInit, OnModuleDestroy {
-    protected abstract readonly serviceName: string;
+    abstract readonly serviceName: string;
 
     constructor(...args: any[]) {
       const connectionString = process.env.DATABASE_URL;

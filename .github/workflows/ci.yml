@@ -26,6 +26,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Set Nx base and head
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "NX_BASE=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "NX_BASE=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.sha }}" >> "$GITHUB_ENV"
+          else
+            echo "NX_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.sha }}" >> "$GITHUB_ENV"
+          fi
+
       - name: Generate Prisma clients
         env:
           DATABASE_URL_SERVICIO_RESERVAS: "postgresql://user:pass@localhost:5441/reservas_db?schema=public"
@@ -48,4 +62,19 @@ jobs:
           cd ../servicio-reportes && DATABASE_URL="$DATABASE_URL_SERVICIO_REPORTES" npx prisma generate
           cd ../servicio-notificaciones && DATABASE_URL="$DATABASE_URL_SERVICIO_NOTIFICACIONES" npx prisma generate
 
-      - run: npx nx run-many -t build --parallel
+      - name: Build and test affected projects
+        env:
+          CI: true
+          NX_DAEMON: false
+        run: |
+          mkdir -p .ci-logs
+          set -o pipefail
+          npm exec -- nx affected -t build test --base="$NX_BASE" --head="$NX_HEAD" --parallel=3 --outputStyle=static 2>&1 | tee .ci-logs/nx-affected.log
+
+      - name: Upload CI logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: .ci-logs
+          if-no-files-found: ignore

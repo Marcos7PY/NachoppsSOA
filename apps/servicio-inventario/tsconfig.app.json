@@ -2,9 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "../../dist/apps/servicio-inventario",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "rootDir": "../../",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
@@ -23,5 +21,25 @@
     "../../libs/observabilidad/**/*.ts",
     "../../libs/shared-auth/**/*.ts"
   ],
-  "exclude": []
+  "exclude": [],
+  "references": [
+    {
+      "path": "../../libs/shared-prisma/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared-auth"
+    },
+    {
+      "path": "../../libs/observabilidad/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/shared-rabbitmq"
+    },
+    {
+      "path": "../../libs/contracts/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/resiliencia/tsconfig.lib.json"
+    }
+  ]
 }

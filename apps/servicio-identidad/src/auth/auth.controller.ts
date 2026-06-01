@@ -47,6 +47,19 @@ export class AuthController {
   }
 
   @HttpCode(200)
+  @Post('auth/logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    return { success: true, message: 'Sesión cerrada correctamente en el servidor' };
+  }
+
+
+  @HttpCode(200)
   @Post('auth/validate')
   async validate(@Body() body: { token: string }) {
     return this.authService.validarToken(body.token);

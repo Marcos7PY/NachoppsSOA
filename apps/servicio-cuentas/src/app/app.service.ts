@@ -99,19 +99,26 @@ export class AppService {
         where: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta },
       });
 
+      const origenCuentaAbierta = cuenta ? 'reconciliacion-pedido' : 'fallback';
+
       // Fallback INLINE (misma tx): crea cuenta + reemite CuentaAbierta
       if (!cuenta) {
         cuenta = await prisma.cuenta.create({
           data: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
         });
-        await prisma.outboxEvent.create({
-          data: {
-            routingKey: RoutingKeys.CuentaAbierta,
-            payload: JSON.stringify({ cuentaId: cuenta.id, mesaId: cuenta.mesaId, origen: 'fallback' }),
-            status: 'PENDING',
-          },
-        });
       }
+
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.CuentaAbierta,
+          payload: JSON.stringify({
+            cuentaId: cuenta.id,
+            mesaId: cuenta.mesaId,
+            origen: origenCuentaAbierta,
+          }),
+          status: 'PENDING',
+        },
+      });
 
       const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
 
@@ -219,47 +226,51 @@ export class AppService {
   }
 
   async cerrarCuenta(id: string, command: CerrarCuentaCommand): Promise<{ message: string; ticket: TicketDto }> {
-    const cuenta = await this.prisma.cuenta.findUnique({ where: { id } });
-    if (!cuenta) {
-      throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);
-    }
+    const cierre = await this.prisma.$transaction(async (prisma) => {
+      const cuenta = await prisma.cuenta.findUnique({ where: { id } });
+      if (!cuenta) {
+        throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);
+      }
 
-    if (cuenta.estado !== CuentaEstado.Abierta) {
-      throw new BadRequestException(`La cuenta no está abierta. Estado actual: ${cuenta.estado}`);
-    }
+      if (cuenta.estado !== CuentaEstado.Abierta) {
+        throw new BadRequestException(`La cuenta no está abierta. Estado actual: ${cuenta.estado}`);
+      }
 
-    const pedidos = Array.isArray(cuenta.pedidos) ? cuenta.pedidos : [];
+      const pedidos = Array.isArray(cuenta.pedidos) ? cuenta.pedidos : [];
 
-    if (pedidos.length === 0) {
-      throw new BadRequestException('La cuenta no tiene pedidos.');
-    }
+      if (pedidos.length === 0) {
+        throw new BadRequestException('La cuenta no tiene pedidos.');
+      }
 
-    // A3: aritmética Decimal para el cierre
-    const subtotal = new Prisma.Decimal(cuenta.total);
-    const descuento = new Prisma.Decimal(command.descuento ?? 0);
-    const total = Prisma.Decimal.max(new Prisma.Decimal(0), subtotal.minus(descuento));
-    const ticketId = uuidv4();
+      // A3: aritmética Decimal para el cierre
+      const subtotal = new Prisma.Decimal(cuenta.total);
+      const descuento = new Prisma.Decimal(command.descuento ?? 0);
+      const total = Prisma.Decimal.max(new Prisma.Decimal(0), subtotal.minus(descuento));
+      const ticketId = uuidv4();
 
-    const cuentaCerradaPayload: CuentaCerradaPayload = {
-      cuentaId: id,
-      mesaId: cuenta.mesaId,
-      total: total.toNumber(),
-    };
-
-    const ticketGeneradoPayload: TicketGeneradoPayload = {
-      ticketId,
-      cuentaId: id,
-    };
-
-    await this.prisma.$transaction(async (prisma) => {
-      await prisma.cuenta.update({
-        where: { id },
+      const cuentaActualizada = await prisma.cuenta.updateMany({
+        where: { id, estado: CuentaEstado.Abierta },
         data: {
           estado: CuentaEstado.Cerrada,
           total,
           ticket: ticketId,
         }
       });
+
+      if (cuentaActualizada.count !== 1) {
+        throw new BadRequestException('La cuenta ya fue cerrada por otra operación concurrente.');
+      }
+
+      const cuentaCerradaPayload: CuentaCerradaPayload = {
+        cuentaId: id,
+        mesaId: cuenta.mesaId,
+        total: total.toNumber(),
+      };
+
+      const ticketGeneradoPayload: TicketGeneradoPayload = {
+        ticketId,
+        cuentaId: id,
+      };
 
       await prisma.outboxEvent.createMany({
         data: [
@@ -275,20 +286,22 @@ export class AppService {
           }
         ]
       });
+
+      return { cuenta, pedidos, subtotal, descuento, total, ticketId };
     });
 
     const ticket: TicketDto = {
-      id: ticketId,
+      id: cierre.ticketId,
       cuentaId: id,
-      mesaId: cuenta.mesaId,
-      items: (pedidos as any[]).flatMap((p: any) => p.items || []),
-      subtotal: subtotal.toNumber(),
-      descuento: descuento.toNumber(),
-      total: total.toNumber(),
+      mesaId: cierre.cuenta.mesaId,
+      items: (cierre.pedidos as any[]).flatMap((p: any) => p.items || []),
+      subtotal: cierre.subtotal.toNumber(),
+      descuento: cierre.descuento.toNumber(),
+      total: cierre.total.toNumber(),
       fecha: new Date().toISOString()
     };
 
-    this.logger.log(`Cuenta ${id} cerrada. Ticket ${ticketId} generado. Total: S/ ${total.toNumber()}`);
+    this.logger.log(`Cuenta ${id} cerrada. Ticket ${cierre.ticketId} generado. Total: S/ ${cierre.total.toNumber()}`);
 
     return { message: 'Cuenta cerrada exitosamente', ticket };
   }
