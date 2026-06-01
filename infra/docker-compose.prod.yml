@@ -5,33 +5,28 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: nachopps-rabbitmq
-    ports:
-      - '5672:5672'
-      - '15672:15672'
+    # Sin puertos expuestos al host
     environment:
-      RABBITMQ_DEFAULT_USER: nachopps
-      RABBITMQ_DEFAULT_PASS: nachopps_secret
-    profiles: ['infra', 'all', 'dev']
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nachopps}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-nachopps_secret}
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # BASES DE DATOS
+  # BASES DE DATOS (Solo red interna)
   db-reservas:
     image: postgres:16-alpine
     container_name: nachopps-db-reservas
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: reservas_db
-    ports: ['5441:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-reservas:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d reservas_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d reservas_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -40,15 +35,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-mesas
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: mesas_db
-    ports: ['5433:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-mesas:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d mesas_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d mesas_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -57,15 +50,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-pedidos
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: pedidos_db
-    ports: ['5434:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-pedidos:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d pedidos_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d pedidos_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -74,15 +65,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-cuentas
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: cuentas_db
-    ports: ['5435:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-cuentas:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d cuentas_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d cuentas_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -91,15 +80,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-inventario
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: inventario_db
-    ports: ['5436:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-inventario:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d inventario_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d inventario_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -108,15 +95,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-reportes
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: reportes_db
-    ports: ['5438:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-reportes:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d reportes_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d reportes_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -125,15 +110,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-caja
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: caja_db
-    ports: ['5437:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-caja:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d caja_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d caja_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -142,15 +125,13 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-identidad
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: identidad_db
-    ports: ['5439:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-identidad:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d identidad_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d identidad_db']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -159,33 +140,29 @@ services:
     image: postgres:16-alpine
     container_name: nachopps-db-notificaciones
     environment:
-      POSTGRES_USER: nachopps
-      POSTGRES_PASSWORD: secret
+      POSTGRES_USER: ${DB_USER:-nachopps}
+      POSTGRES_PASSWORD: ${DB_PASS:-secret}
       POSTGRES_DB: notificaciones_db
-    ports: ['5440:5432']
-    profiles: ['infra', 'all', 'dev']
     volumes:
       - nachopps-db-notificaciones:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nachopps -d notificaciones_db']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nachopps} -d notificaciones_db']
       interval: 5s
       timeout: 3s
       retries: 5
 
   # ═══════════════════════════════════════════════════
-  # MICROSERVICIOS
+  # MICROSERVICIOS (Solo red interna)
   # ═══════════════════════════════════════════════════
   servicio-identidad:
-    image: infra-servicio-identidad
+    image: ${REGISTRY:-nachopps}/servicio-identidad:latest
     container_name: nachopps-servicio-identidad
-    ports: ['3001:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-identidad:5432/identidad_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-identidad:5432/identidad_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: '24h'
-    profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
       interval: 10s
@@ -199,15 +176,13 @@ services:
         condition: service_healthy
 
   servicio-mesas:
-    image: infra-servicio-mesas
+    image: ${REGISTRY:-nachopps}/servicio-mesas:latest
     container_name: nachopps-servicio-mesas
-    ports: ['3002:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-mesas:5432/mesas_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-mesas:5432/mesas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-mesas:
         condition: service_healthy
@@ -215,16 +190,14 @@ services:
         condition: service_healthy
 
   servicio-pedidos:
-    image: infra-servicio-pedidos
+    image: ${REGISTRY:-nachopps}/servicio-pedidos:latest
     container_name: nachopps-servicio-pedidos
-    ports: ['3004:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-pedidos:5432/pedidos_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-pedidos:5432/pedidos_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-pedidos:
         condition: service_healthy
@@ -232,16 +205,14 @@ services:
         condition: service_healthy
 
   servicio-cuentas:
-    image: infra-servicio-cuentas
+    image: ${REGISTRY:-nachopps}/servicio-cuentas:latest
     container_name: nachopps-servicio-cuentas
-    ports: ['3005:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-cuentas:5432/cuentas_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-cuentas:5432/cuentas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-cuentas:
         condition: service_healthy
@@ -249,15 +220,13 @@ services:
         condition: service_healthy
 
   servicio-reservas:
-    image: infra-servicio-reservas
+    image: ${REGISTRY:-nachopps}/servicio-reservas:latest
     container_name: nachopps-servicio-reservas
-    ports: ['3006:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-reservas:5432/reservas_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-reservas:5432/reservas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-reservas:
         condition: service_healthy
@@ -265,15 +234,13 @@ services:
         condition: service_healthy
 
   servicio-inventario:
-    image: infra-servicio-inventario
+    image: ${REGISTRY:-nachopps}/servicio-inventario:latest
     container_name: nachopps-servicio-inventario
-    ports: ['3007:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-inventario:5432/inventario_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-inventario:5432/inventario_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-inventario:
         condition: service_healthy
@@ -281,15 +248,13 @@ services:
         condition: service_healthy
 
   servicio-notificaciones:
-    image: infra-servicio-notificaciones
+    image: ${REGISTRY:-nachopps}/servicio-notificaciones:latest
     container_name: nachopps-servicio-notificaciones
-    ports: ['3008:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-notificaciones:5432/notificaciones_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-notificaciones:5432/notificaciones_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-notificaciones:
         condition: service_healthy
@@ -297,17 +262,15 @@ services:
         condition: service_healthy
 
   servicio-caja:
-    image: infra-servicio-caja
+    image: ${REGISTRY:-nachopps}/servicio-caja:latest
     container_name: nachopps-servicio-caja
-    ports: ['3009:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-caja:5432/caja_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-caja:5432/caja_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       db-caja:
         condition: service_healthy
@@ -315,15 +278,13 @@ services:
         condition: service_healthy
 
   servicio-reportes:
-    image: infra-servicio-reportes
+    image: ${REGISTRY:-nachopps}/servicio-reportes:latest
     container_name: nachopps-servicio-reportes
-    ports: ['3010:3000']
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://nachopps:secret@db-reportes:5432/reportes_db?schema=public'
-      RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-    profiles: ['all']
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-reportes:5432/reportes_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      JWT_SECRET: ${JWT_SECRET}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
       interval: 10s
@@ -337,13 +298,13 @@ services:
         condition: service_healthy
 
   # ═══════════════════════════════════════════════════
-  # KONG API GATEWAY (con jwt-cache)
+  # KONG API GATEWAY (Punto único de acceso)
   # ═══════════════════════════════════════════════════
   kong:
     build:
       context: kong
       dockerfile: Dockerfile
-    image: infra-kong
+    image: ${REGISTRY:-nachopps}/kong:latest
     container_name: nachopps-kong
     environment:
       KONG_DATABASE: 'off'
@@ -355,16 +316,16 @@ services:
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PLUGINS: 'bundled,jwt-cache'
-      KONG_JWT_SECRET: ${KONG_JWT_SECRET:-nachopps_jwt_secret_dev}
+      KONG_JWT_SECRET: ${KONG_JWT_SECRET}
       KONG_RATE_LIMIT_MINUTE: ${KONG_RATE_LIMIT_MINUTE:-3000}
       KONG_RATE_LIMIT_HOUR: ${KONG_RATE_LIMIT_HOUR:-30000}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: 'jwt_cache 12m'
     ports:
-      - '8000:8000'
-      - '8001:8001'
+      - '80:8000'
+      - '443:8443'
+      - '8001:8001' # Ocultar en prod real si admin API no se expone al exterior
     volumes:
       - ./kong/kong.yml.template:/tmp/kong.yml.template:ro
-    profiles: ['infra', 'all', 'dev']
     healthcheck:
       test: ['CMD', 'kong', 'health']
       interval: 10s
@@ -378,20 +339,15 @@ services:
   otel-collector:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
+    # Sin exponer puertos en prod o exponer solo el de grafana
     ports:
       - '16686:16686'
-      - '4318:4318'
-      - '4317:4317'
-    profiles: ['infra', 'all', 'dev']
 
   prometheus:
     image: prom/prometheus:latest
     container_name: nachopps-prometheus
-    ports:
-      - '9090:9090'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    profiles: ['infra', 'all', 'dev']
 
   grafana:
     image: grafana/grafana:latest
@@ -399,18 +355,7 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    profiles: ['infra', 'all', 'dev']
-
-  pwa-cliente:
-    build:
-      context: ../
-      dockerfile: apps/pwa-cliente/Dockerfile
-    image: infra-pwa-cliente
-    container_name: nachopps-pwa-cliente
-    ports:
-      - '4200:80'
-    profiles: ['all']
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
 
 volumes:
   nachopps-db-reservas:

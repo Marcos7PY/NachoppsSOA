@@ -17,9 +17,11 @@ export class AppService {
         cuentaId: data.cuentaId,
         mesaId: data.mesaId,
         total: data.total,
+        items: data.items ? JSON.parse(JSON.stringify(data.items)) : [],
       },
       update: {
         total: data.total,
+        items: data.items ? JSON.parse(JSON.stringify(data.items)) : [],
       },
     });
   }
@@ -58,28 +60,32 @@ export class AppService {
       total,
     }));
 
-    // 2. Generar Ranking de Productos determinista según ventas del día
-    const PLATILLOS = [
-      { nombre: 'Ceviche Carretillero', precio: 38.0 },
-      { nombre: 'Lomo Saltado Jugoso', precio: 45.0 },
-      { nombre: 'Arroz con Mariscos', precio: 42.0 },
-      { nombre: 'Anticuchos de Corazón', precio: 28.0 },
-      { nombre: 'Chicha Morada Jarra', precio: 15.0 },
-      { nombre: 'Pisco Sour Catedral', precio: 25.0 },
-      { nombre: 'Fettuccine a la Huancaína', precio: 36.0 },
-    ];
+    // 2. Generar Ranking de Productos determinista según ventas reales del día
+    const productStats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
 
-    const topProductos = PLATILLOS.map((p, idx) => {
-      const factor = [0.32, 0.24, 0.16, 0.12, 0.08, 0.05, 0.03][idx];
-      const ingresosSimulados = totalIngresos * factor;
-      const cantidad = Math.round(ingresosSimulados / p.precio);
-      return {
-        productoId: `prod-top-${idx + 1}`,
-        nombre: p.nombre,
-        cantidad: cantidad > 0 ? cantidad : 0,
-        ingresos: cantidad > 0 ? cantidad * p.precio : 0.0,
-      };
-    }).filter(p => p.cantidad > 0);
+    for (const v of ventas) {
+      if (Array.isArray(v.items)) {
+        for (const item of v.items as any[]) {
+          const pid = item.productoId;
+          if (!pid) continue;
+          const current = productStats.get(pid) || { nombre: item.nombre || pid, cantidad: 0, ingresos: 0 };
+          current.cantidad += Number(item.cantidad || 0);
+          current.ingresos += Number(item.cantidad || 0) * Number(item.precioUnitario || 0);
+          productStats.set(pid, current);
+        }
+      }
+    }
+
+    const topProductos = Array.from(productStats.entries())
+      .map(([productoId, stats]) => ({
+        productoId,
+        nombre: stats.nombre,
+        cantidad: stats.cantidad,
+        ingresos: stats.ingresos,
+      }))
+      .filter(p => p.cantidad > 0)
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 10);
 
     return {
       fecha: hoy,

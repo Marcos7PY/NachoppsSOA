@@ -56,3 +56,12 @@ Modifica `infra/kong/kong.yml` y reinicia Kong:
 ```powershell
 docker compose -f infra/docker-compose.yml restart kong
 ```
+
+## Configuración de Cookies (SameSite)
+
+Al desplegar en producción, la política de la cookie de sesión (`access_token`) y el token CSRF debe ajustarse a la topología del dominio:
+
+- **Mismo dominio (Same-Site):** Si la PWA y el API Gateway (Kong) comparten el mismo dominio raíz (ej. `app.nachopps.com` y `api.nachopps.com`), se debe configurar la cookie en el backend con `SameSite=Strict` o `Lax` (recomendado) para mayor seguridad.
+- **Dominio cruzado (Cross-Site):** Si la PWA está en `nachopps.vercel.app` y la API en `api.nachopps.com`, es OBLIGATORIO configurar las cookies con `SameSite=None` y `Secure=true`. Sin esto, el navegador rechazará enviar las credenciales y el WebSocket/sesión fallará.
+
+*Asegúrese de modificar estas variables de entorno en el microservicio `servicio-identidad` según el entorno de despliegue real.*

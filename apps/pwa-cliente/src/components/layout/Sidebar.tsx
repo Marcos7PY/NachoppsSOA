@@ -1,6 +1,7 @@
 // components/layout/Sidebar.tsx — Navegación lateral
 
 import { useLocation, useNavigate } from 'react-router-dom';
+import { APP_CONFIG } from '../../config';
 
 interface NavItem {
   key: string;
@@ -50,10 +51,10 @@ export function Sidebar() {
   return (
     <nav className="sidebar">
       <div className="brand">
-        <div className="brand-logo">N</div>
+        <div className="brand-logo">{APP_CONFIG.nombreLocal.charAt(0)}</div>
         <div>
-          <b>NachoPps</b>
-          <small>Barranco · Lima</small>
+          <b>{APP_CONFIG.nombreLocal}</b>
+          <small>{APP_CONFIG.ubicacionLocal}</small>
         </div>
       </div>
 
@@ -76,11 +77,13 @@ export function Sidebar() {
       </div>
 
       <div className="nav-foot">
+        {/*
         <button className="nav-item" onClick={() => go('mesas')} title="Buscar">
           <SearchIcon />
           <span>Buscar</span>
           <span className="kbd" style={{ marginLeft: 'auto' }}>⌘K</span>
         </button>
+        */}
       </div>
     </nav>
   );

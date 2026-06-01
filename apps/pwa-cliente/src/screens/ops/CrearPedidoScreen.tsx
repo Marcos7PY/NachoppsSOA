@@ -9,12 +9,11 @@ import { useInventarioStore } from '../../store/inventario.store';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 import type { ProductoVM } from '../../types/inventario.types';
 
-const SYNC_RETRY_DELAYS_MS = [0, 500, 1000, 2000] as const;
-const ESTADOS_PEDIDO_CERRADO = new Set(['PAGADO', 'CANCELADO']);
-
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+const ESTADOS_PEDIDO_CERRADO = new Set(['PAGADO', 'CANCELADO']);
 
 function pedidoEstaActivo(pedido: { estado: string }) {
   return !ESTADOS_PEDIDO_CERRADO.has(pedido.estado);
@@ -159,30 +158,6 @@ export function CrearPedidoScreen() {
     ? cuentaActiva.total
     : pedidosSesion.reduce((sum, pedido) => sum + Number(pedido.total), 0);
 
-  const revalidarMesaConCuenta = async (mesaId: string) => {
-    for (const delay of SYNC_RETRY_DELAYS_MS) {
-      if (delay > 0) {
-        await wait(delay);
-      }
-
-      await Promise.allSettled([
-        fetchMesas(),
-        cargarCuenta(mesaId),
-        fetchPedidos(mesaId),
-      ]);
-
-      const mesaActual = useMesasStore.getState().mesas.find((m) => m.id === mesaId);
-      const cuentaActual = useCuentasStore.getState().cuentaActiva;
-
-      const tienePedidos = usePedidosStore.getState().pedidos.some((pedido) => pedido.mesaId === mesaId && pedidoEstaActivo(pedido));
-      if ((mesaActual?.cuentaAsociada && cuentaActual?.mesaId === mesaId) || tienePedidos) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
   // Crear Pedido
   const handleCrearPedido = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -238,18 +213,7 @@ export function CrearPedidoScreen() {
         modalidad: tipo,
       });
 
-      let sincronizado = true;
-      if (tipo === 'SALON') {
-        setSincronizandoMesa(true);
-        sincronizado = await revalidarMesaConCuenta(targetMesa.id);
-        setSincronizandoMesa(false);
-      }
-
-      setSuccessLocal(
-        sincronizado
-          ? `Pedido de ${tipo.toLowerCase()} enviado con éxito.`
-          : 'Pedido enviado. La mesa se seguirá sincronizando en segundo plano.',
-      );
+      setSuccessLocal(`Pedido de ${tipo.toLowerCase()} enviado con éxito.`);
       setCarrito({});
       setClienteNombre('');
       setClienteTelefono('');

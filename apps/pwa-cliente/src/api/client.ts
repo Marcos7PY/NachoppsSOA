@@ -84,7 +84,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // 401 → sesión expirada
     if (res.status === 401) {
       clearAuthToken();
-      window.dispatchEvent(new CustomEvent('auth:expired'));
+      if (!url.endsWith('/logout')) {
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+      }
       throw new ApiError(res.status, res.statusText, body);
     }
 
