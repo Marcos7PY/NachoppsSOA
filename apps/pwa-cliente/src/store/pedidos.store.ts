@@ -15,7 +15,7 @@ interface PedidosState {
 }
 
 interface PedidosActions {
-  fetch: (mesaId?: string) => Promise<void>;
+  fetch: (mesaId?: string, force?: boolean) => Promise<void>;
   fetchMore: () => Promise<void>;
   invalidate: () => Promise<void>;
   crear: (payload: CrearPedidoPayload) => Promise<void>;
@@ -25,6 +25,11 @@ interface PedidosActions {
 
 type PedidosStore = PedidosState & PedidosActions;
 
+let lastFetchedAt = 0;
+let lastMesaId: string | undefined = undefined;
+let inFlightFetch: Promise<void> | null = null;
+const TTL = 5000;
+
 export const usePedidosStore = create<PedidosStore>((set, get) => ({
   pedidos: [],
   nextCursor: null,
@@ -33,22 +38,37 @@ export const usePedidosStore = create<PedidosStore>((set, get) => ({
   loadingMore: false,
   error: null,
 
-  fetch: async (mesaId?: string) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await pedidosApi.getPage({ mesaId, limit: 50 });
-      set({
-        pedidos: mapPedidos(response.data),
-        nextCursor: response.nextCursor,
-        currentMesaId: mesaId,
-        loading: false,
-      });
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Error al cargar pedidos',
-        loading: false,
-      });
+  fetch: async (mesaId?: string, force = false) => {
+    if (!force && Date.now() - lastFetchedAt < TTL && lastMesaId === mesaId && get().pedidos.length > 0) {
+      return;
     }
+    if (inFlightFetch) {
+      return inFlightFetch;
+    }
+
+    set({ loading: true, error: null });
+    inFlightFetch = (async () => {
+      try {
+        const response = await pedidosApi.getPage({ mesaId, limit: 50 });
+        set({
+          pedidos: mapPedidos(response.data),
+          nextCursor: response.nextCursor,
+          currentMesaId: mesaId,
+          loading: false,
+        });
+        lastFetchedAt = Date.now();
+        lastMesaId = mesaId;
+      } catch (err) {
+        set({
+          error: err instanceof Error ? err.message : 'Error al cargar pedidos',
+          loading: false,
+        });
+      } finally {
+        inFlightFetch = null;
+      }
+    })();
+
+    return inFlightFetch;
   },
 
   fetchMore: async () => {
@@ -76,12 +96,16 @@ export const usePedidosStore = create<PedidosStore>((set, get) => ({
   },
 
   invalidate: async () => {
+    lastFetchedAt = 0;
+    const mesaId = get().currentMesaId;
     try {
-      const response = await pedidosApi.getPage({ limit: 50 });
+      const response = await pedidosApi.getPage({ mesaId, limit: 50 });
       set({
         pedidos: mapPedidos(response.data),
         nextCursor: response.nextCursor,
       });
+      lastFetchedAt = Date.now();
+      lastMesaId = mesaId;
     } catch {
       // Fallo silencioso en invalidación
     }

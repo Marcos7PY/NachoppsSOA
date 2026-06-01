@@ -221,34 +221,21 @@ export function CrearPedidoScreen() {
 
     setSaving(true);
     try {
-      let itemsPayload: CrearPedidoItemPayload[];
-
-      if (tipo === 'SALON') {
-        itemsPayload = itemsCanasta.map((it) => ({
-          productoId: it.producto.id,
-          cantidad: it.cantidad,
-          area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
-          notas: it.notas || '',
-        }));
-      } else {
-        // Serializar datos del cliente en las notas de los ítems
-        const headerStr = tipo === 'DELIVERY' 
-          ? `[DELIVERY] Cliente: ${clienteNombre.trim()} | Tel: ${clienteTelefono.trim()} | Prov: ${proveedorDelivery} | Dir: ${clienteDireccion.trim()}`
-          : `[LLEVAR] Cliente: ${clienteNombre.trim()} | Tel: ${clienteTelefono.trim()}`;
-
-        itemsPayload = itemsCanasta.map((it, idx) => ({
-          productoId: it.producto.id,
-          cantidad: it.cantidad,
-          area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
-          notas: idx === 0 
-            ? `${headerStr}${it.notas ? ` | Nota: ${it.notas}` : ''}`
-            : it.notas || '',
-        }));
-      }
+      const itemsPayload: CrearPedidoItemPayload[] = itemsCanasta.map((it) => ({
+        productoId: it.producto.id,
+        cantidad: it.cantidad,
+        area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
+        notas: it.notas || '',
+      }));
 
       await crearPedido({
         mesaId: targetMesa.id,
         items: itemsPayload,
+        cliente: tipo !== 'SALON' && clienteNombre.trim() ? clienteNombre.trim() : undefined,
+        telefono: tipo !== 'SALON' && clienteTelefono.trim() ? clienteTelefono.trim() : undefined,
+        direccion: tipo === 'DELIVERY' && clienteDireccion.trim() ? clienteDireccion.trim() : undefined,
+        proveedor: tipo === 'DELIVERY' ? proveedorDelivery : undefined,
+        modalidad: tipo,
       });
 
       let sincronizado = true;

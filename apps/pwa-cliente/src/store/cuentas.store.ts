@@ -23,7 +23,7 @@ interface CuentasState {
 }
 
 interface CuentasActions {
-  cargar: (mesaId: string) => Promise<void>;
+  cargar: (mesaId: string, force?: boolean) => Promise<void>;
   abrir: (mesaId: string) => Promise<void>;
   registrarPago: (payload: RegistrarPagoPayload) => Promise<void>;
   cerrar: (descuento?: number) => Promise<void>;
@@ -34,6 +34,11 @@ interface CuentasActions {
 
 type CuentasStore = CuentasState & CuentasActions;
 
+let lastFetchedAt = 0;
+let lastMesaId: string | undefined = undefined;
+let inFlightFetch: Promise<void> | null = null;
+const TTL = 5000;
+
 export const useCuentasStore = create<CuentasStore>((set, get) => ({
   cuentaActiva: null,
   loading: false,
@@ -42,18 +47,33 @@ export const useCuentasStore = create<CuentasStore>((set, get) => ({
   ticket: null,
   division: null,
 
-  cargar: async (mesaId: string) => {
-    set({ loading: true, error: null, success: null, ticket: null, division: null });
-    try {
-      const dto = await cuentasApi.getByMesa(mesaId);
-      set({ cuentaActiva: mapCuenta(dto), loading: false });
-    } catch (err) {
-      set({
-        cuentaActiva: null,
-        error: err instanceof Error ? err.message : 'Error al cargar cuenta',
-        loading: false,
-      });
+  cargar: async (mesaId: string, force = false) => {
+    if (!force && Date.now() - lastFetchedAt < TTL && lastMesaId === mesaId && get().cuentaActiva) {
+      return;
     }
+    if (inFlightFetch) {
+      return inFlightFetch;
+    }
+
+    set({ loading: true, error: null, success: null, ticket: null, division: null });
+    inFlightFetch = (async () => {
+      try {
+        const dto = await cuentasApi.getByMesa(mesaId);
+        set({ cuentaActiva: mapCuenta(dto), loading: false });
+        lastFetchedAt = Date.now();
+        lastMesaId = mesaId;
+      } catch (err) {
+        set({
+          cuentaActiva: null,
+          error: err instanceof Error ? err.message : 'Error al cargar cuenta',
+          loading: false,
+        });
+      } finally {
+        inFlightFetch = null;
+      }
+    })();
+
+    return inFlightFetch;
   },
 
   abrir: async (mesaId: string) => {
@@ -134,9 +154,12 @@ export const useCuentasStore = create<CuentasStore>((set, get) => ({
     const cuenta = get().cuentaActiva;
     if (!cuenta) return;
 
+    lastFetchedAt = 0;
     try {
       const dto = await cuentasApi.getById(cuenta.id);
       set({ cuentaActiva: mapCuenta(dto) });
+      lastFetchedAt = Date.now();
+      lastMesaId = cuenta.mesaId;
     } catch {
       set({ cuentaActiva: null });
     }

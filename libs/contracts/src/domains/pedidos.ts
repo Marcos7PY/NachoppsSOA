@@ -84,6 +84,21 @@ export class PedidoDto {
   total: number;
   @IsEnum(PedidoEstado)
   estado: PedidoEstado;
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
   @IsString()
   createdAt: string;
 }
@@ -156,6 +171,21 @@ export class CrearPedidoCommand {
   @ValidateNested({ each: true })
   @Type(() => PedidoItemInput)
   items: PedidoItemInput[];
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
 }
 
 export class ActualizarEstadoPedidoCommand {

@@ -67,6 +67,11 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
     estadoClass: ESTADO_CSS[dto.estado] ?? 'badge-muted',
     estadoLabel: ESTADO_LABEL[dto.estado] ?? dto.estado,
     createdAt: dto.createdAt,
+    cliente: dto.cliente ?? undefined,
+    telefono: dto.telefono ?? undefined,
+    direccion: dto.direccion ?? undefined,
+    proveedor: dto.proveedor ?? undefined,
+    modalidad: dto.modalidad ?? undefined,
     tiempoTranscurrido: calcularTiempo(dto.createdAt),
     cantidadItems: items.reduce((sum, it) => sum + it.cantidad, 0),
   };

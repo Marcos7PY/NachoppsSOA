@@ -12,38 +12,58 @@ interface MesasState {
 }
 
 interface MesasActions {
-  fetch: () => Promise<void>;
+  fetch: (force?: boolean) => Promise<void>;
   invalidate: () => Promise<void>;
   optimisticCambiarEstado: (id: string, estado: EstadoMesa) => Promise<void>;
 }
 
 type MesasStore = MesasState & MesasActions;
 
+let lastFetchedAt = 0;
+let inFlightFetch: Promise<void> | null = null;
+const TTL = 5000;
+
 export const useMesasStore = create<MesasStore>((set, get) => ({
   mesas: [],
   loading: false,
   error: null,
 
-  fetch: async () => {
-    set({ loading: true, error: null });
-    try {
-      const dtos = await mesasApi.getAll();
-      set({ mesas: mapMesas(dtos), loading: false });
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Error al cargar mesas',
-        loading: false,
-      });
+  fetch: async (force = false) => {
+    if (!force && Date.now() - lastFetchedAt < TTL && get().mesas.length > 0) {
+      return;
     }
+    if (inFlightFetch) {
+      return inFlightFetch;
+    }
+
+    set({ loading: true, error: null });
+    inFlightFetch = (async () => {
+      try {
+        const dtos = await mesasApi.getAll();
+        set({ mesas: mapMesas(dtos), loading: false });
+        lastFetchedAt = Date.now();
+      } catch (err) {
+        set({
+          error: err instanceof Error ? err.message : 'Error al cargar mesas',
+          loading: false,
+        });
+      } finally {
+        inFlightFetch = null;
+      }
+    })();
+
+    return inFlightFetch;
   },
 
   invalidate: async () => {
-    // Refetch sin mostrar loading (actualización silenciosa)
+    // Refetch silencioso forzando la cache
+    lastFetchedAt = 0; // Invalidar tiempo de cache
     try {
       const dtos = await mesasApi.getAll();
       set({ mesas: mapMesas(dtos) });
+      lastFetchedAt = Date.now();
     } catch {
-      // Si falla el refetch silencioso, no mostrar error
+      // Ignorar fallas silenciosas
     }
   },
 

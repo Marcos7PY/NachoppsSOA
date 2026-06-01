@@ -52,6 +52,19 @@ export interface PedidoItemVM {
   area: ItemArea;
   notas: string;
   estado: EstadoPedido;
+
+// ─── ViewModels para la UI ──────────────────────────────────────
+export interface PedidoItemVM {
+  id: string;
+  productoId: string;
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+  modificadores: ModificadorDto[];
+  area: ItemArea;
+  notas: string;
+  estado: EstadoPedido;
   /** Clase CSS del badge de estado */
   estadoClass: string;
   /** Label legible */
@@ -68,6 +81,11 @@ export interface PedidoVM {
   estadoClass: string;
   estadoLabel: string;
   createdAt: string;
+  cliente?: string;
+  telefono?: string;
+  direccion?: string;
+  proveedor?: string;
+  modalidad?: string;
   /** Tiempo transcurrido legible */
   tiempoTranscurrido: string;
   cantidadItems: number;

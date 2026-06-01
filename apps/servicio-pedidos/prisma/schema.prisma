@@ -25,6 +25,11 @@ model Pedido {
   total          Decimal      @default(0) @db.Decimal(10, 2)
   items          PedidoItem[]
   comensales     Int          @default(1)
+  cliente        String?
+  telefono       String?
+  direccion      String?
+  proveedor      String?
+  modalidad      String?      @default("MESA")
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 

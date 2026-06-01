@@ -48,7 +48,17 @@ export class AppService {
     const mesaLocal = await this.validarMesa(command.mesaId);
     const itemsProcesados = await this.validarYMapearItems(command.items);
     const total = this.calcularTotal(itemsProcesados);
-    const pedido = await this.persistirPedido(command.mesaId, mesaLocal.numero, itemsProcesados, total);
+    const pedido = await this.persistirPedido(
+      command.mesaId,
+      mesaLocal.numero,
+      itemsProcesados,
+      total,
+      command.cliente,
+      command.telefono,
+      command.direccion,
+      command.proveedor,
+      command.modalidad,
+    );
 
     this.logger.log(`Pedido ${pedido.id} creado con eventos en Outbox`);
     return { 
@@ -169,7 +179,17 @@ export class AppService {
     );
   }
 
-  private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
+  private async persistirPedido(
+    mesaId: string,
+    numeroMesa: number,
+    items: PedidoItemMapeado[],
+    total: Prisma.Decimal,
+    cliente?: string,
+    telefono?: string,
+    direccion?: string,
+    proveedor?: string,
+    modalidad?: string,
+  ): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
       const itemsConStockControlado = items.filter((item) => typeof item.stockActual === 'number');
       const cantidadesPorProducto = itemsConStockControlado.reduce((acc, item) => {
@@ -200,6 +220,11 @@ export class AppService {
           numeroMesa,
           estado: PedidoEstado.Pendiente,
           total,
+          cliente,
+          telefono,
+          direccion,
+          proveedor,
+          modalidad: modalidad ?? 'MESA',
           items: {
             create: items.map(item => ({
               productoId: item.productoId,
@@ -518,6 +543,11 @@ export class AppService {
       numeroMesa: p.numeroMesa ?? undefined,
       estado: p.estado as PedidoEstado,
       total: Number(p.total),
+      cliente: p.cliente ?? undefined,
+      telefono: p.telefono ?? undefined,
+      direccion: p.direccion ?? undefined,
+      proveedor: p.proveedor ?? undefined,
+      modalidad: p.modalidad ?? undefined,
       createdAt: p.createdAt.toISOString(),
       items: p.items.map(i => ({
         id: i.id,
