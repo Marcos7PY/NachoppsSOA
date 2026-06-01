@@ -21,11 +21,11 @@ export function MesasScreen() {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const { mesas, loading, error, fetch, optimisticCambiarEstado } = useMesasQuery();
-  const { cuentaActiva, cargar: cargarCuenta } = useCuentasQuery(selectedId ?? undefined);
   const { pedidos, fetch: fetchPedidos } = usePedidosQuery();
   const [filtro, setFiltro] = useState<EstadoMesa | 'TODAS' | 'CUENTA'>('TODAS');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalMesa, setModalMesa] = useState<MesaVM | null>(null);
+  const { cuentaActiva, cargar: cargarCuenta } = useCuentasQuery(selectedId ?? undefined);
 
   // Ya no necesitamos useEffect para fetch on mount ni window focus, 
   // React Query lo maneja automáticamente.
