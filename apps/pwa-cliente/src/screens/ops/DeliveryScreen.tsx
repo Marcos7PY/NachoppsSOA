@@ -2,9 +2,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
-import { useMesasStore } from '../../store/mesas.store';
-import { useInventarioStore } from '../../store/inventario.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 import type { ProductoVM } from '../../types/inventario.types';
 
@@ -15,21 +15,10 @@ export function DeliveryScreen() {
   const paramMesaId = searchParams.get('mesaId');
   const paramCanal = searchParams.get('canal');
 
-  // Stores
-  const {
-    pedidos,
-    loading: loadingPedidos,
-    fetch: fetchPedidos,
-    avanzarEstado,
-    crear: crearPedido,
-  } = usePedidosStore();
-  const { mesas, fetch: fetchMesas } = useMesasStore();
-  const {
-    productos,
-    categorias,
-    loading: loadingInv,
-    fetch: fetchInventario,
-  } = useInventarioStore();
+  // Stores (React Query)
+  const { pedidos, loading: loadingPedidos, fetch: fetchPedidos, avanzarEstado, crear: crearPedido } = usePedidosQuery();
+  const { mesas, fetch: fetchMesas, optimisticCambiarEstado } = useMesasQuery();
+  const { productos, categorias, loading: loadingInv, fetch: fetchInventario } = useInventarioQuery();
 
   // Estados locales para el Formulario de Creación
   const [tipo, setTipo] = useState<'SALON' | 'DELIVERY' | 'LLEVAR'>('DELIVERY');
@@ -51,11 +40,7 @@ export function DeliveryScreen() {
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [successLocal, setSuccessLocal] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPedidos();
-    fetchMesas();
-    fetchInventario();
-  }, [fetchPedidos, fetchMesas, fetchInventario]);
+  // La carga inicial es manejada automáticamente por React Query
 
   // Mesas físicas ordenadas secuencialmente
   const mesasFisicas = useMemo(() => {
@@ -240,7 +225,6 @@ export function DeliveryScreen() {
 
       // Si es Salón, marcar optimísticamente la mesa como ocupada en el store local para feedback inmediato
       if (tipo === 'SALON') {
-        const { optimisticCambiarEstado } = useMesasStore.getState();
         if (targetMesa.estado !== 'OCUPADA') {
           await optimisticCambiarEstado(targetMesa.id, 'OCUPADA');
         }

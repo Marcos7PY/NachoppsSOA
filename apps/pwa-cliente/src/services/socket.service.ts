@@ -1,10 +1,11 @@
 // services/socket.service.ts - Singleton Socket.IO para actualizaciones en tiempo real
 
 import { io, type Socket } from 'socket.io-client';
-import { useCuentasStore } from '../store/cuentas.store';
-import { useMesasStore } from '../store/mesas.store';
 import { useNotificacionesStore } from '../store/notificaciones.store';
-import { usePedidosStore } from '../store/pedidos.store';
+import { queryClient } from '../api/queryClient';
+import { MESAS_QUERY_KEY } from '../hooks/queries/useMesasQuery';
+import { PEDIDOS_QUERY_KEY } from '../hooks/queries/usePedidosQuery';
+import { CUENTAS_QUERY_KEY } from '../hooks/queries/useCuentasQuery';
 
 interface NotificacionEvento {
   pattern?: string;
@@ -44,15 +45,9 @@ function storesForPattern(pattern?: string) {
 }
 
 function invalidateStores(stores: Set<StoreKey>) {
-  const targets = new Set<Promise<void>>();
-
-  if (stores.has('pedidos'))
-    targets.add(usePedidosStore.getState().invalidate());
-  if (stores.has('mesas')) targets.add(useMesasStore.getState().invalidate());
-  if (stores.has('cuentas'))
-    targets.add(useCuentasStore.getState().invalidate());
-
-  void Promise.allSettled([...targets]);
+  if (stores.has('pedidos')) queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+  if (stores.has('mesas')) queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+  if (stores.has('cuentas')) queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
 }
 
 function scheduleInvalidate(pattern?: string) {

@@ -2,9 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useMesasStore } from '../../store/mesas.store';
-import { useCuentasStore } from '../../store/cuentas.store';
-import { usePedidosStore } from '../../store/pedidos.store';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { MesaVM, EstadoMesa } from '../../types/mesa.types';
 import type { PedidoVM } from '../../types/pedido.types';
 
@@ -20,31 +20,15 @@ const FILTROS: { key: EstadoMesa | 'TODAS' | 'CUENTA'; label: string }[] = [
 export function MesasScreen() {
   const navigate = useNavigate();
   const online = useOnlineStatus();
-  const { mesas, loading, error, fetch, optimisticCambiarEstado } =
-    useMesasStore();
-  const { cuentaActiva, cargar: cargarCuenta } = useCuentasStore();
-  const { pedidos, fetch: fetchPedidos } = usePedidosStore();
-  const [filtro, setFiltro] = useState<EstadoMesa | 'TODAS' | 'CUENTA'>(
-    'TODAS',
-  );
+  const { mesas, loading, error, fetch, optimisticCambiarEstado } = useMesasQuery();
+  const { cuentaActiva, cargar: cargarCuenta } = useCuentasQuery(selectedId ?? undefined);
+  const { pedidos, fetch: fetchPedidos } = usePedidosQuery();
+  const [filtro, setFiltro] = useState<EstadoMesa | 'TODAS' | 'CUENTA'>('TODAS');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalMesa, setModalMesa] = useState<MesaVM | null>(null);
 
-  useEffect(() => {
-    fetch();
-    fetchPedidos();
-  }, [fetch, fetchPedidos]);
-
-  useEffect(() => {
-    const refresh = () => {
-      void Promise.allSettled([fetch(), fetchPedidos()]);
-    };
-    window.addEventListener('focus', refresh);
-
-    return () => {
-      window.removeEventListener('focus', refresh);
-    };
-  }, [fetch, fetchPedidos]);
+  // Ya no necesitamos useEffect para fetch on mount ni window focus, 
+  // React Query lo maneja automáticamente.
 
   const mesasSalon = mesas.filter((m) => m.numeroRaw < 90);
   const pedidosActivosPorMesa = pedidos.reduce<Record<string, PedidoVM[]>>(

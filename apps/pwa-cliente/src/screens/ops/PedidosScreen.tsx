@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { EstadoPedido } from '../../types/pedido.types';
 
 const NEXT_ESTADO: Partial<Record<EstadoPedido, EstadoPedido>> = {
@@ -27,13 +27,11 @@ const FILTROS_ESTADO: { key: EstadoPedido | 'TODOS'; label: string }[] = [
 
 export function PedidosScreen() {
   const online = useOnlineStatus();
-  const { pedidos, loading, error, fetch, avanzarEstado } = usePedidosStore();
+  const { pedidos, loading, error, fetch, avanzarEstado } = usePedidosQuery();
   const [filtro, setFiltro] = useState<EstadoPedido | 'TODOS'>('TODOS');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  // La carga inicial y re-fetch en foco es manejado automáticamente por React Query.
 
   const pedidosSalon = pedidos.filter((p) => {
     const num = Number(p.mesaNumero) || 0;

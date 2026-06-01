@@ -8,6 +8,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useAuthStore } from './store/auth.store';
 import { AppRouter } from './router/index';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './api/queryClient';
 import './styles.css';
 
 // ─── Restaurar tema persistido ──────────────────────────────────
@@ -40,7 +43,10 @@ async function bootstrap() {
 
   root.render(
     <StrictMode>
-      <AppRouter />
+      <QueryClientProvider client={queryClient}>
+        <AppRouter />
+        <ReactQueryDevtools initialIsOpen={false} position="bottom" />
+      </QueryClientProvider>
     </StrictMode>,
   );
 }

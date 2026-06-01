@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { PedidoVM, PedidoItemVM, EstadoPedido } from '../../types/pedido.types';
 
 const COLUMNAS: { estado: EstadoPedido; label: string; color: string }[] = [
@@ -37,13 +37,11 @@ function itemsPorEstado(pedido: PedidoVM, estado: EstadoPedido): PedidoItemVM[] 
 
 export function CocinaScreen() {
   const online = useOnlineStatus();
-  const { pedidos, loading, error, fetch, avanzarItem } = usePedidosStore();
+  const { pedidos, loading, error, fetch, avanzarItem } = usePedidosQuery();
   const [areaFiltro, setAreaFiltro] = useState<'TODAS' | 'COCINA' | 'BAR'>('TODAS');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  // La carga inicial la maneja usePedidosQuery internamente
 
   const handleAvanzarItem = async (itemId: string, estado: EstadoPedido) => {
     if (!online) return;

@@ -2,10 +2,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
-import { useMesasStore } from '../../store/mesas.store';
-import { useCuentasStore } from '../../store/cuentas.store';
-import { useInventarioStore } from '../../store/inventario.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
+import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 import type { ProductoVM } from '../../types/inventario.types';
 
@@ -27,14 +27,17 @@ export function CrearPedidoScreen() {
   const paramCanal = searchParams.get('canal');
 
   // Stores
-  const { pedidos: pedidosMesa, crear: crearPedido, fetch: fetchPedidos } = usePedidosStore();
-  const { mesas, fetch: fetchMesas } = useMesasStore();
-  const { cuentaActiva, cargar: cargarCuenta } = useCuentasStore();
-  const { productos, categorias, loading: loadingInv, fetch: fetchInventario } = useInventarioStore();
+  // UI Feedbacks y Local State
+  const [selectedMesaId, setSelectedMesaId] = useState<string>('');
+
+  // Stores (React Query)
+  const { pedidos: pedidosMesa, crear: crearPedido } = usePedidosQuery(selectedMesaId || undefined);
+  const { mesas } = useMesasQuery();
+  const { cuentaActiva } = useCuentasQuery(selectedMesaId || undefined);
+  const { productos, categorias, loading: loadingInv } = useInventarioQuery();
 
   // Estados locales
   const [tipo, setTipo] = useState<'SALON' | 'DELIVERY' | 'LLEVAR'>('SALON');
-  const [selectedMesaId, setSelectedMesaId] = useState<string>('');
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [clienteDireccion, setClienteDireccion] = useState('');
@@ -52,17 +55,8 @@ export function CrearPedidoScreen() {
   const [successLocal, setSuccessLocal] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchMesas();
     fetchInventario();
-  }, [fetchMesas, fetchInventario]);
-
-  // Cargar cuenta activa de la mesa para mostrar consumos previos
-  useEffect(() => {
-    if (tipo === 'SALON' && selectedMesaId) {
-      cargarCuenta(selectedMesaId);
-      fetchPedidos(selectedMesaId);
-    }
-  }, [selectedMesaId, tipo, cargarCuenta, fetchPedidos]);
+  }, [fetchInventario]);
 
   // Mesas físicas
   const mesasFisicas = useMemo(() => {
