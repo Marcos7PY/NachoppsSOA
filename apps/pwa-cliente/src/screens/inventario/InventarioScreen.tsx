@@ -19,11 +19,14 @@ export function InventarioScreen() {
   const {
     categorias,
     productos,
+    nextCursor,
     loading,
+    loadingMore,
     saving,
     error,
     success,
     fetch,
+    fetchMore,
     crearProducto,
     reponerStock,
     clearFeedback,
@@ -181,6 +184,14 @@ export function InventarioScreen() {
                   </div>
                 </div>
               ))}
+              {nextCursor && (
+                <div className="row center" style={{ padding: '12px' }}>
+                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                    {loadingMore ? <span className="spinner" /> : null}
+                    Cargar más
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>

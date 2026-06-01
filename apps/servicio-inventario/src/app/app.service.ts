@@ -5,10 +5,13 @@ import {
   ProductoDto, 
   CrearCategoriaCommand, 
   CrearProductoCommand,
+  ListarProductosQuery,
+  ProductoListResponse,
   RoutingKeys,
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
 } from '@org/contracts';
+import { Prisma } from '../generated/prisma';
 
 @Injectable()
 export class AppService {
@@ -41,14 +44,66 @@ export class AppService {
 
   // --- PRODUCTOS ---
 
-  async listarProductos(categoriaId?: string): Promise<{ productos: ProductoDto[] }> {
-    const where = categoriaId ? { categoriaId } : {};
+  async listarProductos(query: ListarProductosQuery = {}): Promise<ProductoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const disponible = this.normalizeBoolean(query.disponible);
+    const where: Prisma.ProductoWhereInput = {
+      ...(query.categoriaId ? { categoriaId: query.categoriaId } : {}),
+      ...(disponible != null ? { disponible } : {}),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { nombre: { contains: query.search, mode: 'insensitive' } },
+              { descripcion: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
     const productos = await this.prisma.producto.findMany({
       where,
       include: { categoria: true },
-      orderBy: { nombre: 'asc' }
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
     });
-    return { productos: productos as unknown as ProductoDto[] };
+
+    const hasMore = productos.length > limit;
+    const data = productos.slice(0, limit);
+
+    return {
+      data: data.map((producto) => this.toProductoDto(producto)),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+  }
+
+  private normalizeBoolean(value?: boolean): boolean | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'boolean') return value;
+    if (String(value).toLowerCase() === 'true') return true;
+    if (String(value).toLowerCase() === 'false') return false;
+    return undefined;
+  }
+
+  private toProductoDto(producto: any): ProductoDto {
+    return {
+      id: producto.id,
+      categoriaId: producto.categoriaId,
+      categoria: producto.categoria ?? undefined,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion ?? null,
+      precio: Number(producto.precio),
+      disponible: producto.disponible,
+      stockActual: producto.stockActual ?? null,
+    };
   }
 
   async obtenerProducto(id: string): Promise<ProductoDto> {
@@ -57,7 +112,7 @@ export class AppService {
       include: { categoria: true }
     });
     if (!producto) throw new NotFoundException('Producto no encontrado');
-    return { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto;
+    return this.toProductoDto(producto);
   }
 
   async obtenerProductosLote(ids: string[]): Promise<{ productos: ProductoDto[] }> {
@@ -65,7 +120,7 @@ export class AppService {
       where: { id: { in: ids } },
       include: { categoria: true },
     });
-    return { productos: productos as unknown as ProductoDto[] };
+    return { productos: productos.map((producto) => this.toProductoDto(producto)) };
   }
 
   async crearProducto(command: CrearProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
@@ -106,7 +161,7 @@ export class AppService {
       return p;
     });
     
-    return { message: 'Producto creado exitosamente', producto: { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto };
+    return { message: 'Producto creado exitosamente', producto: this.toProductoDto({ ...producto, categoria }) };
   }
 
   async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
@@ -150,7 +205,7 @@ export class AppService {
       return p;
     });
 
-    return { message: 'Stock actualizado', producto: { ...actualizado, precio: actualizado.precio.toNumber() } as unknown as ProductoDto };
+    return { message: 'Stock actualizado', producto: this.toProductoDto({ ...actualizado, categoria: undefined }) };
   }
 
   async reducirStockAutomatico(id: string, cantidad: number): Promise<void> {
