@@ -18,12 +18,15 @@ export function ReservasScreen() {
   const online = useOnlineStatus();
   const {
     reservas,
+    nextCursor,
     loading,
+    loadingMore,
     saving,
     error,
     success,
     disponibilidad,
     fetch,
+    fetchMore,
     crear,
     confirmar,
     cancelar,
@@ -144,6 +147,14 @@ export function ReservasScreen() {
                   ))}
                 </tbody>
               </table>
+              {nextCursor && (
+                <div className="row center" style={{ padding: '12px' }}>
+                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                    {loadingMore ? <span className="spinner" /> : null}
+                    Cargar más
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>

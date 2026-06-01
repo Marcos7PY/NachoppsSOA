@@ -6,9 +6,11 @@ import {
 } from '@nestjs/common';
 import {
   CrearReservaCommand,
+  ListarReservasQuery,
   ReservaCreadaPayload,
   ReservaCanceladaPayload,
   ReservaEstado,
+  ReservaListResponse,
   RoutingKeys,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,11 +27,34 @@ export class ReservasService implements OnModuleInit {
     await this.ensureActiveSlotUniqueness();
   }
 
-  async listar(): Promise<{ reservas: ReturnType<typeof toReservaDto>[] }> {
+  async listar(query: ListarReservasQuery = {}): Promise<ReservaListResponse> {
+    const limit = this.normalizeLimit(query.limit);
     const reservas = await this.prisma.reserva.findMany({
-      orderBy: [{ fecha: 'asc' }, { hora: 'asc' }],
+      where: {
+        ...(query.estado ? { estado: query.estado } : {}),
+        ...(query.fecha ? { fecha: new Date(query.fecha) } : {}),
+        ...(query.updatedSince
+          ? { updatedAt: { gte: new Date(query.updatedSince) } }
+          : {}),
+      },
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ fecha: 'asc' }, { hora: 'asc' }, { id: 'asc' }],
     });
-    return { reservas: reservas.map(toReservaDto) };
+
+    const hasMore = reservas.length > limit;
+    const data = reservas.slice(0, limit);
+
+    return {
+      data: data.map(toReservaDto),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
   async crear(command: CrearReservaCommand) {

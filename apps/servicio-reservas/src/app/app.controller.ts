@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { CrearReservaCommand } from '@org/contracts';
+import { CrearReservaCommand, ListarReservasQuery } from '@org/contracts';
 import { ReservasService } from './reservas.service';
 
 @Controller()
@@ -7,8 +7,8 @@ export class AppController {
   constructor(private readonly reservas: ReservasService) {}
 
   @Get()
-  listar() {
-    return this.reservas.listar();
+  listar(@Query() query: ListarReservasQuery) {
+    return this.reservas.listar(query);
   }
 
   @Get('disponibilidad')
@@ -27,7 +27,7 @@ export class AppController {
   }
 
   @Delete(':id')
-  cancelar(@Param('id') id: string, @Body() body?: { motivo?: string }) {
-    return this.reservas.cancelar(id, body?.motivo);
+  cancelar(@Param('id') id: string, @Query('motivo') motivo?: string) {
+    return this.reservas.cancelar(id, motivo);
   }
 }

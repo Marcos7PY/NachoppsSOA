@@ -7,7 +7,9 @@ import type { CrearReservaPayload, DisponibilidadResponse, ReservaVM } from '../
 
 interface ReservasState {
   reservas: ReservaVM[];
+  nextCursor: string | null;
   loading: boolean;
+  loadingMore: boolean;
   saving: boolean;
   error: string | null;
   success: string | null;
@@ -16,6 +18,7 @@ interface ReservasState {
 
 interface ReservasActions {
   fetch: () => Promise<void>;
+  fetchMore: () => Promise<void>;
   crear: (payload: CrearReservaPayload) => Promise<void>;
   confirmar: (id: string) => Promise<void>;
   cancelar: (id: string, motivo?: string) => Promise<void>;
@@ -27,7 +30,9 @@ type ReservasStore = ReservasState & ReservasActions;
 
 export const useReservasStore = create<ReservasStore>((set, get) => ({
   reservas: [],
+  nextCursor: null,
   loading: false,
+  loadingMore: false,
   saving: false,
   error: null,
   success: null,
@@ -36,12 +41,36 @@ export const useReservasStore = create<ReservasStore>((set, get) => ({
   fetch: async () => {
     set({ loading: true, error: null });
     try {
-      const dtos = await reservasApi.getAll();
-      set({ reservas: mapReservas(dtos), loading: false });
+      const response = await reservasApi.getPage({ limit: 50 });
+      set({
+        reservas: mapReservas(response.data),
+        nextCursor: response.nextCursor,
+        loading: false,
+      });
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Error al cargar reservas',
         loading: false,
+      });
+    }
+  },
+
+  fetchMore: async () => {
+    const cursor = get().nextCursor;
+    if (!cursor) return;
+
+    set({ loadingMore: true, error: null });
+    try {
+      const response = await reservasApi.getPage({ cursor, limit: 50 });
+      set({
+        reservas: [...get().reservas, ...mapReservas(response.data)],
+        nextCursor: response.nextCursor,
+        loadingMore: false,
+      });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : 'Error al cargar más reservas',
+        loadingMore: false,
       });
     }
   },
