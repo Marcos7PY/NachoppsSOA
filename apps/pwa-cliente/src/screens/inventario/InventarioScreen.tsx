@@ -276,3 +276,68 @@ export function InventarioScreen() {
     </div>
   );
 }
+
+// ─── Componentes Auxiliares e Iconos ────────────────────────
+
+function LoadingRows() {
+  return (
+    <div className="table-wrap table-wrap-flat">
+      <table className="dt">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Precio</th>
+            <th>Stock</th>
+            <th>Estado</th>
+            <th>Reponer</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <tr key={i}>
+              <td><div className="skel" style={{ width: 120, height: 16 }} /></td>
+              <td><div className="skel" style={{ width: 60, height: 16 }} /></td>
+              <td><div className="skel" style={{ width: 40, height: 16 }} /></td>
+              <td><div className="skel" style={{ width: 70, height: 16 }} /></td>
+              <td><div className="skel" style={{ width: 90, height: 28 }} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" />
+    </svg>
+  );
+}
+
+function BoxIcon() {
+  return (
+    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <polyline points="3.29 7 12 12 20.71 7" />
+      <line x1="12" x2="12" y1="22" y2="12" />
+    </svg>
+  );
+}
