@@ -8,7 +8,10 @@ describe('EventsController - Mesas', () => {
 
     await controller.handleCuentaAbierta({ cuentaId: 'cuenta-1', mesaId: 'mesa-1' });
 
-    expect(appService.actualizarEstado).toHaveBeenCalledWith('mesa-1', { estado: 'OCUPADA' });
+    expect(appService.actualizarEstado).toHaveBeenCalledWith('mesa-1', {
+      estado: 'OCUPADA',
+      cuentaAsociada: 'cuenta-1',
+    });
   });
 
   it('cuenta.cerrada recibe payload directo y libera la mesa', async () => {
@@ -17,6 +20,9 @@ describe('EventsController - Mesas', () => {
 
     await controller.handleCuentaCerrada({ cuentaId: 'cuenta-1', mesaId: 'mesa-1', total: 90 });
 
-    expect(appService.actualizarEstado).toHaveBeenCalledWith('mesa-1', { estado: 'LIBRE' });
+    expect(appService.actualizarEstado).toHaveBeenCalledWith('mesa-1', {
+      estado: 'LIBRE',
+      cuentaAsociada: null,
+    });
   });
 });

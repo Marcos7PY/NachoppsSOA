@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-describe('POST /api/pedidos', () => {
+describe('POST /api', () => {
   it('debería devolver 400 Bad Request si el payload es inválido (ValidationPipe)', async () => {
     // Faltan campos requeridos y tipos erróneos
     const payloadInvalido = {
@@ -9,7 +9,7 @@ describe('POST /api/pedidos', () => {
     };
 
     try {
-      await axios.post('/api/pedidos', payloadInvalido);
+      await axios.post('/api', payloadInvalido);
       fail('Debería haber lanzado un error 400');
     } catch (error: any) {
       expect(error.response.status).toBe(400);
@@ -19,7 +19,7 @@ describe('POST /api/pedidos', () => {
 
   it('debería devolver 400 Bad Request si el payload está vacío', async () => {
     try {
-      await axios.post('/api/pedidos', {});
+      await axios.post('/api', {});
       fail('Debería haber lanzado un error 400');
     } catch (error: any) {
       expect(error.response.status).toBe(400);

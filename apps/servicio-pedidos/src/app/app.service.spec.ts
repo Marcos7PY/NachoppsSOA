@@ -37,6 +37,7 @@ describe('AppService — Pedidos', () => {
       $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([{ stockActual: 1 }]),
       pedido: {
+        create: vi.fn(),
         findUnique: vi.fn(),
         findMany: vi.fn(),
         update: vi.fn(),
@@ -47,6 +48,9 @@ describe('AppService — Pedidos', () => {
       },
       idempotencyKey: {
         create: vi.fn().mockResolvedValue({}),
+      },
+      outboxEvent: {
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
@@ -95,6 +99,21 @@ describe('AppService — Pedidos', () => {
     it('no debe lanzar error si no hay pedidos para la mesa', async () => {
       vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
       await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+    });
+  });
+
+  describe('listarPedidos', () => {
+    it('debe listar solo pedidos activos por mesa', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+
+      await service.listarPedidos('mesa-1');
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          mesaId: 'mesa-1',
+          estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
+        },
+      }));
     });
   });
 
@@ -151,6 +170,46 @@ describe('AppService — Pedidos', () => {
       expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
         update: expect.objectContaining({ stockActual: 12 }),
       }));
+    });
+  });
+
+  describe('persistirPedido', () => {
+    it('no debe reservar stock local para productos sin control de stock', async () => {
+      mockPrisma.pedido.create.mockResolvedValue({
+        ...basePedido,
+        items: [
+          {
+            id: 'item-1',
+            pedidoId: 'p-001',
+            productoId: 'prod-libre',
+            nombre: 'Ceviche',
+            cantidad: 2,
+            precioUnitario: 25,
+            area: 'COCINA',
+            notas: null,
+            estado: PedidoEstado.Pendiente,
+            comensal: 1,
+            modificadores: [],
+          },
+        ],
+      } as any);
+
+      await (service as any).persistirPedido('mesa-1', 1, [
+        {
+          productoId: 'prod-libre',
+          nombre: 'Ceviche',
+          cantidad: 2,
+          precioUnitario: 25,
+          stockActual: null,
+          area: 'COCINA',
+          comensal: 1,
+          modificadores: [],
+        },
+      ], 50);
+
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+      expect(mockPrisma.pedido.create).toHaveBeenCalled();
     });
   });
 

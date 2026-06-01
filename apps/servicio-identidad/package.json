@@ -55,7 +55,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-identidad/apps/servicio-identidad/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

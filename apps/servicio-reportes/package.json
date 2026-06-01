@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-reportes/apps/servicio-reportes/src/main.js"
-        }
+        },
+        "continuous": true
       }
     }
   },

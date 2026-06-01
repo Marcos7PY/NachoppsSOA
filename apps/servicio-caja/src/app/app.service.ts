@@ -38,25 +38,21 @@ export class AppService {
   }
 
   async registrarPago(command: PagarPedidoCommand): Promise<{ message?: string; transaccion: TransaccionDto }> {
+    let cuentaRemota: CuentaRemota;
+    try {
+      cuentaRemota = await this.fetchCuenta(command.cuentaId);
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number }; code?: string };
+      if (axiosError.response?.status === 404) {
+        throw new NotFoundException(`Cuenta ${command.cuentaId} no encontrada.`);
+      }
+      throw new ServiceUnavailableException('No se pudo obtener la cuenta. Reintente.');
+    }
+
     const transaccion = await this.prisma.$transaction(async (prisma) => {
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.cuentaId}), 1, 8))::bit(32)::int)`;
 
-      let cuenta = await prisma.cuentaAbierta.findUnique({
-        where: { cuentaId: command.cuentaId },
-      });
-
-      let cuentaRemota: CuentaRemota;
-      try {
-        cuentaRemota = await this.fetchCuenta(command.cuentaId);
-      } catch (error: unknown) {
-        const axiosError = error as { response?: { status: number }; code?: string };
-        if (axiosError.response?.status === 404) {
-          throw new NotFoundException(`Cuenta ${command.cuentaId} no encontrada.`);
-        }
-        throw new ServiceUnavailableException('No se pudo obtener la cuenta. Reintente.');
-      }
-
-      cuenta = await prisma.cuentaAbierta.upsert({
+      const cuenta = await prisma.cuentaAbierta.upsert({
         where: { cuentaId: command.cuentaId },
         create: {
           cuentaId: cuentaRemota.id,

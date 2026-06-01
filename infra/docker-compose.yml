@@ -338,18 +338,6 @@ services:
         condition: service_healthy
 
   # ═══════════════════════════════════════════════════
-  # FRONTEND PWA
-  # ═══════════════════════════════════════════════════
-  pwa-cliente:
-    build:
-      context: ..
-      dockerfile: apps/pwa-cliente/Dockerfile
-    image: infra-pwa-cliente
-    container_name: nachopps-pwa-cliente
-    ports: ["4200:80"]
-    profiles: ["pwa-only"]
-
-  # ═══════════════════════════════════════════════════
   # KONG API GATEWAY (con jwt-cache)
   # ═══════════════════════════════════════════════════
   kong:

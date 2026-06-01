@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-reservas/apps/servicio-reservas/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

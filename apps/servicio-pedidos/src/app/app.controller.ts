@@ -31,10 +31,6 @@ export class AppController {
 
   @EventPattern(RoutingKeys.PagoRegistrado)
   async procesarPago(@Payload() payload: PagoRegistradoPayload) {
-    try {
-      await this.appService.procesarPagoRecibido(payload);
-    } catch (error) {
-      console.error('Error procesando pago:', error);
-    }
+    await this.appService.procesarPagoRecibido(payload);
   }
 }

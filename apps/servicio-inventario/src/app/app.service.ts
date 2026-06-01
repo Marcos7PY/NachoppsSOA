@@ -110,16 +110,22 @@ export class AppService {
   }
 
   async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
-    const producto = await this.prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
-    if (!producto) throw new NotFoundException('Producto no encontrado');
-
-    const stockBase = producto.stockActual ?? 0;
-    const nuevoStock = Math.max(0, stockBase + cantidad);
-
     const actualizado = await this.prisma.$transaction(async (prisma) => {
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${id}), 1, 8))::bit(32)::int)`;
+
+      const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
+      if (!producto) throw new NotFoundException('Producto no encontrado');
+
+      const stockBase = producto.stockActual ?? 0;
+      const nuevoStock = Math.max(0, stockBase + cantidad);
+      const disponibleFinal = nuevoStock === 0 ? false : producto.disponible;
+
       const p = await prisma.producto.update({
         where: { id },
-        data: { stockActual: nuevoStock }
+        data: {
+          stockActual: nuevoStock,
+          disponible: disponibleFinal,
+        }
       });
 
       const payload: ProductoActualizadoPayload = {
@@ -128,7 +134,7 @@ export class AppService {
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: producto.categoria?.nombre,
-        disponible: p.disponible,
+        disponible: disponibleFinal,
         stockSyncMode: cantidad > 0 ? 'REPOSICION' : 'CONSUMO_PEDIDO',
         stockDelta: cantidad,
       };
@@ -179,8 +185,9 @@ export class AppService {
     }
 
     const productoDespues = await prisma.producto.findUnique({ where: { id } });
+    let productoFinal = productoDespues;
     if (productoDespues && productoDespues.stockActual === 0 && productoDespues.disponible) {
-      await prisma.producto.update({
+      productoFinal = await prisma.producto.update({
         where: { id },
         data: { disponible: false }
       });
@@ -193,9 +200,9 @@ export class AppService {
           id: producto.id,
           nombre: producto.nombre,
           precio: producto.precio.toNumber(),
-          stockActual: productoDespues?.stockActual,
+          stockActual: productoFinal?.stockActual,
           categoriaNombre: producto.categoria?.nombre,
-          disponible: productoDespues?.disponible ?? producto.disponible,
+          disponible: productoFinal?.disponible ?? producto.disponible,
           stockSyncMode: 'CONSUMO_PEDIDO',
           stockDelta: -cantidad,
         } satisfies ProductoActualizadoPayload),
@@ -203,7 +210,7 @@ export class AppService {
       }
     });
 
-    this.logger.log(`Stock reducido para ${productoDespues?.nombre ?? id}: -> ${productoDespues?.stockActual}`);
+    this.logger.log(`Stock reducido para ${productoFinal?.nombre ?? id}: -> ${productoFinal?.stockActual}`);
   }
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente

@@ -35,7 +35,6 @@ docker image rm infra-servicio-inventario 2>&1 | Out-Null
 docker image rm infra-servicio-notificaciones 2>&1 | Out-Null
 docker image rm infra-servicio-caja     2>&1 | Out-Null
 docker image rm infra-servicio-reportes 2>&1 | Out-Null
-docker image rm infra-pwa-cliente       2>&1 | Out-Null
 docker image rm infra-kong              2>&1 | Out-Null
 Write-Host "   Imágenes limpiadas" -ForegroundColor Green
 

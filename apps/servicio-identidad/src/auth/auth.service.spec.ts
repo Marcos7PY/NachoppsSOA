@@ -8,6 +8,15 @@ import {
 } from '@nestjs/common';
 import { RolUsuario } from '@org/contracts';
 
+vi.mock('bcrypt', () => ({
+  default: {
+    compare: vi.fn().mockResolvedValue(true),
+    hash: vi.fn().mockResolvedValue('hashed_password'),
+  },
+  compare: vi.fn().mockResolvedValue(true),
+  hash: vi.fn().mockResolvedValue('hashed_password'),
+}));
+
 function createMockPrismaService(overrides: Record<string, any> = {}) {
   return {
     $connect: vi.fn().mockResolvedValue(undefined),
@@ -69,15 +78,6 @@ describe('AuthService — Identidad', () => {
     mockPublisher = createMockPublisher();
 
     service = new AuthService(mockPrisma, mockJwt, mockPublisher as any);
-
-    vi.mock('bcrypt', () => ({
-      default: {
-        compare: vi.fn().mockResolvedValue(true),
-        hash: vi.fn().mockResolvedValue('hashed_password'),
-      },
-      compare: vi.fn().mockResolvedValue(true),
-      hash: vi.fn().mockResolvedValue('hashed_password'),
-    }));
   });
 
   describe('validarToken', () => {

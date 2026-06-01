@@ -5,7 +5,7 @@ describe('Dead Letter Queue (DLQ)', () => {
     const connection = await amqp.connect(process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672');
     const channel = await connection.createChannel();
 
-    const dlqName = 'dlq.servicio_pedidos_queue';
+    const dlqName = 'dlq.pedidos_queue';
 
     // Verificamos que al enviar al DLX, llega a la DLQ
     channel.publish('NACHOPPS_DLX', dlqName, Buffer.from(JSON.stringify({ toxic: true })));

@@ -62,7 +62,7 @@ Push-Location $infraDir
 # Stop any running containers first
 docker compose --profile all down --remove-orphans 2>&1 | Out-Null
 
-# Start infrastructure + services (skip pwa-cliente)
+# Start infrastructure + services
 Write-Host "Starting infrastructure (databases + rabbitmq)..." -ForegroundColor Yellow
 docker compose --profile infra up -d 2>&1 | Tee-Object -FilePath (Join-Path $logDir "compose-infra.log")
 

@@ -1,0 +1,87 @@
+name: Docker Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  docker-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build service images
+        run: |
+          services=(
+            servicio-identidad
+            servicio-mesas
+            servicio-pedidos
+            servicio-cuentas
+            servicio-reservas
+            servicio-inventario
+            servicio-notificaciones
+            servicio-caja
+            servicio-reportes
+          )
+
+          for svc in "${services[@]}"; do
+            docker build --build-arg APP_NAME="$svc" -t "infra-$svc" -f Dockerfile .
+          done
+
+          docker compose -f infra/docker-compose.yml --profile all build kong
+
+      - name: Start stack
+        run: docker compose -f infra/docker-compose.yml --profile all up -d --wait --wait-timeout 180
+
+      - name: Seed admin
+        env:
+          DATABASE_URL: postgresql://nachopps:secret@localhost:5439/identidad_db?schema=public
+        run: node scripts/seed-admin.js
+
+      - name: Run integration smoke
+        run: npm run probar
+
+      - name: Run stock and DLQ smoke
+        run: |
+          sleep 70
+          npm run probar:stock
+
+      - name: Run security smoke
+        run: |
+          sleep 70
+          npm run probar:seguridad
+
+      - name: Capture Docker logs
+        if: failure()
+        run: |
+          mkdir -p .ci-logs
+          docker compose -f infra/docker-compose.yml --profile all ps > .ci-logs/docker-ps.txt
+          docker compose -f infra/docker-compose.yml --profile all logs --no-color > .ci-logs/docker-compose.log
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-integration-reports
+          path: |
+            docs/informe-pruebas.md
+            stress-tests/reports/*.md
+            .ci-logs/*
+          if-no-files-found: ignore
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --profile all down --remove-orphans
