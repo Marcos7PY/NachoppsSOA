@@ -2,22 +2,34 @@
 // Sin axios. Manejo centralizado de errores HTTP, 401, 429.
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
-const AUTH_TOKEN_KEY = 'nachopps.access_token';
+const LEGACY_AUTH_TOKEN_KEY = ['nachopps', 'access_token'].join('.');
+const CSRF_COOKIE_KEY = 'nachopps.csrf_token';
+const CSRF_HEADER_KEY = 'X-CSRF-Token';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-let authToken = localStorage.getItem(AUTH_TOKEN_KEY);
+localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 
 export function setAuthToken(token: string) {
-  authToken = token;
-  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  void token;
+  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
 export function getAuthToken() {
-  return authToken;
+  return null;
 }
 
 export function clearAuthToken() {
-  authToken = null;
-  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+}
+
+function getCookie(name: string) {
+  const encodedName = `${encodeURIComponent(name)}=`;
+  const match = document.cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(encodedName));
+
+  return match ? decodeURIComponent(match.slice(encodedName.length)) : null;
 }
 
 // ─── Error normalizado ─────────────────────────────────────────
@@ -44,8 +56,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  if (authToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${authToken}`);
+
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const csrfToken = getCookie(CSRF_COOKIE_KEY);
+  if (
+    csrfToken &&
+    MUTATING_METHODS.has(method) &&
+    !headers.has(CSRF_HEADER_KEY)
+  ) {
+    headers.set(CSRF_HEADER_KEY, csrfToken);
   }
 
   const res = await fetch(url, {

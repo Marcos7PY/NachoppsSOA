@@ -24,24 +24,16 @@
     "../../libs/observabilidad/**/*.ts",
     "../../libs/shared-auth/**/*.ts"
   ],
-  "references": [
-    {
-      "path": "../../libs/shared-prisma/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/shared-auth"
-    },
-    {
-      "path": "../../libs/observabilidad/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/shared-rabbitmq"
-    },
-    {
-      "path": "../../libs/contracts/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/resiliencia/tsconfig.lib.json"
+  "nx": {
+    "sync": {
+      "ignoredDependencies": [
+        "@org/observabilidad",
+        "@org/resiliencia",
+        "@org/shared-auth",
+        "@org/shared-rabbitmq",
+        "contracts",
+        "shared-prisma"
+      ]
     }
-  ]
+  }
 }

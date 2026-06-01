@@ -17,18 +17,14 @@
   },
   "exclude": ["jest.config.ts", "src/**/*.spec.ts", "src/**/*.test.ts"],
   "include": ["src/**/*.ts", "../../libs/contracts/src/**/*.ts"],
-  "references": [
-    {
-      "path": "../../libs/contracts/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/observabilidad/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/shared-rabbitmq"
-    },
-    {
-      "path": "../../libs/shared-prisma/tsconfig.lib.json"
+  "nx": {
+    "sync": {
+      "ignoredDependencies": [
+        "@org/observabilidad",
+        "@org/shared-rabbitmq",
+        "contracts",
+        "shared-prisma"
+      ]
     }
-  ]
+  }
 }

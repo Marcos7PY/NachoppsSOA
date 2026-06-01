@@ -8,19 +8,19 @@
 
 ## Puertos de microservicios (host)
 
-| Servicio | PORT en `.env` | Ruta en Kong |
-|----------|----------------|--------------|
-| identidad | 3001 | `/identidad` |
-| mesas | 3002 | `/mesas` |
-| pedidos | 3004 | `/pedidos` |
-| cuentas | 3005 | `/cuentas` |
-| reservas | 3006 | `/reservas` |
-| inventario | 3007 | `/inventario` |
-| notificaciones | 3008 | `/notificaciones` |
-| caja | 3009 | `/caja` |
-| reportes | 3010 | `/reportes` |
+| Servicio       | PORT en `.env` | Ruta en Kong      |
+| -------------- | -------------- | ----------------- |
+| identidad      | 3001           | `/identidad`      |
+| mesas          | 3002           | `/mesas`          |
+| pedidos        | 3004           | `/pedidos`        |
+| cuentas        | 3005           | `/cuentas`        |
+| reservas       | 3006           | `/reservas`       |
+| inventario     | 3007           | `/inventario`     |
+| notificaciones | 3008           | `/notificaciones` |
+| caja           | 3009           | `/caja`           |
+| reportes       | 3010           | `/reportes`       |
 
-Kong reenvía `http://localhost:8000/pedidos/...` → `http://host.docker.internal:3004/api/...`
+Kong reenvía `http://localhost:8000/pedidos/...` → `http://servicio-pedidos:3000/api/...`
 
 ## Levantar
 
@@ -32,9 +32,9 @@ docker compose -f infra/docker-compose.yml --profile dev up -d kong
 .\scripts\levantar-infra.ps1
 ```
 
-- **Proxy:** http://localhost:8000  
-- **Admin API:** http://localhost:8001  
-- **Estado:** http://localhost:8001/status  
+- **Proxy:** http://localhost:8000
+- **Admin API:** http://localhost:8001
+- **Estado:** http://localhost:8001/status
 
 ## Probar
 

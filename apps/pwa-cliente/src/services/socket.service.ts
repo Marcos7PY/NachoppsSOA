@@ -5,7 +5,6 @@ import { useCuentasStore } from '../store/cuentas.store';
 import { useMesasStore } from '../store/mesas.store';
 import { useNotificacionesStore } from '../store/notificaciones.store';
 import { usePedidosStore } from '../store/pedidos.store';
-import { getAuthToken } from '../api/client';
 
 interface NotificacionEvento {
   pattern?: string;
@@ -16,28 +15,64 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_PATH = import.meta.env.VITE_WS_PATH ?? '/notificaciones/socket.io';
 
 let socket: Socket | null = null;
+const pendingInvalidations = new Set<string>();
+let invalidationTimer: ReturnType<typeof setTimeout> | null = null;
 
-function invalidateForPattern(pattern?: string) {
-  const targets = new Set<Promise<void>>();
+type StoreKey = 'pedidos' | 'mesas' | 'cuentas';
+
+function storesForPattern(pattern?: string) {
+  const stores = new Set<StoreKey>();
 
   if (!pattern || pattern.startsWith('pedido.')) {
-    targets.add(usePedidosStore.getState().invalidate());
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(useCuentasStore.getState().invalidate());
+    stores.add('pedidos');
+    stores.add('mesas');
+    stores.add('cuentas');
   }
 
   if (pattern?.startsWith('cuenta.') || pattern?.startsWith('pago.')) {
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(usePedidosStore.getState().invalidate());
-    targets.add(useCuentasStore.getState().invalidate());
+    stores.add('mesas');
+    stores.add('pedidos');
+    stores.add('cuentas');
   }
 
   if (pattern?.startsWith('mesa.')) {
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(usePedidosStore.getState().invalidate());
+    stores.add('mesas');
+    stores.add('pedidos');
   }
 
+  return stores;
+}
+
+function invalidateStores(stores: Set<StoreKey>) {
+  const targets = new Set<Promise<void>>();
+
+  if (stores.has('pedidos'))
+    targets.add(usePedidosStore.getState().invalidate());
+  if (stores.has('mesas')) targets.add(useMesasStore.getState().invalidate());
+  if (stores.has('cuentas'))
+    targets.add(useCuentasStore.getState().invalidate());
+
   void Promise.allSettled([...targets]);
+}
+
+function scheduleInvalidate(pattern?: string) {
+  pendingInvalidations.add(pattern ?? '*');
+
+  if (invalidationTimer) return;
+
+  invalidationTimer = setTimeout(() => {
+    const patterns = [...pendingInvalidations];
+    pendingInvalidations.clear();
+    invalidationTimer = null;
+
+    const stores = new Set<StoreKey>();
+    patterns.forEach((key) => {
+      storesForPattern(key === '*' ? undefined : key).forEach((store) =>
+        stores.add(store),
+      );
+    });
+    invalidateStores(stores);
+  }, 300);
 }
 
 export const socketService = {
@@ -49,8 +84,6 @@ export const socketService = {
         path: WS_PATH,
         withCredentials: true,
         transports: ['websocket', 'polling'],
-        query: getAuthToken() ? { jwt: getAuthToken() } : undefined,
-        auth: getAuthToken() ? { token: getAuthToken() } : undefined,
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 500,
@@ -59,12 +92,10 @@ export const socketService = {
 
       socket.on('pedidoUpdate', (evento: NotificacionEvento) => {
         useNotificacionesStore.getState().pushFromSocket(evento);
-        invalidateForPattern(evento?.pattern);
+        scheduleInvalidate(evento?.pattern);
       });
     }
 
-    socket.auth = getAuthToken() ? { token: getAuthToken() } : {};
-    socket.io.opts.query = getAuthToken() ? { jwt: getAuthToken() } : {};
     socket.connect();
   },
 
