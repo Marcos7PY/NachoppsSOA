@@ -15,8 +15,11 @@ import {
   RoutingKeys,
   CambiarRolCommand,
   RolUsuario,
+  ListarUsuariosQuery,
+  UsuarioListResponse,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../generated/prisma';
 import { toUsuarioDto } from './usuarios.mapper';
 
 const SALT_ROUNDS = 10;
@@ -132,11 +135,43 @@ export class AuthService {
     return toUsuarioDto(usuario);
   }
 
-  async listarUsuarios() {
+  async listarUsuarios(query: ListarUsuariosQuery = {}): Promise<UsuarioListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const where: Prisma.UsuarioWhereInput = {
+      ...(query.rol ? { rol: query.rol } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { nombre: { contains: query.search, mode: 'insensitive' } },
+              { email: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+    };
+
     const usuarios = await this.prisma.usuario.findMany({
-      orderBy: { createdAt: 'desc' },
+      where,
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
-    return usuarios.map(toUsuarioDto);
+
+    const hasMore = usuarios.length > limit;
+    const data = usuarios.slice(0, limit);
+
+    return {
+      data: data.map(toUsuarioDto),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
   async cambiarRol(id: string, command: CambiarRolCommand) {

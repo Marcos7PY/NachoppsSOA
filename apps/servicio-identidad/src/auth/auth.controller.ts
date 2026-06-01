@@ -9,6 +9,7 @@ import {
   Request,
   HttpCode,
   Res,
+  Query,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { randomBytes } from 'node:crypto';
@@ -17,6 +18,8 @@ import {
   LoginCommand,
   CrearUsuarioCommand,
   CambiarRolCommand,
+  ListarUsuariosQuery,
+  UsuarioListResponse,
 } from '@org/contracts';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -115,8 +118,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Get('usuarios')
-  async listarUsuarios() {
-    return this.authService.listarUsuarios();
+  async listarUsuarios(@Query() query: ListarUsuariosQuery): Promise<UsuarioListResponse> {
+    return this.authService.listarUsuarios(query);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

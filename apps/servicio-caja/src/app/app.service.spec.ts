@@ -139,9 +139,9 @@ describe('AppService — Caja', () => {
 
       const result = await service.listarTransacciones();
 
-      expect(result).toHaveLength(2);
-      expect(result[0].monto).toBe(50);
-      expect(result[1].monto).toBe(80);
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].monto).toBe(50);
+      expect(result.data[1].monto).toBe(80);
     });
   });
 });

@@ -1,10 +1,28 @@
 import { client } from './client';
-import { unwrapArray, unwrapEntity } from './response';
-import type { CambiarRolPayload, CrearUsuarioPayload, UsuarioDto } from '../types/usuario.types';
+import { unwrapEntity } from './response';
+import type {
+  CambiarRolPayload,
+  CrearUsuarioPayload,
+  UsuarioDto,
+  ListarUsuariosQuery,
+  UsuarioListResponse,
+} from '../types/usuario.types';
+
+export async function getPage(query: ListarUsuariosQuery = {}): Promise<UsuarioListResponse> {
+  const params = new URLSearchParams();
+  if (query.limit) params.set('limit', String(query.limit));
+  if (query.cursor) params.set('cursor', query.cursor);
+  if (query.rol) params.set('rol', query.rol);
+  if (query.search) params.set('search', query.search);
+  if (query.updatedSince) params.set('updatedSince', query.updatedSince);
+
+  const response = await client.get<UsuarioListResponse>(`/identidad/usuarios?${params.toString()}`);
+  return response;
+}
 
 export async function getAll(): Promise<UsuarioDto[]> {
-  const response = await client.get<UsuarioDto[] | { usuarios: UsuarioDto[] }>('/identidad/usuarios');
-  return unwrapArray<UsuarioDto>(response, 'usuarios');
+  const response = await getPage({ limit: 100 });
+  return response.data;
 }
 
 export async function crear(payload: CrearUsuarioPayload): Promise<UsuarioDto> {

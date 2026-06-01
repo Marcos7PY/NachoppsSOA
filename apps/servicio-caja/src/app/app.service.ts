@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { ServiceTokenService } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
-import { PagarPedidoCommand, TransaccionDto, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
+import { PagarPedidoCommand, TransaccionDto, RoutingKeys, PagoRegistradoPayload, ListarTransaccionesQuery, TransaccionListResponse } from '@org/contracts';
 import { CircuitBreakerOptions } from '@org/resiliencia';
+import { Prisma } from '../generated/prisma';
 import axios from 'axios';
 
 interface CuentaRemota {
@@ -129,19 +130,42 @@ export class AppService {
     return { message: 'Pago registrado y evento encolado', transaccion: transaccionDto };
   }
 
-  async listarTransacciones(): Promise<TransaccionDto[]> {
-    const data = await this.prisma.transaccion.findMany({
-      orderBy: { createdAt: 'desc' }
+  async listarTransacciones(query: ListarTransaccionesQuery = {}): Promise<TransaccionListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const where: Prisma.TransaccionWhereInput = {
+      ...(query.metodo ? { metodo: query.metodo } : {}),
+      ...(query.updatedSince
+        ? { createdAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+    };
+
+    const transacciones = await this.prisma.transaccion.findMany({
+      where,
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
 
-    return data.map(t => ({
-      id: t.id,
-      cuentaId: t.cuentaId,
-      monto: Number(t.monto),
-      metodo: t.metodo,
-      referencia: t.referencia || undefined,
-      notas: t.notas || undefined,
-      createdAt: t.createdAt.toISOString()
-    }));
+    const hasMore = transacciones.length > limit;
+    const data = transacciones.slice(0, limit);
+
+    return {
+      data: data.map(t => ({
+        id: t.id,
+        cuentaId: t.cuentaId,
+        monto: Number(t.monto),
+        metodo: t.metodo,
+        referencia: t.referencia || undefined,
+        notas: t.notas || undefined,
+        createdAt: t.createdAt.toISOString()
+      })),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 }
