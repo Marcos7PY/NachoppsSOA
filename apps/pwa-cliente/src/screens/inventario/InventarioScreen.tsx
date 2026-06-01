@@ -1,6 +1,6 @@
 // screens/inventario/InventarioScreen.tsx - Productos, categorías y reposición
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CrearProductoPayload } from '../../types/inventario.types';

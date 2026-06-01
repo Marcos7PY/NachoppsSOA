@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import * as inventarioApi from '../../api/inventario.api';
-import { mapProducto, mapProductos } from '../../mappers/inventario.mapper';
+import { mapProductos } from '../../mappers/inventario.mapper';
 import { queryClient } from '../../api/queryClient';
 import type { CrearProductoPayload } from '../../types/inventario.types';
 
@@ -57,6 +57,7 @@ export function useInventarioQuery(categoriaId?: string) {
       : [],
     nextCursor: productosQuery.data?.nextCursor ?? null,
     loading,
+    loadingMore: productosQuery.isFetching && !productosQuery.isLoading,
     saving,
     error: error ? (error as Error).message : null,
     success: mutationCrear.isSuccess ? 'Producto creado.' : mutationReponer.isSuccess ? 'Stock actualizado.' : null,

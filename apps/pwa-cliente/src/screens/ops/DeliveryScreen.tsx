@@ -17,8 +17,8 @@ export function DeliveryScreen() {
 
   // Stores (React Query)
   const { pedidos, loading: loadingPedidos, fetch: fetchPedidos, avanzarEstado, crear: crearPedido } = usePedidosQuery();
-  const { mesas, fetch: fetchMesas, optimisticCambiarEstado } = useMesasQuery();
-  const { productos, categorias, loading: loadingInv, fetch: fetchInventario } = useInventarioQuery();
+  const { mesas, optimisticCambiarEstado } = useMesasQuery();
+  const { productos, categorias, loading: loadingInv } = useInventarioQuery();
 
   // Estados locales para el Formulario de Creación
   const [tipo, setTipo] = useState<'SALON' | 'DELIVERY' | 'LLEVAR'>('DELIVERY');

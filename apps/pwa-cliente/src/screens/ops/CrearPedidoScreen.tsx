@@ -9,10 +9,6 @@ import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 import type { ProductoVM } from '../../types/inventario.types';
 
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 const ESTADOS_PEDIDO_CERRADO = new Set(['PAGADO', 'CANCELADO']);
 
 function pedidoEstaActivo(pedido: { estado: string }) {

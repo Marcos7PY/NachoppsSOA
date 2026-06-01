@@ -1,5 +1,5 @@
 // screens/ops/MesasScreen.tsx — Grid de mesas con datos reales
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
@@ -21,7 +21,7 @@ export function MesasScreen() {
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const { mesas, loading, error, fetch, optimisticCambiarEstado } = useMesasQuery();
-  const { pedidos, fetch: fetchPedidos } = usePedidosQuery();
+  const { pedidos } = usePedidosQuery();
   const [filtro, setFiltro] = useState<EstadoMesa | 'TODAS' | 'CUENTA'>('TODAS');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [modalMesa, setModalMesa] = useState<MesaVM | null>(null);
@@ -110,7 +110,7 @@ export function MesasScreen() {
           <AlertIcon />
           <span>{error}</span>
           <span className="spacer" />
-          <button className="btn btn-sm btn-ghost" onClick={fetch}>
+          <button className="btn btn-sm btn-ghost" onClick={() => void fetch()}>
             Reintentar
           </button>
         </div>
@@ -151,7 +151,7 @@ export function MesasScreen() {
         <span className="spacer" />
         <button
           className="btn btn-ghost btn-sm"
-          onClick={fetch}
+          onClick={() => void fetch()}
           title="Refrescar"
         >
           <RefreshIcon />

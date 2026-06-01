@@ -1,6 +1,6 @@
 // screens/ops/CocinaScreen.tsx — KDS (Kitchen Display System) con columnas por estado
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { PedidoVM, PedidoItemVM, EstadoPedido } from '../../types/pedido.types';

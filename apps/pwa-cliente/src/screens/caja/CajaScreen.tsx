@@ -18,7 +18,7 @@ const METODOS: { value: MetodoPago; label: string }[] = [
 export function CajaScreen() {
   const online = useOnlineStatus();
   const [searchParams] = useSearchParams();
-  const { mesas, fetch: fetchMesas } = useMesasQuery();
+  const { mesas } = useMesasQuery();
   const [mesaId, setMesaId] = useState('');
   
   const {
