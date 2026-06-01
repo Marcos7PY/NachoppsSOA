@@ -1,5 +1,16 @@
 // types/pedido.types.ts — DTOs y ViewModels de pedidos
-// Basado en libs/contracts/src/domains/pedidos.ts
+// DTOs derivados de @org/contracts; ViewModels propios de la UI.
+
+import type {
+  ActualizarEstadoPedidoCommand,
+  CrearPedidoCommand,
+  ItemArea as ContractItemArea,
+  ModificadorItem as ContractModificadorDto,
+  PedidoDto as ContractPedidoDto,
+  PedidoEstado as ContractEstadoPedido,
+  PedidoItemDto as ContractPedidoItemDto,
+  PedidoItemInput,
+} from '@org/contracts';
 
 // ─── Enums ──────────────────────────────────────────────────────
 export const EstadoPedido = {
@@ -9,44 +20,21 @@ export const EstadoPedido = {
   Entregado: 'ENTREGADO',
   Pagado: 'PAGADO',
   Cancelado: 'CANCELADO',
-} as const;
+} as const satisfies Record<string, ContractEstadoPedido>;
 
-export type EstadoPedido = (typeof EstadoPedido)[keyof typeof EstadoPedido];
+export type EstadoPedido = ContractEstadoPedido;
 
 export const ItemArea = {
   Cocina: 'COCINA',
   Bar: 'BAR',
-} as const;
+} as const satisfies Record<string, ContractItemArea>;
 
-export type ItemArea = (typeof ItemArea)[keyof typeof ItemArea];
+export type ItemArea = ContractItemArea;
 
 // ─── DTO del backend ────────────────────────────────────────────
-export interface ModificadorDto {
-  nombre: string;
-  precioExtra?: number;
-}
-
-export interface PedidoItemDto {
-  id?: string;
-  productoId: string;
-  nombre: string;
-  cantidad: number;
-  precioUnitario: number;
-  modificadores?: ModificadorDto[];
-  area?: ItemArea;
-  notas?: string;
-  estado?: EstadoPedido;
-}
-
-export interface PedidoDto {
-  id: string;
-  mesaId: string;
-  numeroMesa?: number;
-  items: PedidoItemDto[];
-  total: number;
-  estado: EstadoPedido;
-  createdAt: string;
-}
+export type ModificadorDto = ContractModificadorDto;
+export type PedidoItemDto = ContractPedidoItemDto;
+export type PedidoDto = ContractPedidoDto;
 
 // ─── ViewModels para la UI ──────────────────────────────────────
 export interface PedidoItemVM {
@@ -82,21 +70,6 @@ export interface PedidoVM {
 }
 
 // ─── Payloads de creación ───────────────────────────────────────
-export interface CrearPedidoItemPayload {
-  productoId: string;
-  cantidad: number;
-  modificadores?: ModificadorDto[];
-  area?: ItemArea;
-  notas?: string;
-  estado?: EstadoPedido;
-  identificadorComensal?: number;
-}
-
-export interface CrearPedidoPayload {
-  mesaId: string;
-  items: CrearPedidoItemPayload[];
-}
-
-export interface ActualizarEstadoPedidoPayload {
-  estado: EstadoPedido;
-}
+export type CrearPedidoItemPayload = PedidoItemInput;
+export type CrearPedidoPayload = CrearPedidoCommand;
+export type ActualizarEstadoPedidoPayload = ActualizarEstadoPedidoCommand;

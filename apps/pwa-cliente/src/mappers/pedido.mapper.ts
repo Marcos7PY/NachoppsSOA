@@ -29,10 +29,16 @@ function calcularTiempo(createdAt: string): string {
   return `${hrs}h ${mins % 60}m`;
 }
 
-function mapItem(dto: PedidoItemDto): PedidoItemVM {
+function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
+  if (!dto.id) {
+    throw new Error(
+      `Pedido ${pedidoId} contiene un item sin id real del backend`,
+    );
+  }
+
   const estado = dto.estado ?? 'PENDIENTE';
   return {
-    id: dto.id ?? crypto.randomUUID(),
+    id: dto.id,
     productoId: dto.productoId,
     nombre: dto.nombre,
     cantidad: dto.cantidad,
@@ -48,7 +54,9 @@ function mapItem(dto: PedidoItemDto): PedidoItemVM {
 }
 
 export function mapPedido(dto: PedidoDto): PedidoVM {
-  const items = Array.isArray(dto.items) ? dto.items.map(mapItem) : [];
+  const items = Array.isArray(dto.items)
+    ? dto.items.map((item) => mapItem(item, dto.id))
+    : [];
   return {
     id: dto.id,
     mesaId: dto.mesaId,

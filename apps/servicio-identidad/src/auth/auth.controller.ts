@@ -68,6 +68,7 @@ export class AuthController {
   }
 
   @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
   @Post('auth/logout')
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('access_token', {

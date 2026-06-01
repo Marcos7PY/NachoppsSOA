@@ -30,7 +30,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['apps/servicio-{pedidos,caja,cuentas,inventario,identidad,mesas,reservas,notificaciones,reportes}/src/**/*.spec.ts'],
+    include: [
+      'apps/servicio-{pedidos,caja,cuentas,inventario,identidad,mesas,reservas,notificaciones,reportes}/src/**/*.spec.ts',
+      'apps/pwa-cliente/src/**/*.spec.ts',
+      'libs/shared-auth/src/**/*.spec.ts',
+    ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*-e2e/**'],
     onConsoleLog: () => false,
   },

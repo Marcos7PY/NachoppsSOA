@@ -29,9 +29,8 @@ export class ModificadorItem {
 }
 
 export class PedidoItemDto {
-  @IsOptional()
   @IsString()
-  id?: string;
+  id: string;
   @IsString()
   productoId: string;
   @IsString()
