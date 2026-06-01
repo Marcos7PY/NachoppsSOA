@@ -23,11 +23,10 @@ La PWA ya separa la mayor parte del server state con React Query:
 
 ### Estado actual
 
-Los endpoints principales de listados usan respuestas paginadas con `{ data, nextCursor }` en backend y contratos compartidos. En frontend, reservas y usuarios consumen esos cursores con `useInfiniteQuery`; pedidos e inventario ya reciben `nextCursor`, aunque su UI todavia conserva una capa de compatibilidad para carga incremental.
+Los endpoints principales de listados usan respuestas paginadas con `{ data, nextCursor }` en backend y contratos compartidos. En frontend, reservas, usuarios, pedidos e inventario consumen esos cursores con `useInfiniteQuery`, manteniendo botones de carga incremental donde la pantalla lo necesita.
 
 ### Puntos a mejorar
 
-- Completar `useInfiniteQuery` en pedidos e inventario cuando la UI necesite navegar multiples paginas reales.
 - Agregar virtualizacion con `@tanstack/react-virtual` en tablas que puedan crecer mucho, especialmente inventario, usuarios y reportes historicos.
 - Mantener alturas estables en filas y skeletons para evitar saltos visuales durante fetches.
 

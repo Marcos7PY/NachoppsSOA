@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import * as pedidosApi from '../../api/pedidos.api';
 import { mapPedido, mapPedidos } from '../../mappers/pedido.mapper';
 import { queryClient } from '../../api/queryClient';
@@ -7,15 +7,21 @@ import type { CrearPedidoPayload, EstadoPedido } from '../../types/pedido.types'
 export const PEDIDOS_QUERY_KEY = ['pedidos'];
 
 export function usePedidosQuery(mesaId?: string) {
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: [...PEDIDOS_QUERY_KEY, mesaId].filter(Boolean),
-    queryFn: async () => {
-      const response = await pedidosApi.getPage({ mesaId, limit: 50 });
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      const response = await pedidosApi.getPage({
+        cursor: pageParam,
+        mesaId,
+        limit: 50,
+      });
       return {
         pedidos: mapPedidos(response.data),
         nextCursor: response.nextCursor,
       };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 
   const mutationCrear = useMutation({
@@ -24,7 +30,11 @@ export function usePedidosQuery(mesaId?: string) {
       return mapPedido(dto);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: PEDIDOS_QUERY_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
     },
   });
 
@@ -34,7 +44,11 @@ export function usePedidosQuery(mesaId?: string) {
       return mapPedido(dto);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: PEDIDOS_QUERY_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
     },
   });
 
@@ -43,22 +57,26 @@ export function usePedidosQuery(mesaId?: string) {
       await pedidosApi.avanzarItem(itemId, { estado });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      queryClient.invalidateQueries({
+        queryKey: PEDIDOS_QUERY_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
     },
   });
 
   return {
-    pedidos: query.data?.pedidos ?? [],
-    nextCursor: query.data?.nextCursor ?? null,
+    pedidos: query.data?.pages.flatMap((page) => page.pedidos) ?? [],
+    nextCursor: query.hasNextPage
+      ? query.data?.pages.at(-1)?.nextCursor ?? null
+      : null,
     currentMesaId: mesaId,
     loading: query.isLoading,
-    loadingMore: false,
+    loadingMore: query.isFetchingNextPage,
     error: query.isError ? (query.error as Error).message : null,
     fetch: query.refetch,
     fetchMore: async () => {
-      // TODO: Implementar InfiniteQuery de React Query si se requiere paginación real.
-      // Por ahora mantenemos la compatibilidad de firma.
-      await query.refetch();
+      if (query.hasNextPage) await query.fetchNextPage();
     },
     crear: async (payload: CrearPedidoPayload) => {
       return mutationCrear.mutateAsync(payload);

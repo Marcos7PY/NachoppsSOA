@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import * as inventarioApi from '../../api/inventario.api';
 import { mapProductos } from '../../mappers/inventario.mapper';
 import { queryClient } from '../../api/queryClient';
@@ -16,15 +16,21 @@ export function useInventarioQuery(categoriaId?: string) {
     staleTime: 1000 * 60 * 60, // 1 hora para las categorías (casi nunca cambian)
   });
 
-  const productosQuery = useQuery({
+  const productosQuery = useInfiniteQuery({
     queryKey: [...INVENTARIO_PRODUCTOS_KEY, categoriaId].filter(Boolean),
-    queryFn: async () => {
-      const response = await inventarioApi.getProductosPage({ categoriaId, limit: 50 });
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
+      const response = await inventarioApi.getProductosPage({
+        categoriaId,
+        cursor: pageParam,
+        limit: 50,
+      });
       return {
         productos: response.data,
         nextCursor: response.nextCursor,
       };
     },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !!categoriasQuery.data, // Esperar a que carguen las categorías para mapear
   });
 
@@ -33,7 +39,11 @@ export function useInventarioQuery(categoriaId?: string) {
       return inventarioApi.crearProducto(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: INVENTARIO_PRODUCTOS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: INVENTARIO_PRODUCTOS_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
     },
   });
 
@@ -42,7 +52,11 @@ export function useInventarioQuery(categoriaId?: string) {
       return inventarioApi.reponerStock(id, cantidad);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: INVENTARIO_PRODUCTOS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: INVENTARIO_PRODUCTOS_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
     },
   });
 
@@ -53,23 +67,26 @@ export function useInventarioQuery(categoriaId?: string) {
   return {
     categorias: categoriasQuery.data ?? [],
     productos: productosQuery.data && categoriasQuery.data
-      ? mapProductos(productosQuery.data.productos, categoriasQuery.data)
+      ? mapProductos(
+          productosQuery.data.pages.flatMap((page) => page.productos),
+          categoriasQuery.data,
+        )
       : [],
-    nextCursor: productosQuery.data?.nextCursor ?? null,
+    nextCursor: productosQuery.hasNextPage
+      ? productosQuery.data?.pages.at(-1)?.nextCursor ?? null
+      : null,
     loading,
-    loadingMore: productosQuery.isFetching && !productosQuery.isLoading,
+    loadingMore: productosQuery.isFetchingNextPage,
     saving,
     error: error ? (error as Error).message : null,
     success: mutationCrear.isSuccess ? 'Producto creado.' : mutationReponer.isSuccess ? 'Stock actualizado.' : null,
     
-    // Métodos de compatibilidad
     fetch: async () => {
       await categoriasQuery.refetch();
       await productosQuery.refetch();
     },
     fetchMore: async () => {
-      // Stub para paginación si es necesario en el futuro (InfiniteQuery)
-      await productosQuery.refetch();
+      if (productosQuery.hasNextPage) await productosQuery.fetchNextPage();
     },
     crearProducto: async (payload: CrearProductoPayload) => {
       return mutationCrear.mutateAsync(payload);

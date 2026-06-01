@@ -37,7 +37,16 @@ function itemsPorEstado(pedido: PedidoVM, estado: EstadoPedido): PedidoItemVM[] 
 
 export function CocinaScreen() {
   const online = useOnlineStatus();
-  const { pedidos, loading, error, fetch, avanzarItem } = usePedidosQuery();
+  const {
+    pedidos,
+    nextCursor,
+    loading,
+    loadingMore,
+    error,
+    fetch,
+    fetchMore,
+    avanzarItem,
+  } = usePedidosQuery();
   const [areaFiltro, setAreaFiltro] = useState<'TODAS' | 'COCINA' | 'BAR'>('TODAS');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -204,6 +213,14 @@ export function CocinaScreen() {
           );
         })}
       </div>
+      {nextCursor && (
+        <div className="row center" style={{ padding: '12px' }}>
+          <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+            {loadingMore ? <span className="spinner" /> : null}
+            Cargar más
+          </button>
+        </div>
+      )}
     </div>
   );
 }
