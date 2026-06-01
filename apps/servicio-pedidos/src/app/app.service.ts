@@ -7,6 +7,8 @@ import {
   ActualizarEstadoPedidoCommand,
   PedidoItemInput,
   PedidoEstado,
+  ListarPedidosQuery,
+  PedidoListResponse,
   ItemArea,
   RoutingKeys,
   PagoRegistradoPayload,
@@ -245,10 +247,16 @@ export class AppService {
   }
 
 
-  async listarPedidos(mesaId?: string): Promise<{ pedidos: PedidoDto[] }> {
+  async listarPedidos(query: ListarPedidosQuery = {}): Promise<PedidoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
     const where: Prisma.PedidoWhereInput = {
-      ...(mesaId ? { mesaId } : {}),
-      estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
+      ...(query.mesaId ? { mesaId: query.mesaId } : {}),
+      ...(query.estado
+        ? { estado: query.estado }
+        : { estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
     };
     const pedidos = await this.prisma.pedido.findMany({
       where,
@@ -257,10 +265,24 @@ export class AppService {
           include: { modificadores: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
 
-    return { pedidos: pedidos.map(p => this.mapToDto(p)) };
+    const hasMore = pedidos.length > limit;
+    const data = pedidos.slice(0, limit);
+
+    return {
+      data: data.map(p => this.mapToDto(p)),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
   async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {

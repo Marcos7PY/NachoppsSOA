@@ -106,13 +106,52 @@ describe('AppService — Pedidos', () => {
     it('debe listar solo pedidos activos por mesa', async () => {
       vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
 
-      await service.listarPedidos('mesa-1');
+      await service.listarPedidos({ mesaId: 'mesa-1' });
 
       expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: {
           mesaId: 'mesa-1',
           estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
         },
+        take: 21,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      }));
+    });
+
+    it('devuelve data y nextCursor cuando hay mas resultados', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([
+        { ...basePedido, id: 'p-001' },
+        { ...basePedido, id: 'p-002' },
+        { ...basePedido, id: 'p-003' },
+      ] as any);
+
+      const result = await service.listarPedidos({ limit: 2 });
+
+      expect(result.data.map((pedido) => pedido.id)).toEqual(['p-001', 'p-002']);
+      expect(result.nextCursor).toBe('p-002');
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        take: 3,
+      }));
+    });
+
+    it('aplica cursor, estado, updatedSince y tope maximo de limit', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+
+      await service.listarPedidos({
+        cursor: 'p-010',
+        estado: PedidoEstado.Listo,
+        updatedSince: '2026-01-01T00:00:00.000Z',
+        limit: 500,
+      });
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          estado: PedidoEstado.Listo,
+          updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
+        },
+        cursor: { id: 'p-010' },
+        skip: 1,
+        take: 101,
       }));
     });
   });

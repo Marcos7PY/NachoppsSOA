@@ -5,10 +5,12 @@ import type {
   ActualizarEstadoPedidoCommand,
   CrearPedidoCommand,
   ItemArea as ContractItemArea,
+  ListarPedidosQuery,
   ModificadorItem as ContractModificadorDto,
   PedidoDto as ContractPedidoDto,
   PedidoEstado as ContractEstadoPedido,
   PedidoItemDto as ContractPedidoItemDto,
+  PedidoListResponse as ContractPedidoListResponse,
   PedidoItemInput,
 } from '@org/contracts';
 
@@ -35,6 +37,8 @@ export type ItemArea = ContractItemArea;
 export type ModificadorDto = ContractModificadorDto;
 export type PedidoItemDto = ContractPedidoItemDto;
 export type PedidoDto = ContractPedidoDto;
+export type PedidoListQuery = ListarPedidosQuery;
+export type PedidoListResponse = ContractPedidoListResponse;
 
 // ─── ViewModels para la UI ──────────────────────────────────────
 export interface PedidoItemVM {
