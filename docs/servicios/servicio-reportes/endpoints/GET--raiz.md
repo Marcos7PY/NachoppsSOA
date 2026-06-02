@@ -5,24 +5,24 @@ metodo: GET
 ruta: /
 handler: apps/servicio-reportes/src/app/app.controller.ts:14
 fuente: [apps/servicio-reportes/src/app/app.controller.ts:14]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # GET /
 
 **Proposito.** healthCheck atiende GET / en servicio-reportes. [apps/servicio-reportes/src/app/app.controller.ts:14]
 
-**Autorizacion.** No hay `@UseGuards` en el handler ni `APP_GUARD` con `JwtAuthGuard` detectado en el modulo de este servicio. [apps/servicio-reportes/src/app/app.controller.ts:14]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-reportes/src/app/app.controller.ts:14]
 
-**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-reportes/src/app/app.controller.ts:15]
+**Entrada.** Sin body/query/params declarados en la firma. [apps/servicio-reportes/src/app/app.controller.ts:15]
 
-**Salida.** Devuelve `{ status: 'OK', service: 'Reportes' }`; codigos esperados: 200 si el handler completa. [apps/servicio-reportes/src/app/app.controller.ts:15, apps/servicio-reportes/src/app/app.controller.ts:16]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-reportes/src/app/app.controller.ts:14]
 
-**Efectos.** No escribe en BD ni emite eventos: el handler retorna un literal de healthcheck y no llama a `AppService`. [apps/servicio-reportes/src/app/app.controller.ts:15, apps/servicio-reportes/src/app/app.controller.ts:16]
+**Efectos.** no se detectan escrituras Prisma ni eventos en el camino directo del handler. [apps/servicio-reportes/src/app/app.controller.ts:15]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- No declara ramas de error propias; el handler solo retorna el literal de healthcheck. [apps/servicio-reportes/src/app/app.controller.ts:15, apps/servicio-reportes/src/app/app.controller.ts:16]
+- No se detectan excepciones Nest explicitas en el camino principal; errores restantes salen de validacion global o infraestructura.

@@ -1,30 +1,24 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-pedidos
-tabla: idempotency_keys
 modelo: IdempotencyKey
-fuente: [apps/servicio-pedidos/prisma/schema.prisma:96, apps/servicio-pedidos/prisma/migrations/20260525022137_init/migration.sql:1, apps/servicio-pedidos/prisma/migrations/20260528000000_add_productos_locales/migration.sql:1, apps/servicio-pedidos/prisma/migrations/20260529001000_add_idempotency_keys/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-pedidos/prisma/schema.prisma:101]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # IdempotencyKey
 
-**Campos.**
+**Fuente.** Modelo Prisma `IdempotencyKey` definido en [apps/servicio-pedidos/prisma/schema.prisma:101].
 
-- `id        String   @id @default(uuid())`. [apps/servicio-pedidos/prisma/schema.prisma:97]
-- `key       String   @unique`. [apps/servicio-pedidos/prisma/schema.prisma:98]
-- `createdAt DateTime @default(now())`. [apps/servicio-pedidos/prisma/schema.prisma:99]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-pedidos/prisma/schema.prisma:102 | `id        String   @id @default(uuid())` |
+| apps/servicio-pedidos/prisma/schema.prisma:103 | `key       String   @unique` |
+| apps/servicio-pedidos/prisma/schema.prisma:104 | `createdAt DateTime @default(now())` |
+| apps/servicio-pedidos/prisma/schema.prisma:106 | `@@index([createdAt])` |
+| apps/servicio-pedidos/prisma/schema.prisma:107 | `@@map("idempotency_keys")` |
 
-- `id        String   @id @default(uuid())`. [apps/servicio-pedidos/prisma/schema.prisma:97]
-- `key       String   @unique`. [apps/servicio-pedidos/prisma/schema.prisma:98]
-- `@@index([createdAt])`. [apps/servicio-pedidos/prisma/schema.prisma:101]
-- `@@map("idempotency_keys")`. [apps/servicio-pedidos/prisma/schema.prisma:102]
-
-**Migraciones.** [apps/servicio-pedidos/prisma/migrations/20260525022137_init/migration.sql:1], [apps/servicio-pedidos/prisma/migrations/20260528000000_add_productos_locales/migration.sql:1], [apps/servicio-pedidos/prisma/migrations/20260529001000_add_idempotency_keys/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `IdempotencyKey` en el servicio `servicio-pedidos`; este atomo fija la estructura declarada por Prisma. [apps/servicio-pedidos/prisma/schema.prisma:96]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-pedidos/prisma/schema.prisma:96]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

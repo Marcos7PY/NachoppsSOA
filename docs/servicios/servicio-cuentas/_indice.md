@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-cuentas
-fuente: [apps/servicio-cuentas/src/app/app.controller.ts:9]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-cuentas/src/app/app.controller.ts:13]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-cuentas
@@ -24,6 +24,6 @@ commit: 4c186bb
 
 **Eventos consumidos.**
 
-- `RoutingKeys.PedidoCreado` en `handlePedidoCreado`. [apps/servicio-cuentas/src/app/events.controller.ts:15]
-- `RoutingKeys.PedidoActualizado` en `handlePedidoActualizado`. [apps/servicio-cuentas/src/app/events.controller.ts:22]
-- `RoutingKeys.PagoRegistrado` en `handlePagoRegistrado`. [apps/servicio-cuentas/src/app/events.controller.ts:29]
+- `RoutingKeys.PedidoCreado` -> `handlePedidoCreado` [apps/servicio-cuentas/src/app/events.controller.ts:15]
+- `RoutingKeys.PedidoActualizado` -> `handlePedidoActualizado` [apps/servicio-cuentas/src/app/events.controller.ts:22]
+- `RoutingKeys.PagoRegistrado` -> `handlePagoRegistrado` [apps/servicio-cuentas/src/app/events.controller.ts:29]

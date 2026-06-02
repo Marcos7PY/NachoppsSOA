@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-reportes
-fuente: [apps/servicio-reportes/src/app/app.controller.ts:8]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-reportes/src/app/app.controller.ts:14]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-reportes
@@ -16,8 +16,8 @@ commit: 4c186bb
 **Modelos de datos.**
 
 - [VentaDiaria](datos/VentaDiaria.md) [apps/servicio-reportes/prisma/schema.prisma:11]
-- [IdempotencyKey](datos/IdempotencyKey.md) [apps/servicio-reportes/prisma/schema.prisma:22]
+- [IdempotencyKey](datos/IdempotencyKey.md) [apps/servicio-reportes/prisma/schema.prisma:23]
 
 **Eventos consumidos.**
 
-- `RoutingKeys.CuentaCerrada` en `handleCuentaCerrada`. [apps/servicio-reportes/src/app/app.controller.ts:24]
+- `RoutingKeys.CuentaCerrada` -> `handleCuentaCerrada` [apps/servicio-reportes/src/app/app.controller.ts:24]

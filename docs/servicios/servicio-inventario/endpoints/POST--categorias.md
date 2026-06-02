@@ -4,25 +4,25 @@ servicio: servicio-inventario
 metodo: POST
 ruta: /categorias
 handler: apps/servicio-inventario/src/app/app.controller.ts:21
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:21, apps/servicio-inventario/src/app/app.controller.ts:22, apps/servicio-inventario/src/app/app.service.ts:32, libs/contracts/src/domains/inventario.ts:33]
-revisado: 2026-05-31
-commit: c5c7891
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:21, apps/servicio-inventario/src/app/app.service.ts:35]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # POST /categorias
 
-**Proposito.** Crea una categoria de inventario. [apps/servicio-inventario/src/app/app.controller.ts:21]
+**Proposito.** crearCategoria atiende POST /categorias en servicio-inventario. [apps/servicio-inventario/src/app/app.controller.ts:21]
 
-**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-inventario/src/app/app.module.ts:2, apps/servicio-inventario/src/app/app.controller.ts:21]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-inventario/src/app/app.controller.ts:21]
 
-**Entrada.** DTO `CrearCategoriaCommand` con campos: `nombre: string` (@IsString()). [libs/contracts/src/domains/inventario.ts:35] `descripcion?: string` (@IsString() @IsOptional() @IsString()). [libs/contracts/src/domains/inventario.ts:38]
+**Entrada.** body `CrearCategoriaCommand` (nombre: string, descripcion?: string). [apps/servicio-inventario/src/app/app.controller.ts:22]
 
-**Salida.** Respuesta derivada del handler `crearCategoria` y del servicio `crearCategoria`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-inventario/src/app/app.controller.ts:22]
+**Salida.** Codigo esperado: 201 por defecto de Nest para POST si el handler completa. [apps/servicio-inventario/src/app/app.controller.ts:21]
 
-**Efectos.** Usa `categoria.create`. [apps/servicio-inventario/src/app/app.service.ts:32]
+**Efectos.** llama `crearCategoria`; Prisma: `categoria.create`. [apps/servicio-inventario/src/app/app.service.ts:35]
 
-**Invariantes que toca.** [idempotencia-directa](../../../invariantes/idempotencia-directa.md), [reposicion-como-delta](../../../invariantes/reposicion-como-delta.md)
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-inventario/src/app/app.service.ts:32]
+- No se detectan excepciones Nest explicitas en el camino principal; errores restantes salen de validacion global o infraestructura.

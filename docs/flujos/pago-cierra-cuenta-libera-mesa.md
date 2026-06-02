@@ -1,10 +1,10 @@
----
+﻿---
 tipo: flujo
 nombre: pago-cierra-cuenta-libera-mesa
 disparador: apps/servicio-caja/src/app/app.controller.ts:14
 fuente: [apps/servicio-caja/src/app/app.controller.ts:14, apps/servicio-caja/src/app/app.service.ts:42, apps/servicio-caja/src/app/app.service.ts:113, apps/servicio-cuentas/src/app/events.controller.ts:29, apps/servicio-mesas/src/app/events.controller.ts:21]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Pago cierra cuenta libera mesa
@@ -24,3 +24,4 @@ commit: c5c7891
 **Fallo y reconvergencia.** Si un consumidor cae, cada cola con `noAck:false` y el interceptor decide ACK/NACK; al reinyectar, los consumidores deben reconverger desde los eventos persistidos en Outbox. [apps/servicio-caja/src/main.ts:42, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:36, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
 
 **Invariantes de extremo a extremo.** [colas-limpias-happy-path](../invariantes/colas-limpias-happy-path.md), [exactamente-un-exito-bajo-carrera](../invariantes/exactamente-un-exito-bajo-carrera.md)
+

@@ -1,7 +1,7 @@
-# Plan de continuidad - resiliencia real, CI/CD y operacion produccion
+﻿# Plan de continuidad - resiliencia real, CI/CD y operacion produccion
 
 Fecha local: 2026-05-31  
-Workspace: `C:\Users\MARCOS\Desktop\BackActual`  
+Workspace: repo root (`.`)  
 Estado: plan para continuar en otra sesion  
 Alcance: backend, infraestructura, CI/CD y operacion. La PWA queda fuera de este plan.
 
@@ -650,3 +650,6 @@ Este plan puede marcarse cerrado cuando:
 - backups y restore estan probados;
 - dashboards y alertas minimas existen;
 - runbooks prioritarios estan documentados.
+
+
+

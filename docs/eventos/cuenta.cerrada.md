@@ -1,29 +1,25 @@
 ---
 tipo: evento
-routingKey: cuenta.cerrada
-exchange: nachopps_exchange (topic)
-payload: libs/contracts/src/domains/cuentas.ts:18
-fuente: [libs/contracts/src/events/routing-keys.ts:24, libs/contracts/src/domains/cuentas.ts:18, apps/servicio-cuentas/src/app/app.service.ts:267, apps/servicio-mesas/src/app/events.controller.ts:28, apps/servicio-caja/src/app/events.controller.ts:29, apps/servicio-reportes/src/app/app.controller.ts:24, libs/contracts/src/messaging/exchange.ts:2, libs/contracts/src/messaging/envelope.ts:13]
-revisado: 2026-05-31
-commit: c5c7891
+routing_key: cuenta.cerrada
+constante: RoutingKeys.CuentaCerrada
+fuente: [libs/contracts/src/events/routing-keys.ts:24]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # cuenta.cerrada
 
-**Payload.** El routing key se declara como `CuentaCerrada: 'cuenta.cerrada'`. [libs/contracts/src/events/routing-keys.ts:24] La envoltura `DomainEventEnvelope<TPayload>` tiene `pattern`, `data` y `metadata`. [libs/contracts/src/messaging/envelope.ts:13] El payload tipado inicia en `CuentaCerradaPayload`. [libs/contracts/src/domains/cuentas.ts:18]
+**Definicion.** `RoutingKeys.CuentaCerrada` = `cuenta.cerrada`. [libs/contracts/src/events/routing-keys.ts:24]
 
-**Productor(es).**
+**Productores detectados.**
 
-- `routingKey: RoutingKeys.CuentaCerrada,`. [apps/servicio-cuentas/src/app/app.service.ts:267]
+- apps/servicio-cuentas/src/app/app.service.ts:287
 
-**Consumidor(es).**
+**Consumidores detectados.**
 
-- `servicio-mesas` consume con `handleCuentaCerrada`. [apps/servicio-mesas/src/app/events.controller.ts:28]
-- `servicio-caja` consume con `handleCuentaCerrada`. [apps/servicio-caja/src/app/events.controller.ts:29]
-- `servicio-reportes` consume con `handleCuentaCerrada`. [apps/servicio-reportes/src/app/app.controller.ts:24]
+- servicio-caja: `handleCuentaCerrada` [apps/servicio-caja/src/app/events.controller.ts:29]
+- servicio-notificaciones: `handleCuentaCerrada` [apps/servicio-notificaciones/src/app/app.controller.ts:56]
+- servicio-reportes: `handleCuentaCerrada` [apps/servicio-reportes/src/app/app.controller.ts:24]
+- servicio-mesas: `handleCuentaCerrada` [apps/servicio-mesas/src/app/events.controller.ts:29]
 
-**Idempotencia.** La envoltura soporta `metadata.idempotencyKey`. [libs/contracts/src/messaging/envelope.ts:2] Las garantias concretas viven en los consumidores citados.
-
-**Camino de fallo.** El publicador compartido declara DLQ por cola cuando recibe `queue` y `bindings`. [libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts:34] El interceptor RMQ aplica tres reintentos con demora inicial de 1000ms y NACK al agotar intentos. [libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:45, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
-
-**Invariantes.** [colas-limpias-happy-path](../invariantes/colas-limpias-happy-path.md)
+**Estado.** usado.

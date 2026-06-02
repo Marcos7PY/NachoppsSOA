@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-mesas
-fuente: [apps/servicio-mesas/src/app/app.controller.ts:5]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-mesas/src/app/app.controller.ts:9]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-mesas
@@ -23,5 +23,5 @@ commit: 4c186bb
 
 **Eventos consumidos.**
 
-- `RoutingKeys.CuentaAbierta` en `handleCuentaAbierta`. [apps/servicio-mesas/src/app/events.controller.ts:16]
-- `RoutingKeys.CuentaCerrada` en `handleCuentaCerrada`. [apps/servicio-mesas/src/app/events.controller.ts:28]
+- `RoutingKeys.CuentaAbierta` -> `handleCuentaAbierta` [apps/servicio-mesas/src/app/events.controller.ts:16]
+- `RoutingKeys.CuentaCerrada` -> `handleCuentaCerrada` [apps/servicio-mesas/src/app/events.controller.ts:29]

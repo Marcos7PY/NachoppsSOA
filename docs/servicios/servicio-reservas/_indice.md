@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-reservas
-fuente: [apps/servicio-reservas/src/app/app.controller.ts:5]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-reservas/src/app/app.controller.ts:9]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-reservas
@@ -23,4 +23,4 @@ commit: 4c186bb
 
 **Eventos consumidos.**
 
-- Sin `@EventPattern` detectado en controladores del servicio. [apps/servicio-reservas/src/app/app.controller.ts:5]
+- Sin `@EventPattern` detectado en controladores del servicio.
