@@ -1,8 +1,8 @@
 // screens/ops/PedidosScreen.tsx — Lista de pedidos activos con filtro por área
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { EstadoPedido } from '../../types/pedido.types';
 
 const NEXT_ESTADO: Partial<Record<EstadoPedido, EstadoPedido>> = {
@@ -27,13 +27,20 @@ const FILTROS_ESTADO: { key: EstadoPedido | 'TODOS'; label: string }[] = [
 
 export function PedidosScreen() {
   const online = useOnlineStatus();
-  const { pedidos, loading, error, fetch, avanzarEstado } = usePedidosStore();
+  const {
+    pedidos,
+    nextCursor,
+    loading,
+    loadingMore,
+    error,
+    fetch,
+    fetchMore,
+    avanzarEstado,
+  } = usePedidosQuery();
   const [filtro, setFiltro] = useState<EstadoPedido | 'TODOS'>('TODOS');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  // La carga inicial y re-fetch en foco es manejado automáticamente por React Query.
 
   const pedidosSalon = pedidos.filter((p) => {
     const num = Number(p.mesaNumero) || 0;
@@ -123,66 +130,86 @@ export function PedidosScreen() {
 
 
       {pedidosFiltrados.length === 0 ? (
-        <div className="empty">
-          <div className="e-ic"><ListIcon /></div>
-          <h3>Sin pedidos</h3>
-          <p>No hay pedidos que coincidan con el filtro seleccionado.</p>
-        </div>
+        <>
+          <div className="empty">
+            <div className="e-ic"><ListIcon /></div>
+            <h3>Sin pedidos</h3>
+            <p>No hay pedidos que coincidan con el filtro seleccionado.</p>
+          </div>
+          {nextCursor && (
+            <div className="row center" style={{ padding: '12px' }}>
+              <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                {loadingMore ? <span className="spinner" /> : null}
+                Cargar más
+              </button>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="table-wrap">
-          <table className="dt">
-            <thead>
-              <tr>
-                <th>Mesa</th>
-                <th>Estado</th>
-                <th>Ítems</th>
-                <th>Total</th>
-                <th>Tiempo</th>
-                <th style={{ textAlign: 'right' }}>Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidosFiltrados.map((p) => {
-                const next = NEXT_ESTADO[p.estado];
-                const nextLabel = NEXT_LABEL[p.estado];
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      <strong style={{ fontSize: 16 }}>Mesa {p.mesaNumero}</strong>
-                    </td>
-                    <td>
-                      <span className={`badge dot ${p.estadoClass}`}>{p.estadoLabel}</span>
-                    </td>
-                    <td>
-                      <span className="mono">{p.cantidadItems}</span> ítems
-                    </td>
-                    <td>
-                      <strong className="mono">S/ {p.total.toFixed(2)}</strong>
-                    </td>
-                    <td>
-                      <span className="muted">{p.tiempoTranscurrido}</span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {next && nextLabel && (
-                        <button
-                          className="btn btn-sm btn-primary"
-                          disabled={actionLoading === p.id || !online}
-                          onClick={() => handleAvanzar(p.id, next)}
-                        >
-                          {actionLoading === p.id ? (
-                            <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                          ) : (
-                            nextLabel
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="table-wrap">
+            <table className="dt">
+              <thead>
+                <tr>
+                  <th>Mesa</th>
+                  <th>Estado</th>
+                  <th>Ítems</th>
+                  <th>Total</th>
+                  <th>Tiempo</th>
+                  <th style={{ textAlign: 'right' }}>Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pedidosFiltrados.map((p) => {
+                  const next = NEXT_ESTADO[p.estado];
+                  const nextLabel = NEXT_LABEL[p.estado];
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <strong style={{ fontSize: 16 }}>Mesa {p.mesaNumero}</strong>
+                      </td>
+                      <td>
+                        <span className={`badge dot ${p.estadoClass}`}>{p.estadoLabel}</span>
+                      </td>
+                      <td>
+                        <span className="mono">{p.cantidadItems}</span> ítems
+                      </td>
+                      <td>
+                        <strong className="mono">S/ {p.total.toFixed(2)}</strong>
+                      </td>
+                      <td>
+                        <span className="muted">{p.tiempoTranscurrido}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {next && nextLabel && (
+                          <button
+                            className="btn btn-sm btn-primary"
+                            disabled={actionLoading === p.id || !online}
+                            onClick={() => handleAvanzar(p.id, next)}
+                          >
+                            {actionLoading === p.id ? (
+                              <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                            ) : (
+                              nextLabel
+                            )}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {nextCursor && (
+            <div className="row center" style={{ padding: '12px' }}>
+              <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                {loadingMore ? <span className="spinner" /> : null}
+                Cargar más
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

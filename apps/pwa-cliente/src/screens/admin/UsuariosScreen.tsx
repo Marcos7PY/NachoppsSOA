@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useUsuariosStore } from '../../store/usuarios.store';
+import { useUsuariosQuery } from '../../hooks/queries/useUsuariosQuery';
 import type { CrearUsuarioPayload, RolUsuario } from '../../types/usuario.types';
 
 const ROLES: { value: RolUsuario; label: string }[] = [
@@ -21,12 +21,30 @@ const INITIAL_FORM: CrearUsuarioPayload = {
 
 export function UsuariosScreen() {
   const online = useOnlineStatus();
-  const { usuarios, loading, saving, error, success, fetch, crear, cambiarRol, clearFeedback } = useUsuariosStore();
   const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  const [search, setSearch] = useState('');
+  const [rolFiltro, setRolFiltro] = useState<string>('');
+  const filters = useMemo(
+    () => ({
+      rol: rolFiltro ? (rolFiltro as RolUsuario) : undefined,
+      search: search.trim() || undefined,
+    }),
+    [rolFiltro, search],
+  );
+  const {
+    usuarios,
+    nextCursor,
+    loading,
+    loadingMore,
+    saving,
+    error,
+    success,
+    fetch,
+    fetchMore,
+    crear,
+    cambiarRol,
+    clearFeedback,
+  } = useUsuariosQuery(filters);
 
   const handleCrear = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,7 +69,29 @@ export function UsuariosScreen() {
           <div className="sub">Gestión de accesos y roles del equipo</div>
         </div>
         <span className="spacer" />
-        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar">
+        <div className="row g-2">
+          <div className="input search-input" style={{ width: '200px' }}>
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="input role-filter" style={{ width: '160px' }}>
+            <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)}>
+              <option value="">Todos los roles</option>
+              {ROLES.map((role) => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => void fetch()}
+          title="Refrescar"
+        >
           <RefreshIcon />
         </button>
       </div>
@@ -86,48 +126,58 @@ export function UsuariosScreen() {
             <div className="empty">
               <div className="e-ic"><UsersIcon /></div>
               <h3>Sin usuarios</h3>
-              <p>Los usuarios reales aparecerán aquí cuando el backend los devuelva.</p>
+              <p>Los usuarios reales aparecerán aquí cuando el backend los devuelva o coincidan con el filtro.</p>
             </div>
           ) : (
-            <div className="table-wrap table-wrap-flat">
-              <table className="dt">
-                <thead>
-                  <tr>
-                    <th>Usuario</th>
-                    <th>Rol</th>
-                    <th>Estado</th>
-                    <th>Creado</th>
-                    <th>Cambiar rol</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usuarios.map((usuario) => (
-                    <tr key={usuario.id}>
-                      <td>
-                        <strong>{usuario.nombre}</strong>
-                        <div className="muted">{usuario.email}</div>
-                      </td>
-                      <td><span className="badge badge-accent">{usuario.rolLabel}</span></td>
-                      <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
-                      <td>{usuario.createdAtLabel}</td>
-                      <td>
-                        <div className="input role-select">
-                          <select
-                            value={usuario.rol}
-                            disabled={saving || !online}
-                            onChange={(event) => cambiarRol(usuario.id, event.target.value as RolUsuario)}
-                          >
-                            {ROLES.map((role) => (
-                              <option key={role.value} value={role.value}>{role.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
+            <>
+              <div className="table-wrap table-wrap-flat">
+                <table className="dt">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Rol</th>
+                      <th>Estado</th>
+                      <th>Creado</th>
+                      <th>Cambiar rol</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {usuarios.map((usuario) => (
+                      <tr key={usuario.id}>
+                        <td>
+                          <strong>{usuario.nombre}</strong>
+                          <div className="muted">{usuario.email}</div>
+                        </td>
+                        <td><span className="badge badge-accent">{usuario.rolLabel}</span></td>
+                        <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
+                        <td>{usuario.createdAtLabel}</td>
+                        <td>
+                          <div className="input role-select">
+                            <select
+                              value={usuario.rol}
+                              disabled={saving || !online}
+                              onChange={(event) => cambiarRol(usuario.id, event.target.value as RolUsuario)}
+                            >
+                              {ROLES.map((role) => (
+                                <option key={role.value} value={role.value}>{role.label}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {nextCursor && (
+                <div className="row center" style={{ padding: '12px' }}>
+                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                    {loadingMore ? <span className="spinner" /> : null}
+                    Cargar más
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
 

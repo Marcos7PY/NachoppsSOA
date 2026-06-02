@@ -21,7 +21,7 @@ export class AppController {
 
   constructor(
     private readonly appService: AppService,
-    private readonly gateway: NotificationsGateway
+    private readonly gateway: NotificationsGateway,
   ) {}
 
   @Get()
@@ -97,14 +97,13 @@ export class AppController {
     const notif = await this.appService.registrarNotificacion(pattern, data);
 
     // Emitir por WebSocket para tiempo real
-    this.gateway.emitPedidoUpdate({ 
-      pattern, 
+    this.gateway.emitPedidoUpdate({
+      pattern,
       data: {
         ...(typeof data === 'object' ? data : {}),
         notificacionId: notif?.id,
-        contenido: notif?.contenido
-      }
+        contenido: notif?.contenido,
+      },
     });
   }
-
 }

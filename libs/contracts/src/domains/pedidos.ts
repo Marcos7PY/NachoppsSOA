@@ -1,4 +1,17 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum, ValidateNested, ArrayMinSize, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  ValidateNested,
+  ArrayMinSize,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export const PedidoEstado = {
@@ -29,9 +42,8 @@ export class ModificadorItem {
 }
 
 export class PedidoItemDto {
-  @IsOptional()
   @IsString()
-  id?: string;
+  id: string;
   @IsString()
   productoId: string;
   @IsString()
@@ -72,8 +84,54 @@ export class PedidoDto {
   total: number;
   @IsEnum(PedidoEstado)
   estado: PedidoEstado;
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
   @IsString()
   createdAt: string;
+}
+
+export class ListarPedidosQuery {
+  @IsOptional()
+  @IsString()
+  mesaId?: string;
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+  @IsOptional()
+  @IsEnum(PedidoEstado)
+  estado?: PedidoEstado;
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+export class PedidoListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PedidoDto)
+  data: PedidoDto[];
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }
 
 export class PedidoItemInput {
@@ -113,6 +171,21 @@ export class CrearPedidoCommand {
   @ValidateNested({ each: true })
   @Type(() => PedidoItemInput)
   items: PedidoItemInput[];
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
 }
 
 export class ActualizarEstadoPedidoCommand {

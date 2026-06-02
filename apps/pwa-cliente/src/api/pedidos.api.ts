@@ -4,15 +4,50 @@ import { client } from './client';
 import { unwrapArray, unwrapEntity } from './response';
 import type {
   PedidoDto,
+  PedidoListQuery,
+  PedidoListResponse,
   CrearPedidoPayload,
   ActualizarEstadoPedidoPayload,
 } from '../types/pedido.types';
 
+function buildListQuery(query: PedidoListQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.mesaId) params.set('mesaId', query.mesaId);
+  if (query.limit != null) params.set('limit', String(query.limit));
+  if (query.cursor) params.set('cursor', query.cursor);
+  if (query.estado) params.set('estado', query.estado);
+  if (query.updatedSince) params.set('updatedSince', query.updatedSince);
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : '';
+}
+
 /** GET /pedidos — Listar pedidos (opcionalmente filtrados por mesaId) */
+export async function getPage(
+  query: PedidoListQuery = {},
+): Promise<PedidoListResponse> {
+  const response = await client.get<
+    PedidoListResponse | PedidoDto[] | { pedidos: PedidoDto[] }
+  >(`/pedidos${buildListQuery(query)}`);
+
+  if (
+    response &&
+    typeof response === 'object' &&
+    'data' in response &&
+    Array.isArray((response as PedidoListResponse).data)
+  ) {
+    return response as PedidoListResponse;
+  }
+
+  return {
+    data: unwrapArray<PedidoDto>(response, 'pedidos'),
+    nextCursor: null,
+  };
+}
+
+/** GET /pedidos — Compatibilidad para pantallas que aun consumen array plano */
 export async function getAll(mesaId?: string): Promise<PedidoDto[]> {
-  const query = mesaId ? `?mesaId=${encodeURIComponent(mesaId)}` : '';
-  const response = await client.get<PedidoDto[] | { pedidos: PedidoDto[] }>(`/pedidos${query}`);
-  return unwrapArray<PedidoDto>(response, 'pedidos');
+  const response = await getPage({ mesaId, limit: 50 });
+  return response.data;
 }
 
 /** POST /pedidos — Crear un nuevo pedido */

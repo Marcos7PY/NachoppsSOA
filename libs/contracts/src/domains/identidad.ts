@@ -1,4 +1,5 @@
-import { IsEmail, IsString, IsEnum, IsBoolean, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsBoolean, IsNotEmpty, MinLength, IsOptional, IsInt, Min, Max, IsArray, ValidateNested, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const RolUsuario = {
   Admin: 'ADMIN',
@@ -32,6 +33,33 @@ export class UsuarioDto {
 
   @IsString()
   createdAt: string;
+}
+
+/* ── Queries ─────────────────────────────────────────── */
+
+export class ListarUsuariosQuery {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsEnum(RolUsuario)
+  rol?: RolUsuario;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
 }
 
 /* ── Commands ────────────────────────────────────────── */
@@ -73,6 +101,17 @@ export class LoginResponseDto {
   access_token: string;
   
   usuario: Omit<UsuarioDto, 'activo' | 'createdAt'>;
+}
+
+export class UsuarioListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UsuarioDto)
+  data: UsuarioDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }
 
 /* ── Event payloads ──────────────────────────────────── */

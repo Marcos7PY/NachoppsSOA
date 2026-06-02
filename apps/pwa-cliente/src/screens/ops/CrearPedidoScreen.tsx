@@ -2,19 +2,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
-import { useMesasStore } from '../../store/mesas.store';
-import { useCuentasStore } from '../../store/cuentas.store';
-import { useInventarioStore } from '../../store/inventario.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
+import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 import type { ProductoVM } from '../../types/inventario.types';
 
-const SYNC_RETRY_DELAYS_MS = [0, 500, 1000, 2000] as const;
 const ESTADOS_PEDIDO_CERRADO = new Set(['PAGADO', 'CANCELADO']);
-
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function pedidoEstaActivo(pedido: { estado: string }) {
   return !ESTADOS_PEDIDO_CERRADO.has(pedido.estado);
@@ -28,14 +23,17 @@ export function CrearPedidoScreen() {
   const paramCanal = searchParams.get('canal');
 
   // Stores
-  const { pedidos: pedidosMesa, crear: crearPedido, fetch: fetchPedidos } = usePedidosStore();
-  const { mesas, fetch: fetchMesas } = useMesasStore();
-  const { cuentaActiva, cargar: cargarCuenta } = useCuentasStore();
-  const { productos, categorias, loading: loadingInv, fetch: fetchInventario } = useInventarioStore();
+  // UI Feedbacks y Local State
+  const [selectedMesaId, setSelectedMesaId] = useState<string>('');
+
+  // Stores (React Query)
+  const { pedidos: pedidosMesa, crear: crearPedido } = usePedidosQuery(selectedMesaId || undefined);
+  const { mesas } = useMesasQuery();
+  const { cuentaActiva } = useCuentasQuery(selectedMesaId || undefined);
+  const { productos, categorias, loading: loadingInv } = useInventarioQuery();
 
   // Estados locales
   const [tipo, setTipo] = useState<'SALON' | 'DELIVERY' | 'LLEVAR'>('SALON');
-  const [selectedMesaId, setSelectedMesaId] = useState<string>('');
   const [clienteNombre, setClienteNombre] = useState('');
   const [clienteTelefono, setClienteTelefono] = useState('');
   const [clienteDireccion, setClienteDireccion] = useState('');
@@ -52,18 +50,6 @@ export function CrearPedidoScreen() {
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [successLocal, setSuccessLocal] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchMesas();
-    fetchInventario();
-  }, [fetchMesas, fetchInventario]);
-
-  // Cargar cuenta activa de la mesa para mostrar consumos previos
-  useEffect(() => {
-    if (tipo === 'SALON' && selectedMesaId) {
-      cargarCuenta(selectedMesaId);
-      fetchPedidos(selectedMesaId);
-    }
-  }, [selectedMesaId, tipo, cargarCuenta, fetchPedidos]);
 
   // Mesas físicas
   const mesasFisicas = useMemo(() => {
@@ -159,30 +145,6 @@ export function CrearPedidoScreen() {
     ? cuentaActiva.total
     : pedidosSesion.reduce((sum, pedido) => sum + Number(pedido.total), 0);
 
-  const revalidarMesaConCuenta = async (mesaId: string) => {
-    for (const delay of SYNC_RETRY_DELAYS_MS) {
-      if (delay > 0) {
-        await wait(delay);
-      }
-
-      await Promise.allSettled([
-        fetchMesas(),
-        cargarCuenta(mesaId),
-        fetchPedidos(mesaId),
-      ]);
-
-      const mesaActual = useMesasStore.getState().mesas.find((m) => m.id === mesaId);
-      const cuentaActual = useCuentasStore.getState().cuentaActiva;
-
-      const tienePedidos = usePedidosStore.getState().pedidos.some((pedido) => pedido.mesaId === mesaId && pedidoEstaActivo(pedido));
-      if ((mesaActual?.cuentaAsociada && cuentaActual?.mesaId === mesaId) || tienePedidos) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
   // Crear Pedido
   const handleCrearPedido = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -221,48 +183,24 @@ export function CrearPedidoScreen() {
 
     setSaving(true);
     try {
-      let itemsPayload: CrearPedidoItemPayload[];
-
-      if (tipo === 'SALON') {
-        itemsPayload = itemsCanasta.map((it) => ({
-          productoId: it.producto.id,
-          cantidad: it.cantidad,
-          area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
-          notas: it.notas || '',
-        }));
-      } else {
-        // Serializar datos del cliente en las notas de los ítems
-        const headerStr = tipo === 'DELIVERY' 
-          ? `[DELIVERY] Cliente: ${clienteNombre.trim()} | Tel: ${clienteTelefono.trim()} | Prov: ${proveedorDelivery} | Dir: ${clienteDireccion.trim()}`
-          : `[LLEVAR] Cliente: ${clienteNombre.trim()} | Tel: ${clienteTelefono.trim()}`;
-
-        itemsPayload = itemsCanasta.map((it, idx) => ({
-          productoId: it.producto.id,
-          cantidad: it.cantidad,
-          area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
-          notas: idx === 0 
-            ? `${headerStr}${it.notas ? ` | Nota: ${it.notas}` : ''}`
-            : it.notas || '',
-        }));
-      }
+      const itemsPayload: CrearPedidoItemPayload[] = itemsCanasta.map((it) => ({
+        productoId: it.producto.id,
+        cantidad: it.cantidad,
+        area: it.producto.categoriaNombre === 'Bebidas' ? 'BAR' : 'COCINA',
+        notas: it.notas || '',
+      }));
 
       await crearPedido({
         mesaId: targetMesa.id,
         items: itemsPayload,
+        cliente: tipo !== 'SALON' && clienteNombre.trim() ? clienteNombre.trim() : undefined,
+        telefono: tipo !== 'SALON' && clienteTelefono.trim() ? clienteTelefono.trim() : undefined,
+        direccion: tipo === 'DELIVERY' && clienteDireccion.trim() ? clienteDireccion.trim() : undefined,
+        proveedor: tipo === 'DELIVERY' ? proveedorDelivery : undefined,
+        modalidad: tipo,
       });
 
-      let sincronizado = true;
-      if (tipo === 'SALON') {
-        setSincronizandoMesa(true);
-        sincronizado = await revalidarMesaConCuenta(targetMesa.id);
-        setSincronizandoMesa(false);
-      }
-
-      setSuccessLocal(
-        sincronizado
-          ? `Pedido de ${tipo.toLowerCase()} enviado con éxito.`
-          : 'Pedido enviado. La mesa se seguirá sincronizando en segundo plano.',
-      );
+      setSuccessLocal(`Pedido de ${tipo.toLowerCase()} enviado con éxito.`);
       setCarrito({});
       setClienteNombre('');
       setClienteTelefono('');

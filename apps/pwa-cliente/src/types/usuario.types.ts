@@ -1,31 +1,20 @@
-export type RolUsuario =
-  | 'ADMIN'
-  | 'CAJERO'
-  | 'COCINA'
-  | 'MESERO'
-  | 'RECEPCION'
-  | 'GERENCIA'
-  | 'SISTEMA';
+// types/usuario.types.ts - DTOs y ViewModels de usuarios
 
-export interface UsuarioDto {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: RolUsuario;
-  activo: boolean;
-  createdAt: string;
-}
+import type {
+  RolUsuario as ContractRolUsuario,
+  UsuarioDto as ContractUsuarioDto,
+  ListarUsuariosQuery as ContractListarUsuariosQuery,
+  UsuarioListResponse as ContractUsuarioListResponse,
+  CrearUsuarioCommand as ContractCrearUsuarioCommand,
+  CambiarRolCommand as ContractCambiarRolCommand,
+} from '@org/contracts';
 
-export interface CrearUsuarioPayload {
-  nombre: string;
-  email: string;
-  password: string;
-  rol: RolUsuario;
-}
-
-export interface CambiarRolPayload {
-  rol: RolUsuario;
-}
+export type RolUsuario = ContractRolUsuario;
+export type UsuarioDto = ContractUsuarioDto;
+export type ListarUsuariosQuery = ContractListarUsuariosQuery;
+export type UsuarioListResponse = ContractUsuarioListResponse;
+export type CrearUsuarioPayload = ContractCrearUsuarioCommand;
+export type CambiarRolPayload = ContractCambiarRolCommand;
 
 export interface UsuarioVM {
   id: string;

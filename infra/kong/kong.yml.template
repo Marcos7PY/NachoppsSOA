@@ -39,6 +39,7 @@ plugins:
         - Accept
         - Authorization
         - Content-Type
+        - X-CSRF-Token
         - X-Requested-With
       exposed_headers:
         - X-Request-Id
@@ -73,7 +74,7 @@ consumers:
 services:
   # ── Identidad (ruta pública para login, protegida para el resto) ──
   - name: servicio-identidad-public
-    url: http://host.docker.internal:3001/api/auth
+    url: http://servicio-identidad:3000/api/auth
     routes:
       - name: identidad-login
         paths:
@@ -91,7 +92,7 @@ services:
               hide_client_headers: false
 
   - name: servicio-identidad
-    url: http://host.docker.internal:3001/api
+    url: http://servicio-identidad:3000/api
     plugins:
       - name: jwt
         config:
@@ -107,7 +108,7 @@ services:
 
   # ── Mesas ──
   - name: servicio-mesas
-    url: http://host.docker.internal:3002/api
+    url: http://servicio-mesas:3000/api
     plugins:
       - name: jwt
         config:
@@ -123,7 +124,7 @@ services:
 
   # ── Pedidos ──
   - name: servicio-pedidos
-    url: http://host.docker.internal:3004/api
+    url: http://servicio-pedidos:3000/api
     plugins:
       - name: jwt
         config:
@@ -139,7 +140,7 @@ services:
 
   # ── Cuentas ──
   - name: servicio-cuentas
-    url: http://host.docker.internal:3005/api
+    url: http://servicio-cuentas:3000/api
     plugins:
       - name: jwt
         config:
@@ -155,7 +156,7 @@ services:
 
   # ── Reservas ──
   - name: servicio-reservas
-    url: http://host.docker.internal:3006/api
+    url: http://servicio-reservas:3000/api
     plugins:
       - name: jwt
         config:
@@ -171,7 +172,7 @@ services:
 
   # ── Inventario ──
   - name: servicio-inventario
-    url: http://host.docker.internal:3007/api
+    url: http://servicio-inventario:3000/api
     plugins:
       - name: jwt
         config:
@@ -187,7 +188,7 @@ services:
 
   # ── Notificaciones ──
   - name: servicio-notificaciones
-    url: http://host.docker.internal:3008/api
+    url: http://servicio-notificaciones:3000/api
     plugins:
       - name: jwt
         config:
@@ -203,7 +204,7 @@ services:
 
   # ── Caja ──
   - name: servicio-caja
-    url: http://host.docker.internal:3009/api
+    url: http://servicio-caja:3000/api
     plugins:
       - name: jwt
         config:
@@ -219,7 +220,7 @@ services:
 
   # ── Reportes ──
   - name: servicio-reportes
-    url: http://host.docker.internal:3010/api
+    url: http://servicio-reportes:3000/api
     plugins:
       - name: jwt
         config:

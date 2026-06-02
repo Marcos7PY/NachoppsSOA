@@ -1,24 +1,23 @@
 // types/mesa.types.ts — DTOs y ViewModels de mesas
-// Basado en libs/contracts/src/domains/mesas.ts
+// DTOs derivados de @org/contracts; ViewModels propios de la UI.
+
+import type {
+  ActualizarEstadoMesaCommand,
+  MesaDto as ContractMesaDto,
+  MesaEstado as ContractEstadoMesa,
+} from '@org/contracts';
 
 // ─── Enums ──────────────────────────────────────────────────────
 export const EstadoMesa = {
   Libre: 'LIBRE',
   Ocupada: 'OCUPADA',
   Reservada: 'RESERVADA',
-} as const;
+} as const satisfies Record<string, ContractEstadoMesa>;
 
-export type EstadoMesa = (typeof EstadoMesa)[keyof typeof EstadoMesa];
+export type EstadoMesa = ContractEstadoMesa;
 
 // ─── DTO del backend (GET /mesas) ───────────────────────────────
-export interface MesaDto {
-  id: string;
-  numero: number;
-  capacidad: number;
-  ubicacion: string;
-  estado: EstadoMesa;
-  cuentaAsociada?: string | null;
-}
+export type MesaDto = ContractMesaDto;
 
 // ─── ViewModel para la UI ───────────────────────────────────────
 export interface MesaVM {
@@ -36,7 +35,4 @@ export interface MesaVM {
 }
 
 // ─── Comando para actualizar estado ─────────────────────────────
-export interface ActualizarEstadoMesaPayload {
-  estado: EstadoMesa;
-  cuentaAsociada?: string | null;
-}
+export type ActualizarEstadoMesaPayload = ActualizarEstadoMesaCommand;

@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { AppService } from './app.service';
-import { PagarPedidoCommand } from '@org/contracts';
+import { PagarPedidoCommand, ListarTransaccionesQuery, TransaccionListResponse } from '@org/contracts';
 
 @Controller()
 export class AppController {
@@ -17,7 +17,7 @@ export class AppController {
   }
 
   @Get()
-  listarTransacciones() {
-    return this.appService.listarTransacciones();
+  listarTransacciones(@Query() query: ListarTransaccionesQuery): Promise<TransaccionListResponse> {
+    return this.appService.listarTransacciones(query);
   }
 }

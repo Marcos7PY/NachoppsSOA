@@ -1,14 +1,9 @@
 // screens/reportes/ReportesScreen.tsx - Resumen diario y métricas reales
 
-import { useEffect } from 'react';
-import { useReportesStore } from '../../store/reportes.store';
+import { useReportesQuery } from '../../hooks/queries/useReportesQuery';
 
 export function ReportesScreen() {
-  const { resumen, loading, error, fetch } = useReportesStore();
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  const { resumen, loading, error, fetch } = useReportesQuery();
 
   return (
     <div>

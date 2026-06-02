@@ -1,11 +1,11 @@
 // services/socket.service.ts - Singleton Socket.IO para actualizaciones en tiempo real
 
 import { io, type Socket } from 'socket.io-client';
-import { useCuentasStore } from '../store/cuentas.store';
-import { useMesasStore } from '../store/mesas.store';
-import { useNotificacionesStore } from '../store/notificaciones.store';
-import { usePedidosStore } from '../store/pedidos.store';
-import { getAuthToken } from '../api/client';
+import { queryClient } from '../api/queryClient';
+import { MESAS_QUERY_KEY } from '../hooks/queries/useMesasQuery';
+import { PEDIDOS_QUERY_KEY } from '../hooks/queries/usePedidosQuery';
+import { CUENTAS_QUERY_KEY } from '../hooks/queries/useCuentasQuery';
+import { pushSocketNotification } from '../hooks/queries/useNotificacionesQuery';
 
 interface NotificacionEvento {
   pattern?: string;
@@ -16,28 +16,77 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const WS_PATH = import.meta.env.VITE_WS_PATH ?? '/notificaciones/socket.io';
 
 let socket: Socket | null = null;
+const pendingInvalidations = new Set<string>();
+let invalidationTimer: ReturnType<typeof setTimeout> | null = null;
+const INVALIDATION_DEBOUNCE_MS = 300;
 
-function invalidateForPattern(pattern?: string) {
-  const targets = new Set<Promise<void>>();
+type StoreKey = 'pedidos' | 'mesas' | 'cuentas';
+
+function storesForPattern(pattern?: string) {
+  const stores = new Set<StoreKey>();
 
   if (!pattern || pattern.startsWith('pedido.')) {
-    targets.add(usePedidosStore.getState().invalidate());
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(useCuentasStore.getState().invalidate());
+    stores.add('pedidos');
+    stores.add('mesas');
+    stores.add('cuentas');
   }
 
   if (pattern?.startsWith('cuenta.') || pattern?.startsWith('pago.')) {
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(usePedidosStore.getState().invalidate());
-    targets.add(useCuentasStore.getState().invalidate());
+    stores.add('mesas');
+    stores.add('pedidos');
+    stores.add('cuentas');
   }
 
   if (pattern?.startsWith('mesa.')) {
-    targets.add(useMesasStore.getState().invalidate());
-    targets.add(usePedidosStore.getState().invalidate());
+    stores.add('mesas');
+    stores.add('pedidos');
   }
 
-  void Promise.allSettled([...targets]);
+  return stores;
+}
+
+function invalidateStores(stores: Set<StoreKey>) {
+  if (stores.has('pedidos')) {
+    queryClient.invalidateQueries({
+      queryKey: PEDIDOS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+  if (stores.has('mesas')) {
+    queryClient.invalidateQueries({
+      queryKey: MESAS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+  if (stores.has('cuentas')) {
+    queryClient.invalidateQueries({
+      queryKey: CUENTAS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+}
+
+function scheduleInvalidate(pattern?: string) {
+  pendingInvalidations.add(pattern ?? '*');
+
+  if (invalidationTimer) return;
+
+  invalidationTimer = setTimeout(() => {
+    const patterns = [...pendingInvalidations];
+    pendingInvalidations.clear();
+    invalidationTimer = null;
+
+    const stores = new Set<StoreKey>();
+    patterns.forEach((key) => {
+      storesForPattern(key === '*' ? undefined : key).forEach((store) =>
+        stores.add(store),
+      );
+    });
+    invalidateStores(stores);
+  }, INVALIDATION_DEBOUNCE_MS);
 }
 
 export const socketService = {
@@ -49,8 +98,6 @@ export const socketService = {
         path: WS_PATH,
         withCredentials: true,
         transports: ['websocket', 'polling'],
-        query: getAuthToken() ? { jwt: getAuthToken() } : undefined,
-        auth: getAuthToken() ? { token: getAuthToken() } : undefined,
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 500,
@@ -58,13 +105,11 @@ export const socketService = {
       });
 
       socket.on('pedidoUpdate', (evento: NotificacionEvento) => {
-        useNotificacionesStore.getState().pushFromSocket(evento);
-        invalidateForPattern(evento?.pattern);
+        pushSocketNotification(evento);
+        scheduleInvalidate(evento?.pattern);
       });
     }
 
-    socket.auth = getAuthToken() ? { token: getAuthToken() } : {};
-    socket.io.opts.query = getAuthToken() ? { jwt: getAuthToken() } : {};
     socket.connect();
   },
 

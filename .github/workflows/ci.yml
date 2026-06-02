@@ -42,15 +42,15 @@ jobs:
 
       - name: Generate Prisma clients
         env:
-          DATABASE_URL_SERVICIO_RESERVAS: "postgresql://user:pass@localhost:5441/reservas_db?schema=public"
-          DATABASE_URL_SERVICIO_PEDIDOS: "postgresql://user:pass@localhost:5434/pedidos_db?schema=public"
-          DATABASE_URL_SERVICIO_IDENTIDAD: "postgresql://user:pass@localhost:5439/identidad_db?schema=public"
-          DATABASE_URL_SERVICIO_CUENTAS: "postgresql://user:pass@localhost:5435/cuentas_db?schema=public"
-          DATABASE_URL_SERVICIO_CAJA: "postgresql://user:pass@localhost:5437/caja_db?schema=public"
-          DATABASE_URL_SERVICIO_MESAS: "postgresql://user:pass@localhost:5433/mesas_db?schema=public"
-          DATABASE_URL_SERVICIO_INVENTARIO: "postgresql://user:pass@localhost:5436/inventario_db?schema=public"
-          DATABASE_URL_SERVICIO_REPORTES: "postgresql://user:pass@localhost:5438/reportes_db?schema=public"
-          DATABASE_URL_SERVICIO_NOTIFICACIONES: "postgresql://user:pass@localhost:5440/notificaciones_db?schema=public"
+          DATABASE_URL_SERVICIO_RESERVAS: 'postgresql://user:pass@localhost:5441/reservas_db?schema=public'
+          DATABASE_URL_SERVICIO_PEDIDOS: 'postgresql://user:pass@localhost:5434/pedidos_db?schema=public'
+          DATABASE_URL_SERVICIO_IDENTIDAD: 'postgresql://user:pass@localhost:5439/identidad_db?schema=public'
+          DATABASE_URL_SERVICIO_CUENTAS: 'postgresql://user:pass@localhost:5435/cuentas_db?schema=public'
+          DATABASE_URL_SERVICIO_CAJA: 'postgresql://user:pass@localhost:5437/caja_db?schema=public'
+          DATABASE_URL_SERVICIO_MESAS: 'postgresql://user:pass@localhost:5433/mesas_db?schema=public'
+          DATABASE_URL_SERVICIO_INVENTARIO: 'postgresql://user:pass@localhost:5436/inventario_db?schema=public'
+          DATABASE_URL_SERVICIO_REPORTES: 'postgresql://user:pass@localhost:5438/reportes_db?schema=public'
+          DATABASE_URL_SERVICIO_NOTIFICACIONES: 'postgresql://user:pass@localhost:5440/notificaciones_db?schema=public'
         run: |
           cd apps/servicio-reservas && DATABASE_URL="$DATABASE_URL_SERVICIO_RESERVAS" npx prisma generate
           cd ../servicio-pedidos && DATABASE_URL="$DATABASE_URL_SERVICIO_PEDIDOS" npx prisma generate
@@ -62,14 +62,14 @@ jobs:
           cd ../servicio-reportes && DATABASE_URL="$DATABASE_URL_SERVICIO_REPORTES" npx prisma generate
           cd ../servicio-notificaciones && DATABASE_URL="$DATABASE_URL_SERVICIO_NOTIFICACIONES" npx prisma generate
 
-      - name: Build and test affected projects
+      - name: Typecheck, build and test affected projects
         env:
           CI: true
           NX_DAEMON: false
         run: |
           mkdir -p .ci-logs
           set -o pipefail
-          npm exec -- nx affected -t build test --base="$NX_BASE" --head="$NX_HEAD" --parallel=3 --outputStyle=static 2>&1 | tee .ci-logs/nx-affected.log
+          npm exec -- nx affected -t typecheck build test --base="$NX_BASE" --head="$NX_HEAD" --parallel=3 --outputStyle=static 2>&1 | tee .ci-logs/nx-affected.log
 
       - name: Upload CI logs
         if: failure()

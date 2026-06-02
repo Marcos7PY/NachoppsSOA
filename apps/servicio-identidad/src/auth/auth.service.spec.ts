@@ -175,13 +175,13 @@ describe('AuthService — Identidad', () => {
     it('debe listar todos los usuarios', async () => {
       mockPrisma.usuario.findMany.mockResolvedValue([usuarioBase]);
       const result = await service.listarUsuarios();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('debe retornar array vacio si no hay usuarios', async () => {
       mockPrisma.usuario.findMany.mockResolvedValue([]);
       const result = await service.listarUsuarios();
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 });

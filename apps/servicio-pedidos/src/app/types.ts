@@ -22,6 +22,11 @@ export interface PedidoEntity {
   numeroMesa: number | null;
   estado: string;
   total: unknown;
+  cliente?: string | null;
+  telefono?: string | null;
+  direccion?: string | null;
+  proveedor?: string | null;
+  modalidad?: string | null;
   createdAt: Date;
   items: PedidoItemEntity[];
 }

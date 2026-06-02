@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Param, Patch, Query, UseInterceptors } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 import { AppService } from './app.service';
-import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoRegistradoPayload } from '@org/contracts';
+import { CrearPedidoCommand, ActualizarEstadoPedidoCommand, RoutingKeys, PagoRegistradoPayload, ListarPedidosQuery } from '@org/contracts';
 import { RabbitMQRetryInterceptor } from '@org/resiliencia';
 
 @UseInterceptors(RabbitMQRetryInterceptor)
@@ -15,8 +15,8 @@ export class AppController {
   }
 
   @Get()
-  listarPedidos(@Query('mesaId') mesaId?: string) {
-    return this.appService.listarPedidos(mesaId);
+  listarPedidos(@Query() query: ListarPedidosQuery) {
+    return this.appService.listarPedidos(query);
   }
 
   @Patch(':id/estado')

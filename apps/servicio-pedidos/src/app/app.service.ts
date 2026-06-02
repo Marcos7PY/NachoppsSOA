@@ -7,6 +7,8 @@ import {
   ActualizarEstadoPedidoCommand,
   PedidoItemInput,
   PedidoEstado,
+  ListarPedidosQuery,
+  PedidoListResponse,
   ItemArea,
   RoutingKeys,
   PagoRegistradoPayload,
@@ -46,7 +48,17 @@ export class AppService {
     const mesaLocal = await this.validarMesa(command.mesaId);
     const itemsProcesados = await this.validarYMapearItems(command.items);
     const total = this.calcularTotal(itemsProcesados);
-    const pedido = await this.persistirPedido(command.mesaId, mesaLocal.numero, itemsProcesados, total);
+    const pedido = await this.persistirPedido(
+      command.mesaId,
+      mesaLocal.numero,
+      itemsProcesados,
+      total,
+      command.cliente,
+      command.telefono,
+      command.direccion,
+      command.proveedor,
+      command.modalidad,
+    );
 
     this.logger.log(`Pedido ${pedido.id} creado con eventos en Outbox`);
     return { 
@@ -167,7 +179,17 @@ export class AppService {
     );
   }
 
-  private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
+  private async persistirPedido(
+    mesaId: string,
+    numeroMesa: number,
+    items: PedidoItemMapeado[],
+    total: Prisma.Decimal,
+    cliente?: string,
+    telefono?: string,
+    direccion?: string,
+    proveedor?: string,
+    modalidad?: string,
+  ): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
       const itemsConStockControlado = items.filter((item) => typeof item.stockActual === 'number');
       const cantidadesPorProducto = itemsConStockControlado.reduce((acc, item) => {
@@ -198,6 +220,11 @@ export class AppService {
           numeroMesa,
           estado: PedidoEstado.Pendiente,
           total,
+          cliente,
+          telefono,
+          direccion,
+          proveedor,
+          modalidad: modalidad ?? 'MESA',
           items: {
             create: items.map(item => ({
               productoId: item.productoId,
@@ -245,10 +272,16 @@ export class AppService {
   }
 
 
-  async listarPedidos(mesaId?: string): Promise<{ pedidos: PedidoDto[] }> {
+  async listarPedidos(query: ListarPedidosQuery = {}): Promise<PedidoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
     const where: Prisma.PedidoWhereInput = {
-      ...(mesaId ? { mesaId } : {}),
-      estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
+      ...(query.mesaId ? { mesaId: query.mesaId } : {}),
+      ...(query.estado
+        ? { estado: query.estado }
+        : { estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
     };
     const pedidos = await this.prisma.pedido.findMany({
       where,
@@ -257,10 +290,24 @@ export class AppService {
           include: { modificadores: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
 
-    return { pedidos: pedidos.map(p => this.mapToDto(p)) };
+    const hasMore = pedidos.length > limit;
+    const data = pedidos.slice(0, limit);
+
+    return {
+      data: data.map(p => this.mapToDto(p)),
+      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
   async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
@@ -496,6 +543,11 @@ export class AppService {
       numeroMesa: p.numeroMesa ?? undefined,
       estado: p.estado as PedidoEstado,
       total: Number(p.total),
+      cliente: p.cliente ?? undefined,
+      telefono: p.telefono ?? undefined,
+      direccion: p.direccion ?? undefined,
+      proveedor: p.proveedor ?? undefined,
+      modalidad: p.modalidad ?? undefined,
       createdAt: p.createdAt.toISOString(),
       items: p.items.map(i => ({
         id: i.id,

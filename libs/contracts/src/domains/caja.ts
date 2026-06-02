@@ -1,4 +1,5 @@
-import { IsNumber, IsString, IsOptional, IsNotEmpty } from 'class-validator';
+import { IsNumber, IsString, IsOptional, IsNotEmpty, IsInt, Min, Max, IsArray, ValidateNested, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export const MetodoPago = {
   Efectivo: 'EFECTIVO',
@@ -66,4 +67,40 @@ export class ArqueoRealizadoPayload {
   turnoId: string;
   @IsNumber()
   diferencia: number;
+}
+
+/* ── Queries ─────────────────────────────────────────── */
+
+export class ListarTransaccionesQuery {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsString()
+  metodo?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+/* ── Responses ───────────────────────────────────────── */
+
+export class TransaccionListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TransaccionDto)
+  data: TransaccionDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }

@@ -1,4 +1,18 @@
-import { ArrayMinSize, IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class StockBajoPayload {
   @IsString()
@@ -43,6 +57,10 @@ export class ProductoDto {
   id: string;
   @IsString()
   categoriaId: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CategoriaDto)
+  categoria?: CategoriaDto | null;
   @IsString()
   nombre: string;
   @IsOptional()
@@ -55,6 +73,47 @@ export class ProductoDto {
   @IsOptional()
   @IsNumber()
   stockActual?: number | null;
+}
+
+export class ListarProductosQuery {
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  disponible?: boolean;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+export class ProductoListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductoDto)
+  data: ProductoDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }
 
 export class CrearProductoCommand {

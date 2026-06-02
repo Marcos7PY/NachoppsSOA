@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
 import { AppService } from './app.service';
-import { CrearCategoriaCommand, CrearProductoCommand, ObtenerProductosLoteCommand } from '@org/contracts';
+import { CrearCategoriaCommand, CrearProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
 
 @Controller()
 export class AppController {
@@ -26,8 +26,8 @@ export class AppController {
   // --- PRODUCTOS ---
 
   @Get('productos')
-  listarProductos(@Query('categoriaId') categoriaId?: string) {
-    return this.appService.listarProductos(categoriaId);
+  listarProductos(@Query() query: ListarProductosQuery) {
+    return this.appService.listarProductos(query);
   }
 
   @Get('productos/:id')

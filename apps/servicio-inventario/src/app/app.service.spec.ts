@@ -41,6 +41,71 @@ describe('AppService — Inventario', () => {
     service = new AppService(mockPrisma as any);
   });
 
+  describe('listarProductos', () => {
+    const productoBase = {
+      id: 'prod-001',
+      categoriaId: 'cat-001',
+      categoria: { id: 'cat-001', nombre: 'Bebidas', descripcion: null },
+      nombre: 'Cerveza',
+      descripcion: null,
+      precio: 8.5,
+      disponible: true,
+      stockActual: 10,
+    };
+
+    it('devuelve data y nextCursor cuando hay mas productos', async () => {
+      mockPrisma.producto.findMany.mockResolvedValue([
+        { ...productoBase, id: 'prod-001' },
+        { ...productoBase, id: 'prod-002' },
+        { ...productoBase, id: 'prod-003' },
+      ]);
+
+      const result = await service.listarProductos({ limit: 2 });
+
+      expect(result.data.map((producto) => producto.id)).toEqual([
+        'prod-001',
+        'prod-002',
+      ]);
+      expect(result.nextCursor).toBe('prod-002');
+      expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 3,
+          orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('aplica cursor, categoria, disponible, search, updatedSince y tope maximo de limit', async () => {
+      mockPrisma.producto.findMany.mockResolvedValue([]);
+
+      await service.listarProductos({
+        categoriaId: 'cat-001',
+        disponible: false as any,
+        search: 'limon',
+        cursor: 'prod-010',
+        updatedSince: '2026-01-01T00:00:00.000Z',
+        limit: 500,
+      });
+
+      expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            categoriaId: 'cat-001',
+            disponible: false,
+            updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
+            OR: [
+              { nombre: { contains: 'limon', mode: 'insensitive' } },
+              { descripcion: { contains: 'limon', mode: 'insensitive' } },
+            ],
+          },
+          cursor: { id: 'prod-010' },
+          skip: 1,
+          take: 101,
+        }),
+      );
+    });
+  });
+
   describe('reducirStockAutomatico', () => {
     it('debe reducir stock y publicar alerta si cae bajo 10', async () => {
       mockPrisma.producto.findUnique

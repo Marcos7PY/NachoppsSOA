@@ -45,13 +45,57 @@ describe('ReservasService — Reservas', () => {
     it('debe listar reservas', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([reservaBase]);
       const result = await service.listar();
-      expect(result.reservas).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
+      expect(result.nextCursor).toBeNull();
+      expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        take: 21,
+        orderBy: [{ fecha: 'asc' }, { hora: 'asc' }, { id: 'asc' }],
+      }));
     });
 
     it('debe retornar array vacio si no hay reservas', async () => {
       mockPrisma.reserva.findMany.mockResolvedValue([]);
       const result = await service.listar();
-      expect(result.reservas).toEqual([]);
+      expect(result.data).toEqual([]);
+    });
+
+    it('devuelve data y nextCursor cuando hay mas resultados', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([
+        { ...reservaBase, id: 'r-001' },
+        { ...reservaBase, id: 'r-002' },
+        { ...reservaBase, id: 'r-003' },
+      ]);
+
+      const result = await service.listar({ limit: 2 });
+
+      expect(result.data.map((reserva) => reserva.id)).toEqual(['r-001', 'r-002']);
+      expect(result.nextCursor).toBe('r-002');
+      expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        take: 3,
+      }));
+    });
+
+    it('aplica cursor, estado, fecha, updatedSince y tope maximo de limit', async () => {
+      mockPrisma.reserva.findMany.mockResolvedValue([]);
+
+      await service.listar({
+        cursor: 'r-010',
+        estado: ReservaEstado.Confirmada,
+        fecha: '2026-06-15',
+        updatedSince: '2026-01-01T00:00:00.000Z',
+        limit: 500,
+      });
+
+      expect(mockPrisma.reserva.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          estado: ReservaEstado.Confirmada,
+          fecha: new Date('2026-06-15'),
+          updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
+        },
+        cursor: { id: 'r-010' },
+        skip: 1,
+        take: 101,
+      }));
     });
   });
 

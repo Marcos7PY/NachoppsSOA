@@ -1,21 +1,17 @@
 // types/inventario.types.ts - DTOs y ViewModels de inventario
 
-export interface CategoriaDto {
-  id: string;
-  nombre: string;
-  descripcion?: string | null;
-}
+import type {
+  CategoriaDto as ContractCategoriaDto,
+  CrearProductoCommand,
+  ListarProductosQuery,
+  ProductoDto as ContractProductoDto,
+  ProductoListResponse as ContractProductoListResponse,
+} from '@org/contracts';
 
-export interface ProductoDto {
-  id: string;
-  categoriaId: string;
-  categoria?: CategoriaDto | null;
-  nombre: string;
-  descripcion?: string | null;
-  precio: number;
-  disponible: boolean;
-  stockActual?: number | null;
-}
+export type CategoriaDto = ContractCategoriaDto;
+export type ProductoDto = ContractProductoDto;
+export type ProductoListQuery = ListarProductosQuery;
+export type ProductoListResponse = ContractProductoListResponse;
 
 export interface ProductoVM {
   id: string;
@@ -31,14 +27,7 @@ export interface ProductoVM {
   stockClass: string;
 }
 
-export interface CrearProductoPayload {
-  categoriaId: string;
-  nombre: string;
-  descripcion?: string;
-  precio: number;
-  disponible?: boolean;
-  stockActual?: number;
-}
+export type CrearProductoPayload = CrearProductoCommand;
 
 export interface ProductoResponse {
   message: string;

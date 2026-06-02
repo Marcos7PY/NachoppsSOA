@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useMesasStore } from '../../store/mesas.store';
-import { useCuentasStore } from '../../store/cuentas.store';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
+import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import type { MetodoPago } from '../../types/cuenta.types';
 
 const METODOS: { value: MetodoPago; label: string }[] = [
@@ -18,7 +18,9 @@ const METODOS: { value: MetodoPago; label: string }[] = [
 export function CajaScreen() {
   const online = useOnlineStatus();
   const [searchParams] = useSearchParams();
-  const { mesas, fetch: fetchMesas } = useMesasStore();
+  const { mesas } = useMesasQuery();
+  const [mesaId, setMesaId] = useState('');
+  
   const {
     cuentaActiva,
     loading,
@@ -32,16 +34,12 @@ export function CajaScreen() {
     cerrar,
     dividir,
     clearFeedback,
-  } = useCuentasStore();
-  const [mesaId, setMesaId] = useState('');
+  } = useCuentasQuery(mesaId || undefined);
+
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
   const [monto, setMonto] = useState('');
   const [descuento, setDescuento] = useState('0');
   const [partes, setPartes] = useState('2');
-
-  useEffect(() => {
-    fetchMesas();
-  }, [fetchMesas]);
 
   useEffect(() => {
     if (!mesaId && mesas.length > 0) {
@@ -56,11 +54,7 @@ export function CajaScreen() {
     }
   }, [mesaId, mesas, searchParams]);
 
-  useEffect(() => {
-    if (mesaId) {
-      cargar(mesaId);
-    }
-  }, [cargar, mesaId]);
+  // La carga inicial de la cuenta ahora es reactiva por useCuentasQuery(mesaId)
 
   useEffect(() => {
     if (cuentaActiva && !monto) {

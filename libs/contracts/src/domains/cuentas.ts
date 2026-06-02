@@ -22,6 +22,9 @@ export class CuentaCerradaPayload {
   mesaId: string;
   @IsNumber()
   total: number;
+  @IsOptional()
+  @IsArray()
+  items?: { productoId: string; nombre?: string; cantidad: number; precioUnitario: number }[];
 }
 
 export class TicketGeneradoPayload {

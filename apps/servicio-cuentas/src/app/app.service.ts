@@ -261,10 +261,19 @@ export class AppService {
         throw new BadRequestException('La cuenta ya fue cerrada por otra operación concurrente.');
       }
 
+      const allItems = pedidos.flatMap((p: any) => p.items || []);
+      const mappedItems = allItems.map((item: any) => ({
+        productoId: item.productoId,
+        nombre: item.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: Number(item.precioUnitario || 0)
+      }));
+
       const cuentaCerradaPayload: CuentaCerradaPayload = {
         cuentaId: id,
         mesaId: cuenta.mesaId,
         total: total.toNumber(),
+        items: mappedItems,
       };
 
       const ticketGeneradoPayload: TicketGeneradoPayload = {

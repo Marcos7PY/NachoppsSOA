@@ -13,6 +13,7 @@ model VentaDiaria {
   cuentaId    String   @unique
   mesaId      String
   total       Decimal  @db.Decimal(10, 2)
+  items       Json?
   fecha       DateTime @default(now())
   
   @@index([fecha])

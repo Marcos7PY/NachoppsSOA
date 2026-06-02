@@ -1,7 +1,8 @@
 // components/layout/Header.tsx — Topbar con info de usuario y logout
 
 import { useAuthStore } from '../../store/auth.store';
-import { useNotificacionesStore } from '../../store/notificaciones.store';
+import { getTurnoActual } from '../../config';
+import { useNotificacionesQuery } from '../../hooks/queries/useNotificacionesQuery';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
@@ -9,7 +10,7 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 export function Header() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { notificaciones, fetch, markAllRead } = useNotificacionesStore();
+  const { notificaciones, markAllRead } = useNotificacionesQuery();
   const navigate = useNavigate();
   const online = useOnlineStatus();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -21,15 +22,11 @@ export function Header() {
   }, []);
 
   const hora = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const turnoLabel = now.getHours() >= 17 || now.getHours() < 6 ? 'Turno Noche' : 'Turno Día';
+  const turnoLabel = getTurnoActual(now);
   const connLabel = online ? 'En línea' : 'Sin conexión';
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light';
   });
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';

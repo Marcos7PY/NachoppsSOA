@@ -1,8 +1,8 @@
 // screens/ops/CocinaScreen.tsx — KDS (Kitchen Display System) con columnas por estado
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { usePedidosStore } from '../../store/pedidos.store';
+import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import type { PedidoVM, PedidoItemVM, EstadoPedido } from '../../types/pedido.types';
 
 const COLUMNAS: { estado: EstadoPedido; label: string; color: string }[] = [
@@ -37,13 +37,20 @@ function itemsPorEstado(pedido: PedidoVM, estado: EstadoPedido): PedidoItemVM[] 
 
 export function CocinaScreen() {
   const online = useOnlineStatus();
-  const { pedidos, loading, error, fetch, avanzarItem } = usePedidosStore();
+  const {
+    pedidos,
+    nextCursor,
+    loading,
+    loadingMore,
+    error,
+    fetch,
+    fetchMore,
+    avanzarItem,
+  } = usePedidosQuery();
   const [areaFiltro, setAreaFiltro] = useState<'TODAS' | 'COCINA' | 'BAR'>('TODAS');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
+  // La carga inicial la maneja usePedidosQuery internamente
 
   const handleAvanzarItem = async (itemId: string, estado: EstadoPedido) => {
     if (!online) return;
@@ -206,6 +213,14 @@ export function CocinaScreen() {
           );
         })}
       </div>
+      {nextCursor && (
+        <div className="row center" style={{ padding: '12px' }}>
+          <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+            {loadingMore ? <span className="spinner" /> : null}
+            Cargar más
+          </button>
+        </div>
+      )}
     </div>
   );
 }

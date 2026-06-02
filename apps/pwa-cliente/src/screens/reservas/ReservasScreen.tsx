@@ -1,8 +1,8 @@
 // screens/reservas/ReservasScreen.tsx - Agenda del día y acciones de reservas
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useReservasStore } from '../../store/reservas.store';
+import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
 import type { CrearReservaPayload } from '../../types/reserva.types';
 
 const INITIAL_FORM: CrearReservaPayload = {
@@ -16,31 +16,25 @@ const INITIAL_FORM: CrearReservaPayload = {
 
 export function ReservasScreen() {
   const online = useOnlineStatus();
+  const [fecha, setFecha] = useState(INITIAL_FORM.fecha);
+  const [form, setForm] = useState<CrearReservaPayload>(INITIAL_FORM);
   const {
     reservas,
+    nextCursor,
     loading,
+    loadingMore,
     saving,
     error,
     success,
     disponibilidad,
     fetch,
+    fetchMore,
     crear,
     confirmar,
     cancelar,
     consultarDisponibilidad,
     clearFeedback,
-  } = useReservasStore();
-  const [fecha, setFecha] = useState(INITIAL_FORM.fecha);
-  const [form, setForm] = useState<CrearReservaPayload>(INITIAL_FORM);
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  const reservasDelDia = useMemo(
-    () => reservas.filter((reserva) => reserva.fecha === fecha),
-    [fecha, reservas],
-  );
+  } = useReservasQuery({ fecha });
 
   const handleChange = (key: keyof CrearReservaPayload, value: string | number) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -88,11 +82,11 @@ export function ReservasScreen() {
           <div className="panel-h">
             <h3>Agenda</h3>
             <span className="spacer" />
-            <span className="badge badge-info">{reservasDelDia.length} reservas</span>
+            <span className="badge badge-info">{reservas.length} reservas</span>
           </div>
           {loading ? (
             <LoadingRows />
-          ) : reservasDelDia.length === 0 ? (
+          ) : reservas.length === 0 ? (
             <div className="empty">
               <div className="e-ic"><CalendarIcon /></div>
               <h3>Sin reservas para este día</h3>
@@ -112,7 +106,7 @@ export function ReservasScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {reservasDelDia.map((reserva) => (
+                  {reservas.map((reserva) => (
                     <tr key={reserva.id}>
                       <td><strong>{reserva.hora}</strong></td>
                       <td>
@@ -144,6 +138,14 @@ export function ReservasScreen() {
                   ))}
                 </tbody>
               </table>
+              {nextCursor && (
+                <div className="row center" style={{ padding: '12px' }}>
+                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                    {loadingMore ? <span className="spinner" /> : null}
+                    Cargar más
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
