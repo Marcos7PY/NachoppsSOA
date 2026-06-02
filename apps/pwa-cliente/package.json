@@ -7,7 +7,16 @@
     "tags": [
       "frontend",
       "pwa"
-    ]
+    ],
+    "targets": {
+      "e2e": {
+        "executor": "nx:run-commands",
+        "options": {
+          "cwd": "apps/pwa-cliente",
+          "command": "playwright test --config=playwright.config.ts"
+        }
+      }
+    }
   },
   "dependencies": {
     "@org/contracts": "^0.0.1"
