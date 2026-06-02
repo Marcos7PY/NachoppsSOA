@@ -164,7 +164,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: '24h'
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -183,6 +183,12 @@ services:
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-mesas:5432/mesas_db?schema=public'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-mesas:
         condition: service_healthy
@@ -198,6 +204,12 @@ services:
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-pedidos:
         condition: service_healthy
@@ -213,6 +225,12 @@ services:
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-cuentas:
         condition: service_healthy
@@ -227,6 +245,12 @@ services:
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-reservas:5432/reservas_db?schema=public'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-reservas:
         condition: service_healthy
@@ -241,6 +265,12 @@ services:
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-inventario:5432/inventario_db?schema=public'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-inventario:
         condition: service_healthy
@@ -255,6 +285,12 @@ services:
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-notificaciones:5432/notificaciones_db?schema=public'
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-notificaciones:
         condition: service_healthy
@@ -271,6 +307,12 @@ services:
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_SECRET: ${JWT_SECRET}
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-caja:
         condition: service_healthy
@@ -286,7 +328,7 @@ services:
       RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
       JWT_SECRET: ${JWT_SECRET}
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
       retries: 3

@@ -187,7 +187,7 @@ services:
       JWT_EXPIRES_IN: '24h'
     profiles: ['all']
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
       retries: 3
@@ -208,6 +208,12 @@ services:
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-mesas:
         condition: service_healthy
@@ -225,6 +231,12 @@ services:
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-pedidos:
         condition: service_healthy
@@ -242,6 +254,12 @@ services:
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-cuentas:
         condition: service_healthy
@@ -258,6 +276,12 @@ services:
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-reservas:
         condition: service_healthy
@@ -274,6 +298,12 @@ services:
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-inventario:
         condition: service_healthy
@@ -290,6 +320,12 @@ services:
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-notificaciones:
         condition: service_healthy
@@ -308,6 +344,12 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     depends_on:
       db-caja:
         condition: service_healthy
@@ -325,7 +367,7 @@ services:
       JWT_SECRET: 'nachopps_jwt_secret_dev'
     profiles: ['all']
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api']
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
       retries: 3
