@@ -4,6 +4,7 @@ import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { MetricsInterceptor } from './metrics.interceptor';
+import { otelTraceFormat } from './log-trace.format';
 
 @Global()
 @Module({
@@ -19,6 +20,7 @@ import { MetricsInterceptor } from './metrics.interceptor';
         new winston.transports.Console({
           format: winston.format.combine(
             winston.format.timestamp(),
+            otelTraceFormat(),
             winston.format.json()
           ),
         }),

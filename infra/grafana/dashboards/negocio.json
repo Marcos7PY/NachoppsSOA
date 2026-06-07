@@ -1,0 +1,70 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 38,
+  "title": "NachoPps — Métricas de negocio",
+  "uid": "nachopps-negocio",
+  "tags": ["nachopps", "negocio"],
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Pedidos por minuto",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(rate(pedidos_creados_total[5m])) * 60", "legendFormat": "pedidos/min", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Pagos por minuto",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(rate(pagos_registrados_total[5m])) * 60", "legendFormat": "pagos/min", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Monto de pago p50 / p95 (soles)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "currencyPEN" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(pago_monto_soles_bucket[5m])) by (le))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum(rate(pago_monto_soles_bucket[5m])) by (le))", "legendFormat": "p95", "refId": "B" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Lag evento→publicación p95 por servicio (s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum(rate(outbox_publish_lag_seconds_bucket[5m])) by (le, service))", "legendFormat": "{{service}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Ítems rechazados por falta de stock (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(rate(pedidos_rechazados_sin_stock_total[5m]))", "legendFormat": "rechazos/s", "refId": "A" }
+      ]
+    }
+  ]
+}
