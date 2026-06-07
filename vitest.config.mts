@@ -67,11 +67,13 @@ export default defineConfig({
       // (medida sobre *.ts de los 9 servicios + shared-auth + pwa-cliente).
       // OBJETIVO: subir progresivamente hacia 80% a medida que se añaden pruebas.
       // No bajar estos números; solo subirlos cuando la cobertura real lo permita.
+      // Escalón 1 (2026-06-07): +roles.guard, +helmet.config, +permisos,
+      // +pedido.flow, +7 mappers PWA → ~43% branches, ~40% stmts.
       thresholds: {
-        branches: 32,
-        functions: 29,
-        lines: 35,
-        statements: 34,
+        branches: 43,
+        functions: 36,
+        lines: 41,
+        statements: 40,
       },
     },
   },
