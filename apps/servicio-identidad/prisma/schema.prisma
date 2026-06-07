@@ -19,6 +19,21 @@ model Usuario {
   updatedAt DateTime @updatedAt
 }
 
+// Refresh tokens (plan 1.4): tokens opacos guardados HASHEADOS. Rotación con
+// detección de reuso (un token revocado que reaparece revoca toda la cadena).
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
 model AuditoriaLog {
   id        String   @id @default(uuid())
   accion    String
