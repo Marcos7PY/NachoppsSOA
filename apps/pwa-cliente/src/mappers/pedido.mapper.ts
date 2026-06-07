@@ -10,6 +10,7 @@ const ESTADO_CSS: Record<EstadoPedido, string> = {
   ENTREGADO: 'badge-accent',
   PAGADO: 'badge-muted',
   CANCELADO: 'badge-danger',
+  RECHAZADO_SIN_STOCK: 'badge-danger',
 };
 
 const ESTADO_LABEL: Record<EstadoPedido, string> = {
@@ -19,6 +20,7 @@ const ESTADO_LABEL: Record<EstadoPedido, string> = {
   ENTREGADO: 'Entregado',
   PAGADO: 'Pagado',
   CANCELADO: 'Cancelado',
+  RECHAZADO_SIN_STOCK: 'Sin stock',
 };
 
 /** Clase CSS del badge para un estado de pedido/ítem. */
