@@ -50,6 +50,7 @@ jobs:
             docker build --build-arg APP_NAME="$svc" -t "infra-$svc" -f Dockerfile .
           done
 
+          docker build -t infra-pwa-cliente -f apps/pwa-cliente/Dockerfile .
           docker compose -f infra/docker-compose.yml --profile all build kong
 
       - name: Start stack
