@@ -1,107 +1,98 @@
-# New Nx Repository
+# NachoPps — Plataforma de gestión para restobar
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS) y una **PWA** (React + Vite). Cada servicio es dueño de su base de datos (database-per-service) y se comunica de forma asíncrona vía **RabbitMQ** (topic exchange) y, donde hace falta consistencia inmediata, de forma síncrona vía HTTP con circuit breaker. Todo el tráfico del cliente entra por un único **API Gateway (Kong)**.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+```
+┌──────────────┐      :8000 (Kong)        ┌────────────────────────────────────────┐
+│  PWA cliente │ ───────────────────────► │  API Gateway Kong                        │
+│ (React/Vite) │   cookie httpOnly JWT     │  jwt · cors · rate-limit · jwt-cache     │
+└──────────────┘   + X-CSRF-Token          └───────────────┬──────────────────────────┘
+        ▲  WebSocket (/notificaciones/socket.io)            │ /{dominio} → http://servicio:3000/api
+        │                                                   ▼
+        │                         ┌─────────────────────────────────────────────────┐
+        └──── eventos en vivo ────│ identidad · mesas · pedidos · cuentas · reservas │
+                                  │ inventario · notificaciones · caja · reportes    │
+                                  └───────┬───────────────────────┬──────────────────┘
+                                          │ Outbox transaccional  │ Postgres por servicio
+                                          ▼
+                                   ┌──────────────┐
+                                   │  RabbitMQ    │  nachopps_exchange (topic)
+                                   └──────────────┘
+```
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
-## Finish your Nx platform setup
+## Estructura
 
-🚀 [Finish setting up your workspace](https://cloud.nx.app/connect/ZoY1aAeMfT) to get faster builds with remote caching, distributed task execution, and self-healing CI. [Learn more about Nx Cloud](https://nx.dev/ci/intro/why-nx-cloud).
+| Carpeta | Contenido |
+|---------|-----------|
+| `apps/servicio-*` | 9 microservicios NestJS + sus suites e2e (`*-e2e`) |
+| `apps/pwa-cliente` | Frontend PWA (React 19, Vite, React Query, React Router v7) |
+| `libs/contracts` | Contratos compartidos: comandos/queries por dominio, routing keys, envelope de eventos |
+| `libs/shared-auth` | Guard JWT + estrategia Passport + validación CSRF (double-submit) |
+| `libs/shared-prisma` | `PrismaService` con hooks de apagado |
+| `libs/shared-rabbitmq` | Publicador AMQP (fail-fast si falta `RABBITMQ_URI`) |
+| `libs/resiliencia` | `@CircuitBreaker` (opossum) y `RabbitMQRetryInterceptor` |
+| `libs/observabilidad` | `initTracing` (OpenTelemetry) |
+| `infra` | `docker-compose.yml` (dev), `docker-compose.prod.yml`, Kong, Prometheus |
 
-## Generate a library
+## Servicios y dominios
+
+| Servicio | Puerto host (dev) | Responsabilidad | Eventos que consume |
+|----------|------------------|-----------------|---------------------|
+| identidad | 3001 | Auth JWT, usuarios, roles | — |
+| mesas | 3002 | Mesas y su estado | CuentaAbierta, CuentaCerrada |
+| pedidos | 3004 | Pedidos e ítems, comandero | Mesa*, Producto*, PagoRegistrado |
+| cuentas | 3005 | Cuentas, tickets | PedidoCreado/Actualizado, PagoRegistrado |
+| reservas | 3006 | Reservas con anti-doble-booking | — |
+| inventario | 3007 | Productos y stock | PedidoCreado (descuento idempotente) |
+| notificaciones | 3008 | WebSocket en vivo (socket.io) | la mayoría de eventos de dominio |
+| caja | 3009 | Turnos, pagos, arqueo, cierre Z | CuentaAbierta, CuentaCerrada |
+| reportes | 3010 | Reportes de ventas | CuentaCerrada |
+
+> **Frontend ↔ backend:** todos los módulos de la PWA consumen el backend real a través de Kong (`:8000`). **Excepción:** el módulo **Compras** es actualmente **mock** (`apps/pwa-cliente/src/data/compras.mock.ts`), sin microservicio asociado — alcance pendiente.
+
+## Patrones clave
+
+- **Transactional Outbox** en los 9 servicios: el evento se persiste en la misma transacción que el cambio de estado y un `OutboxProcessor` (cron 1s) lo publica con reintentos (5 → `FAILED`), purga e idempotencia.
+- **Idempotencia de consumidores:** claim atómico de `idempotencyKey` (p.ej. por `pedido.id`) antes de procesar.
+- **Resiliencia:** retry interceptor en consumidores + circuit breaker en llamadas síncronas (pedidos→inventario, caja→cuentas).
+- **Seguridad:** JWT en cookie `httpOnly`, CSRF double-submit (`X-CSRF-Token`), `helmet`, CORS restrictivo, `ValidationPipe` whitelist, `GlobalExceptionFilter`, Swagger solo fuera de producción, fail-fast sin `RABBITMQ_URI`, graceful shutdown.
+
+## Desarrollo
 
 ```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+# Infra (RabbitMQ, Postgres x9, Kong, Jaeger, Prometheus, Grafana)
+docker compose -f infra/docker-compose.yml --profile infra up -d
+
+# Servicio individual
+pnpm nx serve servicio-pedidos
+pnpm nx serve pwa-cliente
+
+# Calidad (lo que valida CI)
+pnpm nx run-many --target=lint --all
+pnpm nx run-many --target=build --all
+pnpm nx run-many --target=test --all   # vitest raíz: recoge *.spec de servicios + pwa + shared-auth
 ```
 
-## Run tasks
+> La cobertura tiene **pisos anti-regresión** en `vitest.config.mts` (objetivo: subir hacia 80%, nunca bajar).
 
-To build the library use:
+## Despliegue (producción)
+
+1. Copiar `.env.example` → `.env` y rellenar **todas** las variables obligatorias. El compose de prod usa `${VAR:?}` y **falla rápido** si faltan secretos.
+2. Variables clave: `DB_PASS`, `RABBITMQ_PASS`, las claves JWT RS256 (`JWT_PRIVATE_KEY` solo en identidad, `JWT_PUBLIC_KEY` + `KONG_JWT_PUBLIC_KEY` en todos), `SERVICE_JWT_SECRET` (tokens S2S), `CORS_ORIGIN` y `KONG_CORS_ORIGINS` (dominio https real de la PWA). Genera el par con `node scripts/generate-jwt-keys.mjs`.
+3. En `apps/pwa-cliente/.env.production`, fijar `VITE_API_BASE_URL` al **dominio https real** (con `secure:true` la cookie no viaja sobre http).
+4. Las migraciones se aplican solas al arrancar cada contenedor vía `prisma migrate deploy` (ver `infra/entrypoint.sh`). **Nunca** usar `db push --accept-data-loss` en prod.
 
 ```sh
-npx nx build pkg1
+docker compose -f infra/docker-compose.prod.yml up -d
 ```
 
-To run any task with Nx use:
+### ⚠️ Restricción de escalado
+El `OutboxProcessor` hace polling sin `SELECT ... FOR UPDATE SKIP LOCKED`. **Desplegar 1 réplica por microservicio**; con más de una se publicarían eventos duplicados (mitigado, pero no eliminado, por la idempotencia del consumidor). Configurar además `terminationGracePeriodSeconds` ≥ 30s para el apagado graceful.
 
-```sh
-npx nx <target> <project-name>
-```
+## Observabilidad
+Jaeger (trazas OTEL), Prometheus (métricas en `/api/telemetry/metrics`) y Grafana. Todos los servicios exportan a `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
-```
-
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
-
-```sh
-npx nx sync:check
-```
-
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
-
-## Nx Cloud
-
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Set up CI (non-Github Actions CI)
-
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## Documentación
+- `docs/production-audit-report.md` — auditoría de producción y correcciones aplicadas.
+- `docs/operacion/` — levantar el sistema, base de datos, RabbitMQ, resiliencia.
+- `docs/decisiones/` — ADRs.

@@ -28,7 +28,12 @@
         },
         "continuous": true
       }
-    }
+    },
+    "tags": [
+      "backend",
+      "service",
+      "reportes"
+    ]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
