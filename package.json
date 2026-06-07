@@ -2,6 +2,13 @@
   "name": "@org/source",
   "version": "0.0.0",
   "license": "MIT",
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "command": "echo Typecheck delegado por proyecto: apps via build (tsc -p), libs/pwa via su propio typecheck. El solution-build tsc --build es incompatible con composite:false de los apps."
+      }
+    }
+  },
   "scripts": {
     "poblar": "npx tsx scripts/poblar-datos.ts",
     "probar": "npx tsx scripts/pruebas-integracion.ts",

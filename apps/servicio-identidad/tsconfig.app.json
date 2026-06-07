@@ -26,5 +26,13 @@
         "shared-prisma"
       ]
     }
-  }
+  },
+  "references": [
+    {
+      "path": "../../libs/shared-auth"
+    },
+    {
+      "path": "../../libs/resiliencia/tsconfig.lib.json"
+    }
+  ]
 }
