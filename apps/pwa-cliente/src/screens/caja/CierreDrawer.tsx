@@ -1,10 +1,11 @@
 // screens/caja/CierreDrawer.tsx — Cierre operativo: arqueo → propinas → reporte interno.
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
 import { BILLETES, MONEDAS, DENOM_COLOR, RESTO_FISCAL } from './cajaConstants';
 import { METODO_META, METODOS_ORDEN, type CajaKpis } from './cajaMeta';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const STEPS = ['Arqueo de efectivo', 'Propinas', 'Reporte interno'];
 
@@ -25,6 +26,8 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   const [step, setStep] = useState(1);
   const [counts, setCounts] = useState<Record<number, number>>(() => emptyCounts());
   const [generado, setGenerado] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, { active: true, onClose });
 
   const contado = useMemo(
     () => [...BILLETES, ...MONEDAS].reduce((s, d) => s + d * (counts[d] || 0), 0),
@@ -42,7 +45,14 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   return (
     <div className="modal-wrap">
       <div className="scrim" onClick={onClose} />
-      <div className="modal xwide" style={{ position: 'relative', zIndex: 1 }}>
+      <div
+        className="modal xwide"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cierre de caja"
+        style={{ position: 'relative', zIndex: 1 }}
+      >
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: 'var(--surface-3)' }}><Icons.Lock s={17} /></span>
           <h3 style={{ fontSize: 18 }}>Cierre de caja · Reporte interno</h3>

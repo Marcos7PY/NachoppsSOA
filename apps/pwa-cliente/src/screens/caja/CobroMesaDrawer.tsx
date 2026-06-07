@@ -1,11 +1,12 @@
 // screens/caja/CobroMesaDrawer.tsx — Cobro de una cuenta de mesa (REAL).
 // Cableado a useCuentasQuery: registrarPago. El backend registra el pago y cierra la cuenta.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icons, type IconName } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { MetodoPago } from '../../types/cuenta.types';
 
 const METODOS: { value: MetodoPago; label: string; ic: IconName; color: string }[] = [
@@ -29,6 +30,8 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
     cuentaActiva, loading, error, success,
     registrarPago, clearFeedback,
   } = useCuentasQuery(mesaId);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, { active: true, onClose });
 
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
   const [recibido, setRecibido] = useState('');
@@ -64,7 +67,14 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
   return (
     <div className="modal-wrap">
       <div className="scrim" onClick={onClose} />
-      <div className="modal xwide" style={{ position: 'relative', zIndex: 1 }}>
+      <div
+        className="modal xwide"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cobrar cuenta"
+        style={{ position: 'relative', zIndex: 1 }}
+      >
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <h3 style={{ fontSize: 18 }}>Cobrar cuenta</h3>
           <span className="tag-canal salon" style={{ marginLeft: 4 }}>Mesa {mesaNumero ?? cuentaActiva?.mesaId ?? ''}</span>

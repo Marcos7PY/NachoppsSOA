@@ -2,13 +2,14 @@
 // Cableado real: useMesasQuery (plano + estados) y useCuentasQuery (cuenta de la
 // mesa seleccionada). Lanza el Comandero para tomar/agregar pedido.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { Comandero } from '../../components/comandero/Comandero';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { MesaVM, EstadoMesa } from '../../types/mesa.types';
 
 const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }> = {
@@ -158,6 +159,8 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
   const meta = EST_META[m.estado];
+  const drawerRef = useRef<HTMLElement>(null);
+  useFocusTrap(drawerRef, { active: true, onClose });
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
   const badgeCls = m.estado === 'OCUPADA' ? 'badge-accent' : m.estado === 'RESERVADA' ? 'badge-info' : 'badge-muted';
@@ -165,7 +168,13 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
   return (
     <div className="drawer-wrap">
       <div className="scrim" onClick={onClose} />
-      <aside className="drawer">
+      <aside
+        className="drawer"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Mesa ${m.numero}`}
+      >
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className={`badge dot ${badgeCls}`}>{meta.label}</span>
           <h3 style={{ fontSize: 18, marginLeft: 4 }}>Mesa {m.numero}</h3>
