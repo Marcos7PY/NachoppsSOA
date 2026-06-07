@@ -5,9 +5,12 @@ import { EventsController } from './events.controller';
 import { AppService } from './app.service';
 import { OutboxProcessor } from './outbox.processor';
 import { PrismaModule } from '../prisma/prisma.module';
+import { OutboxAdminModule } from '@org/resiliencia';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
+import { IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
+import { PrismaService } from '../prisma/prisma.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RoutingKeys } from '@org/contracts';
 
@@ -16,9 +19,10 @@ import { RoutingKeys } from '@org/contracts';
     ObservabilidadModule,
     SharedAuthModule,
     PrismaModule,
+    OutboxAdminModule.forRoot(PrismaService),
     ScheduleModule.forRoot(),
     RabbitMQModule.forRoot({
-      uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
+      uri: process.env['RABBITMQ_URI'],
       queue: 'caja_queue',
       bindings: ['pedido.entregado', RoutingKeys.CuentaAbierta, RoutingKeys.CuentaCerrada]
     }),
@@ -28,6 +32,8 @@ import { RoutingKeys } from '@org/contracts';
     AppService,
     OutboxProcessor,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    IdempotencyInterceptor,
+    { provide: IDEMPOTENCY_DB, useExisting: PrismaService },
   ],
 })
 export class AppModule {}
