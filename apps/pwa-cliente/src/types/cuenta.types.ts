@@ -85,12 +85,16 @@ export interface RegistrarPagoPayload {
   cuentaId: string;
   montoRecibido: number;
   metodo: MetodoPago;
+  descuento?: number;
+  propina?: number;
+  mesaNumero?: string;
 }
 
 export interface TransaccionDto {
   id: string;
   cuentaId: string;
   monto: number;
+  descuento?: number;
   metodo: string;
   referencia?: string | null;
   notas?: string | null;
@@ -100,4 +104,5 @@ export interface TransaccionDto {
 export interface RegistrarPagoResponse {
   message?: string;
   transaccion: TransaccionDto;
+  ticket?: TicketDto;
 }

@@ -2,6 +2,9 @@
 // Sin axios. Manejo centralizado de errores HTTP, 401, 429.
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+// Versionado de API (plan 6.2): el gateway expone /v1/{servicio}. Las rutas sin
+// versión siguen activas como fallback durante la transición.
+const API_VERSION_PREFIX = '/v1';
 const LEGACY_AUTH_TOKEN_KEY = ['nachopps', 'access_token'].join('.');
 const CSRF_COOKIE_KEY = 'nachopps.csrf_token';
 const CSRF_HEADER_KEY = 'X-CSRF-Token';
@@ -20,6 +23,13 @@ export function getAuthToken() {
 
 export function clearAuthToken() {
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
+}
+
+function newIdempotencyKey(): string {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  // Fallback para contextos sin crypto.randomUUID.
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function getCookie(name: string) {
@@ -48,9 +58,36 @@ export class ApiError extends Error {
   }
 }
 
+// Refresh tokens (plan 1.4): intenta renovar el access token con la cookie
+// refresh_token httpOnly. Devuelve true si la renovación tuvo éxito.
+let refreshInFlight: Promise<boolean> | null = null;
+async function tryRefresh(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const csrf = getCookie(CSRF_COOKIE_KEY);
+      const res = await fetch(`${BASE_URL}${API_VERSION_PREFIX}/identidad/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: csrf ? { [CSRF_HEADER_KEY]: csrf } : {},
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
 // ─── Request interno ────────────────────────────────────────────
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${BASE_URL}${path}`;
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+  const versionedPath =
+    path.startsWith('/') && !path.startsWith(`${API_VERSION_PREFIX}/`)
+      ? `${API_VERSION_PREFIX}${path}`
+      : path;
+  const url = `${BASE_URL}${versionedPath}`;
 
   const headers = new Headers(init?.headers);
   if (!headers.has('Content-Type')) {
@@ -67,6 +104,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set(CSRF_HEADER_KEY, csrfToken);
   }
 
+  // Idempotencia HTTP (plan 1.3): el backend deduplica POST con la misma clave,
+  // así un retry de transporte no crea pedidos/pagos duplicados.
+  if (method === 'POST' && !headers.has('Idempotency-Key')) {
+    headers.set('Idempotency-Key', newIdempotencyKey());
+  }
+
   const res = await fetch(url, {
     ...init,
     headers,
@@ -81,8 +124,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       body = { message: res.statusText };
     }
 
-    // 401 → sesión expirada
+    // 401 → intentar refrescar el access token una vez; si falla, sesión expirada.
     if (res.status === 401) {
+      const isAuthPath = /\/auth\/(refresh|login|logout)$/.test(path);
+      if (!retried && !isAuthPath && (await tryRefresh())) {
+        return request<T>(path, init, true);
+      }
       clearAuthToken();
       if (!url.endsWith('/logout')) {
         window.dispatchEvent(new CustomEvent('auth:expired'));

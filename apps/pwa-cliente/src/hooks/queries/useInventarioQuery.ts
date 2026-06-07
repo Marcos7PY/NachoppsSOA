@@ -2,12 +2,20 @@ import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import * as inventarioApi from '../../api/inventario.api';
 import { mapProductos } from '../../mappers/inventario.mapper';
 import { queryClient } from '../../api/queryClient';
-import type { CrearProductoPayload } from '../../types/inventario.types';
+import type { ActualizarProductoPayload, CrearProductoPayload } from '../../types/inventario.types';
 
 export const INVENTARIO_CATEGORIAS_KEY = ['inventario-categorias'];
 export const INVENTARIO_PRODUCTOS_KEY = ['inventario-productos'];
 
-export function useInventarioQuery(categoriaId?: string) {
+export interface UseInventarioOptions {
+  /** true: solo productos con stock (Inventario); false: solo sin stock (Carta). */
+  conStock?: boolean;
+  limit?: number;
+  search?: string;
+}
+
+export function useInventarioQuery(categoriaId?: string, options: UseInventarioOptions = {}) {
+  const { conStock, limit = 50, search } = options;
   const categoriasQuery = useQuery({
     queryKey: INVENTARIO_CATEGORIAS_KEY,
     queryFn: async () => {
@@ -17,13 +25,15 @@ export function useInventarioQuery(categoriaId?: string) {
   });
 
   const productosQuery = useInfiniteQuery({
-    queryKey: [...INVENTARIO_PRODUCTOS_KEY, categoriaId].filter(Boolean),
+    queryKey: [...INVENTARIO_PRODUCTOS_KEY, categoriaId, conStock, limit, search].filter((part) => part !== undefined && part !== ''),
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       const response = await inventarioApi.getProductosPage({
         categoriaId,
+        conStock,
+        search,
         cursor: pageParam,
-        limit: 50,
+        limit,
       });
       return {
         productos: response.data,
@@ -60,9 +70,22 @@ export function useInventarioQuery(categoriaId?: string) {
     },
   });
 
+  const mutationActualizar = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: ActualizarProductoPayload }) => {
+      return inventarioApi.actualizarProducto(id, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: INVENTARIO_PRODUCTOS_KEY,
+        exact: false,
+        refetchType: 'active',
+      });
+    },
+  });
+
   const loading = categoriasQuery.isLoading || productosQuery.isLoading;
-  const saving = mutationCrear.isPending || mutationReponer.isPending;
-  const error = categoriasQuery.error || productosQuery.error || mutationCrear.error || mutationReponer.error;
+  const saving = mutationCrear.isPending || mutationReponer.isPending || mutationActualizar.isPending;
+  const error = categoriasQuery.error || productosQuery.error || mutationCrear.error || mutationReponer.error || mutationActualizar.error;
 
   return {
     categorias: categoriasQuery.data ?? [],
@@ -79,7 +102,7 @@ export function useInventarioQuery(categoriaId?: string) {
     loadingMore: productosQuery.isFetchingNextPage,
     saving,
     error: error ? (error as Error).message : null,
-    success: mutationCrear.isSuccess ? 'Producto creado.' : mutationReponer.isSuccess ? 'Stock actualizado.' : null,
+    success: mutationCrear.isSuccess ? 'Producto creado.' : mutationActualizar.isSuccess ? 'Producto actualizado.' : mutationReponer.isSuccess ? 'Stock actualizado.' : null,
     
     fetch: async () => {
       await categoriasQuery.refetch();
@@ -91,11 +114,15 @@ export function useInventarioQuery(categoriaId?: string) {
     crearProducto: async (payload: CrearProductoPayload) => {
       return mutationCrear.mutateAsync(payload);
     },
+    actualizarProducto: async (id: string, payload: ActualizarProductoPayload) => {
+      return mutationActualizar.mutateAsync({ id, payload });
+    },
     reponerStock: async (id: string, cantidad: number) => {
       return mutationReponer.mutateAsync({ id, cantidad });
     },
     clearFeedback: () => {
       mutationCrear.reset();
+      mutationActualizar.reset();
       mutationReponer.reset();
     },
   };

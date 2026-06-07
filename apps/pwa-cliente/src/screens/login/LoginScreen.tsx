@@ -13,7 +13,9 @@ export function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<{ kind: string; text: string } | null>(null);
+  // `field: true` marca los inputs en rojo. Solo aplica a credenciales (401);
+  // un 429 o un fallo de red no significan que el correo/contraseña estén mal.
+  const [error, setError] = useState<{ kind: string; text: string; field?: boolean } | null>(null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ export function LoginScreen() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          setError({ kind: 'err', text: 'Credenciales inválidas. Verifica tu correo y contraseña.' });
+          setError({ kind: 'err', text: 'Credenciales inválidas. Verifica tu correo y contraseña.', field: true });
         } else if (err.status === 429) {
           setError({ kind: 'warn', text: 'Demasiadas solicitudes. Intenta en unos segundos.' });
         } else {
@@ -80,7 +82,7 @@ export function LoginScreen() {
           </p>
 
           {error && (
-            <div className={`banner ${error.kind}`} style={{ marginBottom: 16 }}>
+            <div id="login-error" className={`banner ${error.kind}`} style={{ marginBottom: 16 }} role="alert">
               <AlertIcon />
               <span>{error.text}</span>
             </div>
@@ -88,7 +90,7 @@ export function LoginScreen() {
 
           <div className="field" style={{ marginBottom: 14 }}>
             <label htmlFor="login-email">Correo</label>
-            <div className={`input ${error?.kind === 'err' ? 'invalid' : ''}`}>
+            <div className={`input ${error?.field ? 'invalid' : ''}`}>
               <MailIcon />
               <input
                 id="login-email"
@@ -99,13 +101,15 @@ export function LoginScreen() {
                 required
                 autoComplete="email"
                 autoFocus
+                aria-invalid={!!error?.field}
+                aria-describedby={error ? 'login-error' : undefined}
               />
             </div>
           </div>
 
           <div className="field" style={{ marginBottom: 14 }}>
             <label htmlFor="login-password">Contraseña</label>
-            <div className={`input ${error?.kind === 'err' ? 'invalid' : ''}`}>
+            <div className={`input ${error?.field ? 'invalid' : ''}`}>
               <LockIcon />
               <input
                 id="login-password"
@@ -115,6 +119,8 @@ export function LoginScreen() {
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
+                aria-invalid={!!error?.field}
+                aria-describedby={error ? 'login-error' : undefined}
               />
               <button
                 type="button"

@@ -1,11 +1,23 @@
-// components/layout/Header.tsx — Topbar con info de usuario y logout
+// components/layout/Header.tsx — Topbar: turno, conexión, tema, accesibilidad,
+// notificaciones (backend), usuario y logout.
 
 import { useAuthStore } from '../../store/auth.store';
-import { getTurnoActual } from '../../config';
+import { APP_CONFIG, getTurnoActual } from '../../config';
 import { useNotificacionesQuery } from '../../hooks/queries/useNotificacionesQuery';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { applyThemeColor } from '../../utils/theme';
+import { Icons } from '../ui/icons';
+
+type Theme = 'light' | 'dark';
+type Density = 'comfy' | 'compact';
+type FontScale = 'md' | 'lg' | 'xl';
+type Contrast = 'normal' | 'high';
+
+function readAttr<T extends string>(attr: string, fallback: T): T {
+  return (document.documentElement.getAttribute(attr) as T) || fallback;
+}
 
 export function Header() {
   const user = useAuthStore((s) => s.user);
@@ -13,8 +25,14 @@ export function Header() {
   const { notificaciones, markAllRead } = useNotificacionesQuery();
   const navigate = useNavigate();
   const online = useOnlineStatus();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
   const [now, setNow] = useState(() => new Date());
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => readAttr('data-theme', 'light'));
+  const [density, setDensity] = useState<Density>(() => readAttr('data-density', 'comfy'));
+  const [fontscale, setFontscale] = useState<FontScale>(() => readAttr('data-fontscale', 'md'));
+  const [contrast, setContrast] = useState<Contrast>(() => readAttr('data-contrast', 'normal'));
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000);
@@ -24,16 +42,20 @@ export function Header() {
   const hora = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
   const turnoLabel = getTurnoActual(now);
   const connLabel = online ? 'En línea' : 'Sin conexión';
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') || 'light';
-  });
 
   const toggleTheme = () => {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
-    setTheme(next);
     localStorage.setItem('nachopps-theme', next);
+    applyThemeColor(next);
+    setTheme(next);
   };
+
+  function applyAttr<T extends string>(attr: string, storageKey: string, value: T, setter: (v: T) => void) {
+    document.documentElement.setAttribute(attr, value);
+    localStorage.setItem(storageKey, value);
+    setter(value);
+  }
 
   const handleLogout = () => {
     logout();
@@ -46,54 +68,113 @@ export function Header() {
   );
 
   const toggleNotifications = () => {
+    setSettingsOpen(false);
     setNotificationsOpen((current) => {
-      const next = !current;
-      if (next) markAllRead();
-      return next;
+      // Marcar como leídas al CERRAR (cuando el usuario ya las pudo ver),
+      // no al abrir: así el contador no desaparece antes de leerlas.
+      if (current && unreadCount > 0) markAllRead();
+      return !current;
     });
   };
 
   const initials = user
-    ? user.nombre
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
+    ? user.nombre.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
 
   return (
     <header className="topbar">
-      <span className="top-loc">Resto Barranco</span>
+      <span className="top-loc">{APP_CONFIG.nombreLocal}</span>
       <span className="top-turno">{turnoLabel} · {hora}</span>
       <span className="spacer" />
 
       {/* Indicador de conexión */}
-      <span className={`conn ${online ? 'online' : 'offline'}`} title={connLabel}>
+      <span className={`conn ${online ? 'online' : 'offline'}`} title={connLabel} role="status" aria-live="polite">
         <span className="conn-dot" />
         {connLabel}
       </span>
 
+      {/* Accesibilidad / vista */}
+      <div style={{ position: 'relative' }}>
+        <button
+          className={`icon-btn ${settingsOpen ? 'on' : ''}`}
+          onClick={() => { setNotificationsOpen(false); setSettingsOpen((x) => !x); }}
+          title="Vista y accesibilidad"
+          aria-label="Vista y accesibilidad"
+          aria-expanded={settingsOpen}
+          aria-haspopup="dialog"
+        >
+          <Icons.Layers s={18} />
+        </button>
+        {settingsOpen && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setSettingsOpen(false)} />
+            <div className="settings-pop" role="dialog" aria-label="Vista y accesibilidad">
+              <div className="sp-row">
+                <span className="sp-lbl">Densidad</span>
+                <div className="seg sm" style={{ width: '100%' }}>
+                  <button className={density === 'comfy' ? 'on' : ''} style={{ flex: 1 }} onClick={() => applyAttr('data-density', 'nachopps-density', 'comfy', setDensity)}>Cómoda</button>
+                  <button className={density === 'compact' ? 'on' : ''} style={{ flex: 1 }} onClick={() => applyAttr('data-density', 'nachopps-density', 'compact', setDensity)}>Compacta</button>
+                </div>
+              </div>
+              <div className="sp-row">
+                <span className="sp-lbl">Tamaño de texto</span>
+                <div className="seg sm" style={{ width: '100%' }}>
+                  <button className={fontscale === 'md' ? 'on' : ''} style={{ flex: 1 }} onClick={() => applyAttr('data-fontscale', 'nachopps-fontscale', 'md', setFontscale)}>A</button>
+                  <button className={fontscale === 'lg' ? 'on' : ''} style={{ flex: 1, fontSize: 15 }} onClick={() => applyAttr('data-fontscale', 'nachopps-fontscale', 'lg', setFontscale)}>A</button>
+                  <button className={fontscale === 'xl' ? 'on' : ''} style={{ flex: 1, fontSize: 17 }} onClick={() => applyAttr('data-fontscale', 'nachopps-fontscale', 'xl', setFontscale)}>A</button>
+                </div>
+              </div>
+              <div className="sp-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span className="sp-lbl" style={{ marginBottom: 0 }}>Alto contraste</span>
+                <button
+                  className={`toggle ${contrast === 'high' ? 'on' : ''}`}
+                  onClick={() => applyAttr('data-contrast', 'nachopps-contrast', contrast === 'high' ? 'normal' : 'high', setContrast)}
+                >
+                  <span className="knob" />
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Theme toggle */}
-      <button className="icon-btn" onClick={toggleTheme} title="Tema claro/oscuro">
-        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+      <button
+        className="icon-btn"
+        onClick={toggleTheme}
+        title="Tema claro/oscuro"
+        aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        aria-pressed={theme === 'dark'}
+      >
+        {theme === 'dark' ? <Icons.Sun s={18} /> : <Icons.Moon s={18} />}
       </button>
 
+      {/* Notificaciones (backend) */}
       <div className="notif-wrap">
-        <button className="icon-btn" onClick={toggleNotifications} title="Notificaciones">
-          <BellIcon />
+        <button
+          className="icon-btn"
+          onClick={toggleNotifications}
+          title="Notificaciones"
+          aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : 'Notificaciones'}
+          aria-expanded={notificationsOpen}
+          aria-haspopup="dialog"
+        >
+          <Icons.Bell s={18} />
           {unreadCount > 0 && <span className="bdg danger">{Math.min(unreadCount, 9)}</span>}
         </button>
         {notificationsOpen && (
-          <div className="notif-popover">
+          <div className="notif-popover" role="dialog" aria-label="Notificaciones">
             <div className="panel-h">
               <h3>Notificaciones</h3>
               <span className="spacer" />
+              {unreadCount > 0 && (
+                <button className="btn btn-sm btn-ghost" onClick={() => markAllRead()}>Marcar leídas</button>
+              )}
               <span className="badge badge-muted">{notificaciones.length}</span>
             </div>
             {notificaciones.length === 0 ? (
               <div className="empty empty-compact">
-                <div className="e-ic"><BellIcon /></div>
+                <div className="e-ic"><Icons.Bell s={22} /></div>
                 <h3>Sin notificaciones</h3>
                 <p>Las actualizaciones del backend aparecerán aquí.</p>
               </div>
@@ -101,7 +182,7 @@ export function Header() {
               <div className="notif-list">
                 {notificaciones.slice(0, 8).map((item) => (
                   <div key={item.id} className={`notif ${item.unread ? 'unread' : ''}`}>
-                    <div className="n-ic badge-info"><BellIcon /></div>
+                    <div className="n-ic badge-info"><Icons.Bell s={18} /></div>
                     <div>
                       <b>{item.titulo}</b>
                       <p>{item.contenido}</p>
@@ -127,43 +208,9 @@ export function Header() {
       )}
 
       {/* Logout */}
-      <button className="icon-btn" onClick={handleLogout} title="Cerrar sesión">
-        <LogoutIcon />
+      <button className="icon-btn" onClick={handleLogout} title="Cerrar sesión" aria-label="Cerrar sesión">
+        <Icons.Logout s={18} />
       </button>
     </header>
-  );
-}
-
-// ─── Inline SVG icons ──────────────────────────────────────────
-
-function SunIcon() {
-  return (
-    <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
-  );
-}
-
-function LogoutIcon() {
-  return (
-    <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg className="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
-    </svg>
   );
 }

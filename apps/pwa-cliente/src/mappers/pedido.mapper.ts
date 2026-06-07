@@ -1,6 +1,7 @@
 // mappers/pedido.mapper.ts — PedidoDto → PedidoVM
 
-import type { PedidoDto, PedidoVM, PedidoItemDto, PedidoItemVM, EstadoPedido } from '../types/pedido.types';
+import type { PedidoDto, PedidoVM, PedidoItemDto, PedidoItemVM, EstadoPedido, EstadoItem } from '../types/pedido.types';
+import { canalFromModalidad } from '../domain/pedido.flow';
 
 const ESTADO_CSS: Record<EstadoPedido, string> = {
   PENDIENTE: 'badge-warn',
@@ -20,13 +21,14 @@ const ESTADO_LABEL: Record<EstadoPedido, string> = {
   CANCELADO: 'Cancelado',
 };
 
-function calcularTiempo(createdAt: string): string {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Ahora';
-  if (mins < 60) return `${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  return `${hrs}h ${mins % 60}m`;
+/** Clase CSS del badge para un estado de pedido/ítem. */
+export function estadoClassOf(estado: EstadoPedido | EstadoItem): string {
+  return ESTADO_CSS[estado as EstadoPedido] ?? 'badge-muted';
+}
+
+/** Etiqueta legible para un estado de pedido/ítem. */
+export function estadoLabelOf(estado: EstadoPedido | EstadoItem): string {
+  return ESTADO_LABEL[estado as EstadoPedido] ?? estado;
 }
 
 function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
@@ -36,7 +38,7 @@ function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
     );
   }
 
-  const estado = dto.estado ?? 'PENDIENTE';
+  const estado = (dto.estado ?? 'PENDIENTE') as EstadoItem;
   return {
     id: dto.id,
     productoId: dto.productoId,
@@ -47,9 +49,9 @@ function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
     modificadores: dto.modificadores ?? [],
     area: dto.area ?? 'COCINA',
     notas: dto.notas ?? '',
-    estado: estado as EstadoPedido,
-    estadoClass: ESTADO_CSS[estado as EstadoPedido] ?? 'badge-muted',
-    estadoLabel: ESTADO_LABEL[estado as EstadoPedido] ?? estado,
+    estado,
+    estadoClass: estadoClassOf(estado),
+    estadoLabel: estadoLabelOf(estado),
   };
 }
 
@@ -72,7 +74,7 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
     direccion: dto.direccion ?? undefined,
     proveedor: dto.proveedor ?? undefined,
     modalidad: dto.modalidad ?? undefined,
-    tiempoTranscurrido: calcularTiempo(dto.createdAt),
+    canal: canalFromModalidad(dto.modalidad ?? undefined),
     cantidadItems: items.reduce((sum, it) => sum + it.cantidad, 0),
   };
 }

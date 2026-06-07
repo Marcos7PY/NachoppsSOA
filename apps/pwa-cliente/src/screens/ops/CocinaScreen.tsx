@@ -1,105 +1,156 @@
-// screens/ops/CocinaScreen.tsx — KDS (Kitchen Display System) con columnas por estado
+// screens/ops/CocinaScreen.tsx — Cocina (KDS) mejorado, cableado a usePedidosQuery.
+// Columnas por estado de ítem, filtro por área (COCINA/BAR), SLA en vivo, métricas,
+// conteo del día y bump bar con atajos de teclado.
+// Nota: el backend no expone estaciones (CALIENTE/FRIA/…) ni SLA por estación; se
+// usa el "área" (COCINA/BAR) del ítem y un SLA fijo basado en createdAt.
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useNow } from '../../hooks/useNow';
 import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
-import type { PedidoVM, PedidoItemVM, EstadoPedido } from '../../types/pedido.types';
+import { Icons, type IconName } from '../../components/ui/icons';
+import type { PedidoVM, PedidoItemVM, EstadoPedido, EstadoItem, ItemArea } from '../../types/pedido.types';
+import {
+  ETAPAS_PRODUCCION as COLS,
+  ESTADOS_PRODUCCION,
+  NEXT_ITEM,
+  PREV_ITEM,
+  SLA_MIN,
+  slaRatio as ratioOf,
+  urgClass,
+  CANAL_LABEL,
+  CANAL_CLS,
+} from '../../domain/pedido.flow';
 
-const COLUMNAS: { estado: EstadoPedido; label: string; color: string }[] = [
-  { estado: 'PENDIENTE', label: 'Pendiente', color: 'var(--warn)' },
-  { estado: 'EN_PREPARACION', label: 'En preparación', color: 'var(--info)' },
-  { estado: 'LISTO', label: 'Listo', color: 'var(--ok)' },
+const AREAS: { key: 'TODAS' | ItemArea; label: string; ic: IconName }[] = [
+  { key: 'TODAS', label: 'Todas', ic: 'Layers' },
+  { key: 'COCINA', label: 'Cocina', ic: 'Cocina' },
+  { key: 'BAR', label: 'Barra', ic: 'Drink' },
 ];
 
-const NEXT_ITEM_ESTADO: Partial<Record<EstadoPedido, EstadoPedido>> = {
-  PENDIENTE: 'EN_PREPARACION',
-  EN_PREPARACION: 'LISTO',
-};
-
-/** Calcular minutos transcurridos */
-function minutosDesde(createdAt: string): number {
-  return Math.floor((Date.now() - new Date(createdAt).getTime()) / 60000);
-}
-
-/** Clase de urgencia por tiempo */
-function urgenciaClass(mins: number): string {
-  if (mins >= 15) return 'late';
-  if (mins >= 10) return 'warn';
-  return 'fresh';
-}
-
-/** Filtrar ítems de un pedido que pertenecen al área COCINA (o sin área definida) con un estado específico */
-function itemsPorEstado(pedido: PedidoVM, estado: EstadoPedido): PedidoItemVM[] {
-  return pedido.items.filter(
-    (it) => (it.area === 'COCINA' || it.area === 'BAR') && it.estado === estado
-  );
-}
+const elapsedMinF = (iso: string, now: number) => (now - new Date(iso).getTime()) / 60000;
 
 export function CocinaScreen() {
   const online = useOnlineStatus();
-  const {
-    pedidos,
-    nextCursor,
-    loading,
-    loadingMore,
-    error,
-    fetch,
-    fetchMore,
-    avanzarItem,
-  } = usePedidosQuery();
-  const [areaFiltro, setAreaFiltro] = useState<'TODAS' | 'COCINA' | 'BAR'>('TODAS');
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const now = useNow(4000);
+  // KDS: carga todos los tickets activos (sin tope de página) para que métricas
+  // y conteo del día sean completos.
+  const { pedidos, loading, error, fetch, avanzarItem } = usePedidosQuery(undefined, { autoLoadAll: true });
+  const [area, setArea] = useState<'TODAS' | ItemArea>('TODAS');
+  const [sel, setSel] = useState<string | null>(null);
+  const [fs, setFs] = useState(false);
+  const lastBumped = useRef<string | null>(null);
 
-  // La carga inicial la maneja usePedidosQuery internamente
+  const matchArea = (it: PedidoItemVM) => area === 'TODAS' || it.area === area;
 
-  const handleAvanzarItem = async (itemId: string, estado: EstadoPedido) => {
+  // Solo pedidos en producción (PENDIENTE/EN_PREPARACION/LISTO). Al despacharse
+  // un pedido (LISTO → ENTREGADO desde Pedidos) sale de producción y deja de
+  // ocupar el pase del KDS.
+  const activos = useMemo(
+    () => pedidos.filter((p) => ESTADOS_PRODUCCION.has(p.estado)),
+    [pedidos],
+  );
+
+  // tickets accionables (con ítems no-listos en el área activa)
+  const actionables = useMemo(
+    () => activos.filter((p) => p.items.some((it) => matchArea(it) && it.estado !== 'LISTO')),
+    [activos, area],
+  );
+
+  const advanceItem = async (itemId: string, estado: EstadoItem) => {
     if (!online) return;
-    setActionLoading(itemId);
-    try {
-      await avanzarItem(itemId, estado);
-    } catch {
-      // Error handled by store
-    } finally {
-      setActionLoading(null);
-    }
+    const next = NEXT_ITEM[estado];
+    if (!next) return;
+    try { await avanzarItem(itemId, next); } catch { /* manejado por hook */ }
+  };
+  const regressItem = async (itemId: string, estado: EstadoItem) => {
+    if (!online) return;
+    const prev = PREV_ITEM[estado];
+    if (!prev) return;
+    try { await avanzarItem(itemId, prev); } catch { /* */ }
+  };
+  const bumpTicket = async (pid: string) => {
+    if (!online) return;
+    const p = activos.find((x) => x.id === pid);
+    if (!p) return;
+    const targets = p.items.filter((it) => matchArea(it) && NEXT_ITEM[it.estado]);
+    lastBumped.current = pid;
+    try { await Promise.all(targets.map((it) => avanzarItem(it.id, NEXT_ITEM[it.estado]!))); } catch { /* */ }
+  };
+  const recall = async () => {
+    const pid = lastBumped.current;
+    if (!pid || !online) return;
+    const p = activos.find((x) => x.id === pid);
+    if (!p) return;
+    const targets = p.items.filter((it) => PREV_ITEM[it.estado]);
+    try { await Promise.all(targets.map((it) => avanzarItem(it.id, PREV_ITEM[it.estado]!))); } catch { /* */ }
   };
 
-  // ─── Loading ────────────────────────────────────────────────
+  // teclado (bump bar)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
+      if (e.key >= '1' && e.key <= '9') { const t = actionables[+e.key - 1]; if (t) setSel(t.id); }
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); const i = actionables.findIndex((t) => t.id === sel); setSel(actionables[Math.min(actionables.length - 1, i + 1)]?.id ?? actionables[0]?.id ?? null); }
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); const i = actionables.findIndex((t) => t.id === sel); setSel(actionables[Math.max(0, i - 1)]?.id ?? actionables[0]?.id ?? null); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (sel) void bumpTicket(sel); }
+      else if (e.key.toLowerCase() === 'r') { e.preventDefault(); void recall(); }
+      else if (e.key.toLowerCase() === 'f') { setFs((x) => !x); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [actionables, sel, online]);
+
+  // métricas
+  const metrics = useMemo(() => {
+    const act = activos.filter((p) => p.items.some((it) => it.estado !== 'LISTO'));
+    const tiempos = act.map((p) => elapsedMinF(p.createdAt, now));
+    const prom = tiempos.length ? tiempos.reduce((a, b) => a + b, 0) / tiempos.length : 0;
+    const demora = act.filter((p) => elapsedMinF(p.createdAt, now) >= SLA_MIN).length;
+    const listos = activos.reduce((s, p) => s + p.items.filter((it) => it.estado === 'LISTO').length, 0);
+    return { activos: act.length, prom: Math.round(prom), demora, listos };
+  }, [activos, now]);
+
+  // conteo del día (ítems no-listos del área activa)
+  const allday = useMemo(() => {
+    const map: Record<string, number> = {};
+    activos.forEach((p) => p.items.forEach((it) => {
+      if (it.estado !== 'LISTO' && matchArea(it)) map[it.nombre] = (map[it.nombre] || 0) + it.cantidad;
+    }));
+    return Object.entries(map).map(([n, q]) => ({ n, q })).sort((a, b) => b.q - a.q);
+  }, [activos, area]);
+
+  const areaCounts = useMemo(() => {
+    const c: Record<string, number> = { TODAS: 0, COCINA: 0, BAR: 0 };
+    activos.forEach((p) => p.items.forEach((it) => {
+      if (it.estado !== 'LISTO') { c[it.area] = (c[it.area] || 0) + 1; c.TODAS++; }
+    }));
+    return c;
+  }, [activos]);
+
+  // ─── Loading / Error ────────────────────────────────────────
   if (loading && pedidos.length === 0) {
     return (
       <div>
-        <div className="page-h"><div><h1>Cocina (KDS)</h1><div className="sub">Cargando…</div></div></div>
+        <div className="page-h"><div><h1>Cocina · KDS</h1><div className="sub">Cargando…</div></div></div>
         <div className="kds">
-          {COLUMNAS.map((col) => (
+          {COLS.map((col) => (
             <div key={col.estado} className="kds-col">
-              <div className="kds-col-h">
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: col.color }} />
-                {col.label}
-              </div>
-              <div className="kds-list">
-                {[1, 2].map((i) => (
-                  <div key={i} className="kds-card" style={{ padding: 16 }}>
-                    <div className="skel" style={{ width: 80, height: 18, marginBottom: 10 }} />
-                    <div className="skel" style={{ width: '100%', height: 14, marginBottom: 6 }} />
-                    <div className="skel" style={{ width: '60%', height: 14 }} />
-                  </div>
-                ))}
-              </div>
+              <div className="kds-col-h"><span style={{ width: 10, height: 10, borderRadius: '50%', background: col.color }} />{col.label}</div>
+              <div className="kds-list">{[1, 2].map((i) => <div key={i} className="skel" style={{ height: 120, borderRadius: 'var(--r)' }} />)}</div>
             </div>
           ))}
         </div>
       </div>
     );
   }
-
-  // ─── Error ──────────────────────────────────────────────────
   if (error) {
     return (
       <div>
-        <div className="page-h"><div><h1>Cocina (KDS)</h1></div></div>
+        <div className="page-h"><div><h1>Cocina · KDS</h1></div></div>
         <div className="banner err" style={{ marginBottom: 16 }}>
-          <AlertIcon />
-          <span>{error}</span>
+          <Icons.Alert s={17} /><span>{error}</span>
           <span className="spacer" />
           <button className="btn btn-sm btn-ghost" onClick={() => fetch()}>Reintentar</button>
         </div>
@@ -107,162 +158,188 @@ export function CocinaScreen() {
     );
   }
 
-  // ─── Data: construir tarjetas KDS por columna ───────────────
-  return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="page-h">
-        <div>
-          <h1>Cocina (KDS)</h1>
-          <div className="sub">Vista en tiempo real de pedidos</div>
-        </div>
-        <span className="spacer" />
-        <div className="seg">
-          {(['TODAS', 'COCINA', 'BAR'] as const).map((a) => (
-            <button key={a} className={areaFiltro === a ? 'on' : ''} onClick={() => setAreaFiltro(a)}>
-              {a === 'TODAS' ? 'Todo' : a.charAt(0) + a.slice(1).toLowerCase()}
-            </button>
-          ))}
-        </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar">
-          <RefreshIcon />
-        </button>
+  const stationTabs = (
+    <div className="station-tabs">
+      {AREAS.map((a) => {
+        const Ic = Icons[a.ic];
+        return (
+          <button key={a.key} className={area === a.key ? 'on' : ''} onClick={() => setArea(a.key)}>
+            <Ic s={14} /> {a.label} <span className="cnt">{areaCounts[a.key] || 0}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const body = (
+    <>
+      <div className="kds-metrics">
+        <Metric ic="Receipt" color="var(--accent)" soft="var(--accent-soft)" v={metrics.activos} k="Tickets activos" />
+        <Metric ic="Clock" color="var(--info)" soft="var(--info-soft)" v={`${metrics.prom}m`} k="Tiempo promedio" />
+        <Metric ic="Alert" alert={metrics.demora > 0} v={metrics.demora} k="En demora (SLA)" />
+        <Metric ic="Check" color="var(--ok)" soft="var(--ok-soft)" v={metrics.listos} k="Ítems listos · pase" />
       </div>
 
-      <div className="kds" style={{ flex: 1 }}>
-        {COLUMNAS.map((col) => {
-          // Recopilar tarjetas: cada pedido que tenga ítems en este estado
-          const tarjetas: { pedido: PedidoVM; items: PedidoItemVM[] }[] = [];
-          for (const pedido of pedidos) {
-            const items = itemsPorEstado(pedido, col.estado).filter(
-              (it) => areaFiltro === 'TODAS' || it.area === areaFiltro,
-            );
-            if (items.length > 0) {
-              tarjetas.push({ pedido, items });
-            }
-          }
+      <div className="allday">
+        <span className="allday-lbl">Conteo del día</span>
+        {allday.length === 0 ? <span className="hint">Sin pendientes en esta área</span> :
+          allday.map((d) => <span key={d.n} className={`allday-chip ${d.q >= 3 ? 'hot' : ''}`}><span className="q">{d.q}</span><b>{d.n}</b></span>)}
+      </div>
 
+      <div className="kds" style={{ flex: 1, minHeight: 0 }}>
+        {COLS.map((col) => {
+          const cards: { p: PedidoVM; items: PedidoItemVM[] }[] = [];
+          for (const p of activos) {
+            const items = p.items.filter((it) => matchArea(it) && it.estado === col.estado);
+            if (items.length) cards.push({ p, items });
+          }
           return (
             <div key={col.estado} className="kds-col">
               <div className="kds-col-h">
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: col.color }} />
                 {col.label}
-                <span className="cc">{tarjetas.length}</span>
+                <span className="cc">{cards.length}</span>
               </div>
               <div className="kds-list">
-                {tarjetas.length === 0 ? (
-                  <div className="muted" style={{ textAlign: 'center', padding: 24, fontSize: 13 }}>
-                    Sin pedidos
-                  </div>
-                ) : (
-                  tarjetas.map(({ pedido, items }) => {
-                    const mins = minutosDesde(pedido.createdAt);
-                    const nextEstado = NEXT_ITEM_ESTADO[col.estado];
-
-                    return (
-                      <div key={`${pedido.id}-${col.estado}`} className={`kds-card ${urgenciaClass(mins)}`}>
-                        <h4>
-                          Mesa {pedido.mesaNumero}
-                          {mins >= 15 ? (
-                            <span className="badge badge-danger dot" style={{ marginLeft: 'auto' }}>{mins}m · DEMORA</span>
-                          ) : (
-                            <span className="muted" style={{ fontSize: 12, fontWeight: 600, marginLeft: 'auto' }}>
-                              {mins < 1 ? 'Ahora' : `${mins} min`}
-                            </span>
-                          )}
-                        </h4>
-                        <div className="kds-items">
-                          {items.map((item) => (
-                            <div key={item.id} className="kds-item" style={{ justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', gap: 9 }}>
-                                <span className="q">{item.cantidad}×</span>
-                                <div>
-                                  <span>{item.nombre}</span>
-                                  {item.notas && <div className="note"><NoteIcon /> {item.notas}</div>}
-                                  {item.modificadores.length > 0 && (
-                                    <div className="note">
-                                      {item.modificadores.map((m) => m.nombre).join(', ')}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              {nextEstado && (
-                                <button
-                                  className="btn btn-sm btn-soft"
-                                  disabled={actionLoading === item.id || !online}
-                                  onClick={() => handleAvanzarItem(item.id, nextEstado)}
-                                  title={nextEstado === 'EN_PREPARACION' ? 'Iniciar' : 'Listo'}
-                                >
-                                  {actionLoading === item.id ? (
-                                    <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />
-                                  ) : nextEstado === 'EN_PREPARACION' ? (
-                                    <PlayIcon />
-                                  ) : (
-                                    <CheckIcon />
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+                {cards.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 24, fontSize: 13 }}>Sin tickets</div> :
+                  cards.map(({ p, items }) => (
+                    <TicketCard key={`${p.id}-${col.estado}`} p={p} items={items} col={col} now={now}
+                      selected={sel === p.id} idx={actionables.findIndex((x) => x.id === p.id)}
+                      online={online}
+                      onAdvance={advanceItem} onRegress={regressItem} onBump={() => bumpTicket(p.id)} onSelect={() => setSel(p.id)} />
+                  ))}
               </div>
             </div>
           );
         })}
       </div>
-      {nextCursor && (
-        <div className="row center" style={{ padding: '12px' }}>
-          <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
-            {loadingMore ? <span className="spinner" /> : null}
-            Cargar más
-          </button>
+
+      <div className="bumpbar">
+        <span className="bb-title">BUMP BAR</span>
+        <span className="bb-key"><span className="kcap">1–9</span> seleccionar</span>
+        <span className="bb-key"><span className="kcap">↵ Enter</span> avanzar</span>
+        <span className="bb-key"><span className="kcap">R</span> recall</span>
+        <span className="bb-key"><span className="kcap">F</span> pantalla completa</span>
+        <span className="spacer" />
+        {sel && <button className="bump-btn recall" aria-label="Recall del último ticket" onClick={() => void recall()}>Recall</button>}
+        <button className="bump-btn" aria-label="Marcar ticket" onClick={() => sel ? void bumpTicket(sel) : actionables[0] && void bumpTicket(actionables[0].id)}>
+          <Icons.Check s={15} /> Marcar ticket {sel ? `#${(activos.find((t) => t.id === sel)?.mesaNumero) ?? ''}` : 'siguiente'}
+        </button>
+      </div>
+    </>
+  );
+
+  if (fs) {
+    return (
+      <div className="kds-fs">
+        <div className="row" style={{ marginBottom: 12 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Cocina · KDS</h1>
+          <span style={{ marginLeft: 14 }}>{stationTabs}</span>
+          <span className="spacer" />
+          <button className="btn btn-ghost btn-sm" onClick={() => setFs(false)}><Icons.Minimize s={16} /> Salir</button>
         </div>
-      )}
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="page-h" style={{ marginBottom: 14 }}>
+        <div>
+          <h1>Cocina · KDS</h1>
+          <div className="sub">Tiempo real · tablet de cocina</div>
+        </div>
+        <span className="spacer" />
+        {stationTabs}
+        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar" aria-label="Refrescar"><Icons.Refresh s={16} /></button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setFs(true)} title="Pantalla completa" aria-label="Pantalla completa"><Icons.Maximize s={16} /></button>
+      </div>
+      {body}
     </div>
   );
 }
 
-// ─── Inline SVG icons ──────────────────────────────────────────
-
-function AlertIcon() {
+function Metric({ ic, color, soft, v, k, alert }: { ic: IconName; color?: string; soft?: string; v: ReactNode; k: string; alert?: boolean }) {
+  const Ic = Icons[ic];
   return (
-    <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />
-    </svg>
+    <div className={`kds-metric ${alert ? 'alert' : ''}`}>
+      <span className="km-ic" style={{ background: alert ? 'transparent' : soft, color: alert ? 'var(--danger)' : color }}><Ic s={18} /></span>
+      <div><div className="km-v">{v}</div><div className="km-k">{k}</div></div>
+    </div>
   );
 }
 
-function RefreshIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" />
-    </svg>
-  );
+function SlaRing({ el }: { el: number }) {
+  const r = ratioOf(el);
+  const p = Math.min(100, r * 100);
+  return <span className={`sla ${urgClass(r)}`} style={{ ['--p' as string]: p } as CSSProperties}><b>{Math.round(el)}′</b></span>;
 }
 
-function PlayIcon() {
-  return (
-    <svg className="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="6 3 20 12 6 21 6 3" />
-    </svg>
-  );
+interface TicketCardProps {
+  p: PedidoVM;
+  items: PedidoItemVM[];
+  col: { estado: EstadoPedido; label: string; color: string };
+  now: number;
+  selected: boolean;
+  idx: number;
+  online: boolean;
+  onAdvance: (itemId: string, estado: EstadoItem) => void;
+  onRegress: (itemId: string, estado: EstadoItem) => void;
+  onBump: () => void;
+  onSelect: () => void;
 }
 
-function CheckIcon() {
-  return (
-    <svg className="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
+function TicketCard({ p, items, col, now, selected, idx, online, onAdvance, onRegress, onBump, onSelect }: TicketCardProps) {
+  const el = elapsedMinF(p.createdAt, now);
+  const showBumpIdx = col.estado !== 'LISTO' && idx >= 0 && idx < 9;
+  const canalCls = CANAL_CLS[p.canal];
+  const donde = p.canal === 'SALON' ? `Mesa ${p.mesaNumero}` : (p.cliente ?? 'Cliente');
 
-function NoteIcon() {
   return (
-    <svg className="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
-    </svg>
+    <div className={`kds-card ${urgClass(ratioOf(el))} ${selected ? 'sel' : ''}`} onClick={onSelect}>
+      <div className="kds-head">
+        {col.estado !== 'LISTO' && <SlaRing el={el} />}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="row" style={{ gap: 7 }}>
+            <span className={`tag-canal ${canalCls}`}>{CANAL_LABEL[p.canal]}</span>
+            <span className="tk-num">{p.id.slice(0, 6)}</span>
+            {showBumpIdx && <span className="kbd" style={{ marginLeft: 'auto' }}>{idx + 1}</span>}
+          </div>
+          <div className="tk-where">{donde}</div>
+        </div>
+      </div>
+
+      <div className="kds-items" style={{ marginTop: 12 }}>
+        {items.map((it) => {
+          const next = NEXT_ITEM[it.estado];
+          return (
+            <div key={it.id} className={`kds-item ${it.estado === 'LISTO' ? 'done' : ''}`} style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: 9, minWidth: 0 }}>
+                <span className="q">{it.cantidad}×</span>
+                <div style={{ minWidth: 0 }}>
+                  <span className="nm">{it.nombre}</span>
+                  {it.modificadores.length > 0 && <div className="note">{it.modificadores.map((m) => m.nombre).join(', ')}</div>}
+                  {it.notas && <div className="note"><Icons.Note s={12} /> {it.notas}</div>}
+                </div>
+              </div>
+              {col.estado !== 'LISTO' ? (
+                <button className="btn btn-soft kds-item-btn" disabled={!online} onClick={(e) => { e.stopPropagation(); onAdvance(it.id, it.estado); }} title={next === 'EN_PREPARACION' ? 'Iniciar' : 'Listo'} aria-label={`${next === 'EN_PREPARACION' ? 'Iniciar' : 'Marcar listo'}: ${it.cantidad}× ${it.nombre}`}>
+                  {next === 'EN_PREPARACION' ? <Icons.Play s={16} /> : <Icons.Check s={16} />}
+                </button>
+              ) : (
+                <button className="btn btn-ghost kds-item-btn" disabled={!online} onClick={(e) => { e.stopPropagation(); onRegress(it.id, it.estado); }} title="Regresar" aria-label={`Regresar: ${it.cantidad}× ${it.nombre}`}><Icons.Undo s={16} /></button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {col.estado !== 'LISTO' && (
+        <button className="btn btn-block kds-bump-btn" style={{ background: col.estado === 'PENDIENTE' ? 'var(--info)' : 'var(--ok)', color: '#fff', marginTop: 4 }} disabled={!online} onClick={(e) => { e.stopPropagation(); onBump(); }}>
+          {col.estado === 'PENDIENTE' ? <><Icons.Play s={15} /> Iniciar todo</> : <><Icons.Check s={15} /> Marcar listo</>}
+        </button>
+      )}
+    </div>
   );
 }

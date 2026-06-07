@@ -1,6 +1,13 @@
+// screens/admin/UsuariosScreen.tsx — Gestión de accesos y roles del equipo.
+// Cableado real: useUsuariosQuery (lista paginada + alta + cambio de rol).
+// Solo ADMIN gestiona; el resto ve la tabla en lectura.
+
 import { useMemo, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useUsuariosQuery } from '../../hooks/queries/useUsuariosQuery';
+import { useAuthStore } from '../../store/auth.store';
+import { Icons } from '../../components/ui/icons';
+import { StatKpi } from '../../components/ui/StatKpi';
 import type { CrearUsuarioPayload, RolUsuario } from '../../types/usuario.types';
 
 const ROLES: { value: RolUsuario; label: string }[] = [
@@ -12,6 +19,17 @@ const ROLES: { value: RolUsuario; label: string }[] = [
   { value: 'RECEPCION', label: 'Recepción' },
 ];
 
+// rol → clase de color (definida en styles.css, compartida por badge y avatar)
+const ROL_CLASS: Record<string, string> = {
+  ADMIN: 'rol-admin',
+  GERENCIA: 'rol-gerencia',
+  CAJERO: 'rol-cajero',
+  MESERO: 'rol-mesero',
+  COCINA: 'rol-cocina',
+  RECEPCION: 'rol-recepcion',
+  SISTEMA: 'rol-sistema',
+};
+
 const INITIAL_FORM: CrearUsuarioPayload = {
   nombre: '',
   email: '',
@@ -19,11 +37,17 @@ const INITIAL_FORM: CrearUsuarioPayload = {
   rol: 'MESERO',
 };
 
+function iniciales(nombre: string): string {
+  return nombre.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
+
 export function UsuariosScreen() {
   const online = useOnlineStatus();
+  const puedeGestionar = useAuthStore((s) => s.user?.rol) === 'ADMIN';
   const [form, setForm] = useState<CrearUsuarioPayload>(INITIAL_FORM);
   const [search, setSearch] = useState('');
   const [rolFiltro, setRolFiltro] = useState<string>('');
+
   const filters = useMemo(
     () => ({
       rol: rolFiltro ? (rolFiltro as RolUsuario) : undefined,
@@ -31,6 +55,7 @@ export function UsuariosScreen() {
     }),
     [rolFiltro, search],
   );
+
   const {
     usuarios,
     nextCursor,
@@ -46,15 +71,26 @@ export function UsuariosScreen() {
     clearFeedback,
   } = useUsuariosQuery(filters);
 
+  // KPIs derivados de la página cargada
+  const kpis = useMemo(() => {
+    const activos = usuarios.filter((u) => u.activo).length;
+    return {
+      total: usuarios.length,
+      activos,
+      inactivos: usuarios.length - activos,
+      roles: new Set(usuarios.map((u) => u.rol)).size,
+    };
+  }, [usuarios]);
+
   const handleCrear = async (event: FormEvent) => {
     event.preventDefault();
     if (!online) return;
-
     await crear({
       ...form,
       nombre: form.nombre.trim(),
       email: form.email.trim(),
     });
+    setForm(INITIAL_FORM);
   };
 
   const updateForm = (key: keyof CrearUsuarioPayload, value: string) => {
@@ -69,48 +105,61 @@ export function UsuariosScreen() {
           <div className="sub">Gestión de accesos y roles del equipo</div>
         </div>
         <span className="spacer" />
-        <div className="row g-2">
-          <div className="input search-input" style={{ width: '200px' }}>
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="input role-filter" style={{ width: '160px' }}>
-            <select value={rolFiltro} onChange={(e) => setRolFiltro(e.target.value)}>
-              <option value="">Todos los roles</option>
-              {ROLES.map((role) => (
-                <option key={role.value} value={role.value}>{role.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => void fetch()}
-          title="Refrescar"
-        >
-          <RefreshIcon />
+        <button className="btn btn-ghost btn-sm" onClick={() => void fetch()} title="Refrescar" aria-label="Refrescar usuarios">
+          <Icons.Refresh s={16} />
         </button>
       </div>
 
       {!online && (
-        <div className="banner warn module-feedback">
-          <AlertIcon />
+        <div className="banner warn module-feedback" role="status">
+          <Icons.Alert s={17} />
           <span>Sin conexión. Las mutaciones están deshabilitadas.</span>
         </div>
       )}
 
       {(error || success) && (
-        <div className={`banner ${error ? 'err' : 'ok'} module-feedback`}>
-          {error ? <AlertIcon /> : <CheckIcon />}
+        <div className={`banner ${error ? 'err' : 'ok'} module-feedback`} role="alert">
+          {error ? <Icons.Alert s={17} /> : <Icons.Check s={16} />}
           <span>{error ?? success}</span>
           <span className="spacer" />
           <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
         </div>
       )}
+
+      {/* KPIs */}
+      <div className="grid-stats" style={{ marginBottom: 16 }}>
+        <StatKpi icon="Usuarios" tint="accent" label="En esta vista" value={kpis.total} />
+        <StatKpi icon="Check" tint="ok" label="Activos" value={kpis.activos} />
+        <StatKpi icon="Lock" tint="muted" label="Inactivos" value={kpis.inactivos} />
+        <StatKpi icon="Layers" tint="purple" label="Roles distintos" value={kpis.roles} />
+      </div>
+
+      {/* Toolbar de filtros */}
+      <div className="module-toolbar">
+        <div className="search-box">
+          <Icons.Search s={16} />
+          <input
+            type="search"
+            placeholder="Buscar por nombre o correo…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar usuarios"
+          />
+        </div>
+        <span className="spacer" />
+        <div className="filters" role="group" aria-label="Filtrar por rol">
+          <button className={`chip ${rolFiltro === '' ? 'on' : ''}`} onClick={() => setRolFiltro('')}>Todos</button>
+          {ROLES.map((role) => (
+            <button
+              key={role.value}
+              className={`chip ${rolFiltro === role.value ? 'on' : ''}`}
+              onClick={() => setRolFiltro(role.value)}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="module-grid">
         <section className="panel">
@@ -124,9 +173,14 @@ export function UsuariosScreen() {
             <LoadingRows />
           ) : usuarios.length === 0 ? (
             <div className="empty">
-              <div className="e-ic"><UsersIcon /></div>
+              <div className="e-ic"><Icons.Usuarios s={24} /></div>
               <h3>Sin usuarios</h3>
-              <p>Los usuarios reales aparecerán aquí cuando el backend los devuelva o coincidan con el filtro.</p>
+              <p>No hay usuarios que coincidan con la búsqueda o el filtro de rol seleccionado.</p>
+              {(search || rolFiltro) && (
+                <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setRolFiltro(''); }}>
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -138,32 +192,44 @@ export function UsuariosScreen() {
                       <th>Rol</th>
                       <th>Estado</th>
                       <th>Creado</th>
-                      <th>Cambiar rol</th>
+                      {puedeGestionar && <th className="cell-action">Cambiar rol</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {usuarios.map((usuario) => (
                       <tr key={usuario.id}>
                         <td>
-                          <strong>{usuario.nombre}</strong>
-                          <div className="muted">{usuario.email}</div>
-                        </td>
-                        <td><span className="badge badge-accent">{usuario.rolLabel}</span></td>
-                        <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
-                        <td>{usuario.createdAtLabel}</td>
-                        <td>
-                          <div className="input role-select">
-                            <select
-                              value={usuario.rol}
-                              disabled={saving || !online}
-                              onChange={(event) => cambiarRol(usuario.id, event.target.value as RolUsuario)}
-                            >
-                              {ROLES.map((role) => (
-                                <option key={role.value} value={role.value}>{role.label}</option>
-                              ))}
-                            </select>
+                          <div className="cell-user">
+                            <div className={`ava-sm ${ROL_CLASS[usuario.rol] ?? 'rol-sistema'}`} aria-hidden="true">
+                              {iniciales(usuario.nombre)}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <div className="cu-name">{usuario.nombre}</div>
+                              <div className="cu-mail">{usuario.email}</div>
+                            </div>
                           </div>
                         </td>
+                        <td>
+                          <span className={`badge-rol ${ROL_CLASS[usuario.rol] ?? 'rol-sistema'}`}>{usuario.rolLabel}</span>
+                        </td>
+                        <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
+                        <td className="muted">{usuario.createdAtLabel}</td>
+                        {puedeGestionar && (
+                          <td className="cell-action">
+                            <div className="input">
+                              <select
+                                value={usuario.rol}
+                                disabled={saving || !online}
+                                aria-label={`Cambiar rol de ${usuario.nombre}`}
+                                onChange={(event) => cambiarRol(usuario.id, event.target.value as RolUsuario)}
+                              >
+                                {ROLES.map((role) => (
+                                  <option key={role.value} value={role.value}>{role.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -181,45 +247,51 @@ export function UsuariosScreen() {
           )}
         </section>
 
-        <aside className="module-side">
-          <section className="panel">
-            <div className="panel-h"><h3>Nuevo usuario</h3></div>
-            <form className="form-stack" onSubmit={handleCrear}>
-              <div className="field">
-                <label>Nombre</label>
-                <div className="input">
-                  <input required value={form.nombre} onChange={(event) => updateForm('nombre', event.target.value)} />
-                </div>
+        {puedeGestionar && (
+          <aside className="module-side">
+            <section className="panel">
+              <div className="panel-h">
+                <Icons.Plus s={16} />
+                <h3>Nuevo usuario</h3>
               </div>
-              <div className="field">
-                <label>Email</label>
-                <div className="input">
-                  <input required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} />
+              <form className="form-stack" onSubmit={handleCrear}>
+                <div className="field">
+                  <label htmlFor="nu-nombre">Nombre</label>
+                  <div className="input">
+                    <input id="nu-nombre" required value={form.nombre} onChange={(event) => updateForm('nombre', event.target.value)} placeholder="Nombre y apellido" />
+                  </div>
                 </div>
-              </div>
-              <div className="field">
-                <label>Contraseña</label>
-                <div className="input">
-                  <input required minLength={8} type="password" value={form.password} onChange={(event) => updateForm('password', event.target.value)} />
+                <div className="field">
+                  <label htmlFor="nu-email">Email</label>
+                  <div className="input">
+                    <input id="nu-email" required type="email" value={form.email} onChange={(event) => updateForm('email', event.target.value)} placeholder="persona@nachopps.pe" />
+                  </div>
                 </div>
-              </div>
-              <div className="field">
-                <label>Rol</label>
-                <div className="input">
-                  <select value={form.rol} onChange={(event) => updateForm('rol', event.target.value)}>
-                    {ROLES.map((role) => (
-                      <option key={role.value} value={role.value}>{role.label}</option>
-                    ))}
-                  </select>
+                <div className="field">
+                  <label htmlFor="nu-pass">Contraseña</label>
+                  <div className="input">
+                    <input id="nu-pass" required minLength={8} type="password" value={form.password} onChange={(event) => updateForm('password', event.target.value)} aria-describedby="nu-pass-hint" />
+                  </div>
+                  <span id="nu-pass-hint" className="hint">Mínimo 8 caracteres.</span>
                 </div>
-              </div>
-              <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
-                {saving ? <span className="spinner" /> : <UsersIcon />}
-                Crear usuario
-              </button>
-            </form>
-          </section>
-        </aside>
+                <div className="field">
+                  <label htmlFor="nu-rol">Rol</label>
+                  <div className="input">
+                    <select id="nu-rol" value={form.rol} onChange={(event) => updateForm('rol', event.target.value)}>
+                      {ROLES.map((role) => (
+                        <option key={role.value} value={role.value}>{role.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
+                  {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
+                  Crear usuario
+                </button>
+              </form>
+            </section>
+          </aside>
+        )}
       </div>
     </div>
   );
@@ -228,27 +300,15 @@ export function UsuariosScreen() {
 function LoadingRows() {
   return (
     <div className="table-wrap table-wrap-flat">
-      {[1, 2, 3, 4].map((row) => (
-        <div key={row} className="skeleton-row">
-          <div className="skel" />
+      {[1, 2, 3, 4, 5].map((row) => (
+        <div key={row} className="skeleton-row row" style={{ gap: 12 }}>
+          <div className="skel" style={{ width: 34, height: 34, borderRadius: '50%', flex: 'none' }} />
+          <div className="col" style={{ gap: 6, flex: 1 }}>
+            <div className="skel" style={{ width: '40%', height: 13 }} />
+            <div className="skel" style={{ width: '60%', height: 11 }} />
+          </div>
         </div>
       ))}
     </div>
   );
-}
-
-function AlertIcon() {
-  return <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>;
-}
-
-function CheckIcon() {
-  return <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" /></svg>;
-}
-
-function RefreshIcon() {
-  return <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>;
-}
-
-function UsersIcon() {
-  return <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
 }

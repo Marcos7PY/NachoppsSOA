@@ -1,10 +1,12 @@
-// screens/inventario/InventarioScreen.tsx - Productos, categorías y reposición
+// screens/inventario/InventarioScreen.tsx — Productos, disponibilidad y reposición.
+// Cableado real: useInventarioQuery (categorías + productos paginados + mutaciones).
 
 import { useMemo, useState, type FormEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
-import type { CrearProductoPayload } from '../../types/inventario.types';
-
+import { Icons } from '../../components/ui/icons';
+import { StatKpi } from '../../components/ui/StatKpi';
+import type { CrearProductoPayload, ProductoVM } from '../../types/inventario.types';
 
 const INITIAL_PRODUCT: CrearProductoPayload = {
   categoriaId: '',
@@ -15,9 +17,20 @@ const INITIAL_PRODUCT: CrearProductoPayload = {
   stockActual: 0,
 };
 
+const STOCK_BAJO = 5;
+
+/** Clasificación de stock para resaltar filas y contar KPIs (null = sin control). */
+function stockNivel(stock: number | null): 'ok' | 'low' | 'out' | 'none' {
+  if (stock === null) return 'none';
+  if (stock <= 0) return 'out';
+  if (stock <= STOCK_BAJO) return 'low';
+  return 'ok';
+}
+
 export function InventarioScreen() {
   const online = useOnlineStatus();
   const [categoriaId, setCategoriaId] = useState('');
+  const [search, setSearch] = useState('');
   const {
     categorias,
     productos,
@@ -30,9 +43,10 @@ export function InventarioScreen() {
     fetch,
     fetchMore,
     crearProducto,
+    actualizarProducto,
     reponerStock,
     clearFeedback,
-  } = useInventarioQuery(categoriaId || undefined);
+  } = useInventarioQuery(categoriaId || undefined, { conStock: true, search: search.trim() || undefined });
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
 
@@ -42,6 +56,19 @@ export function InventarioScreen() {
       productos: productos.filter((producto) => producto.categoriaId === categoria.id),
     }));
   }, [categorias, productos]);
+
+  const kpis = useMemo(() => {
+    let disponibles = 0;
+    let bajo = 0;
+    let agotados = 0;
+    for (const p of productos) {
+      if (p.disponible) disponibles += 1;
+      const nivel = stockNivel(p.stockActual);
+      if (nivel === 'low') bajo += 1;
+      if (nivel === 'out') agotados += 1;
+    }
+    return { total: productos.length, disponibles, bajo, agotados };
+  }, [productos]);
 
   const handleCrear = async (event: FormEvent) => {
     event.preventDefault();
@@ -55,6 +82,7 @@ export function InventarioScreen() {
       precio: Number(productoForm.precio) || 0,
       stockActual: Number(productoForm.stockActual) || 0,
     });
+    setProductoForm(INITIAL_PRODUCT);
   };
 
   const updateProductoForm = (key: keyof CrearProductoPayload, value: string | number | boolean) => {
@@ -68,6 +96,20 @@ export function InventarioScreen() {
     setStockInputs((current) => ({ ...current, [productoId]: '' }));
   };
 
+  const handleReponerQuick = async (productoId: string, cantidad: number) => {
+    if (!online) return;
+    await reponerStock(productoId, cantidad);
+  };
+
+  const handleToggleDisponible = async (producto: ProductoVM) => {
+    if (!online || saving) return;
+    await actualizarProducto(producto.id, { disponible: !producto.disponible });
+  };
+
+  const grupos = categoriaId
+    ? [{ categoria: categorias.find((item) => item.id === categoriaId), productos }]
+    : productosPorCategoria;
+
   return (
     <div>
       <div className="page-h">
@@ -76,27 +118,57 @@ export function InventarioScreen() {
           <div className="sub">Productos, disponibilidad y reposición de stock</div>
         </div>
         <span className="spacer" />
-        <div className="input date-filter">
-          <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)}>
+        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar" aria-label="Refrescar inventario">
+          <Icons.Refresh s={16} />
+        </button>
+      </div>
+
+      {!online && (
+        <div className="banner warn module-feedback" role="status">
+          <Icons.Alert s={17} />
+          <span>Sin conexión. Las mutaciones están deshabilitadas.</span>
+        </div>
+      )}
+
+      {(error || success) && (
+        <div className={`banner ${error ? 'err' : 'ok'} module-feedback`} role="alert">
+          {error ? <Icons.Alert s={17} /> : <Icons.Check s={16} />}
+          <span>{error ?? success}</span>
+          <span className="spacer" />
+          <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
+        </div>
+      )}
+
+      {/* KPIs */}
+      <div className="grid-stats" style={{ marginBottom: 16 }}>
+        <StatKpi icon="Inventario" tint="accent" label="En esta vista" value={kpis.total} />
+        <StatKpi icon="Check" tint="ok" label="Disponibles" value={kpis.disponibles} />
+        <StatKpi icon="Alert" tint="warn" label={`Stock bajo (≤${STOCK_BAJO})`} value={kpis.bajo} />
+        <StatKpi icon="Alert" tint="danger" label="Agotados" value={kpis.agotados} />
+      </div>
+
+      {/* Toolbar */}
+      <div className="module-toolbar">
+        <div className="search-box">
+          <Icons.Search s={16} />
+          <input
+            type="search"
+            placeholder="Buscar producto…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            aria-label="Buscar productos"
+          />
+        </div>
+        <span className="spacer" />
+        <div className="input" style={{ width: 210 }}>
+          <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)} aria-label="Filtrar por categoría">
             <option value="">Todas las categorías</option>
             {categorias.map((categoria) => (
               <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>
             ))}
           </select>
         </div>
-        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar">
-          <RefreshIcon />
-        </button>
       </div>
-
-      {(error || success) && (
-        <div className={`banner ${error ? 'err' : 'ok'} module-feedback`}>
-          {error ? <AlertIcon /> : <CheckIcon />}
-          <span>{error ?? success}</span>
-          <span className="spacer" />
-          <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
-        </div>
-      )}
 
       <div className="module-grid">
         <section className="panel">
@@ -110,16 +182,18 @@ export function InventarioScreen() {
             <LoadingRows />
           ) : productos.length === 0 ? (
             <div className="empty">
-              <div className="e-ic"><BoxIcon /></div>
+              <div className="e-ic"><Icons.Inventario s={24} /></div>
               <h3>Inventario vacío</h3>
-              <p>Cuando el backend devuelva productos reales, se listarán por categoría.</p>
+              <p>No hay productos que coincidan con la búsqueda o la categoría seleccionada.</p>
+              {(search || categoriaId) && (
+                <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setCategoriaId(''); }}>
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : (
             <div className="inventory-list">
-              {(categoriaId
-                ? [{ categoria: categorias.find((item) => item.id === categoriaId), productos }]
-                : productosPorCategoria
-              ).map((group) => (
+              {grupos.map((group) => (
                 <div key={group.categoria?.id ?? 'sin-categoria'} className="inventory-group">
                   <div className="inventory-group-h">
                     <strong>{group.categoria?.nombre ?? 'Sin categoría'}</strong>
@@ -130,52 +204,82 @@ export function InventarioScreen() {
                       <thead>
                         <tr>
                           <th>Producto</th>
-                          <th>Precio</th>
+                          <th className="num">Precio</th>
                           <th>Stock</th>
-                          <th>Estado</th>
+                          <th>Disponible</th>
                           <th>Reponer</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {group.productos.map((producto) => (
-                          <tr key={producto.id}>
-                            <td>
-                              <strong>{producto.nombre}</strong>
-                              {producto.descripcion && <div className="muted">{producto.descripcion}</div>}
-                            </td>
-                            <td><strong>{producto.precioLabel}</strong></td>
-                            <td><span className={`badge ${producto.stockClass}`}>{producto.stockLabel}</span></td>
-                            <td>
-                              <span className={`badge dot ${producto.disponible ? 'badge-ok' : 'badge-danger'}`}>
-                                {producto.disponible ? 'Disponible' : 'No disponible'}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="stock-action">
-                                <div className="input">
-                                  <input
-                                    min="1"
-                                    type="number"
-                                    value={stockInputs[producto.id] ?? ''}
-                                    onChange={(event) =>
-                                      setStockInputs((current) => ({
-                                        ...current,
-                                        [producto.id]: event.target.value,
-                                      }))
-                                    }
-                                  />
+                        {group.productos.map((producto) => {
+                          const nivel = stockNivel(producto.stockActual);
+                          const rowCls = nivel === 'out' ? 'row-out' : nivel === 'low' ? 'row-low' : '';
+                          return (
+                            <tr key={producto.id} className={rowCls}>
+                              <td>
+                                <strong>{producto.nombre}</strong>
+                                {producto.descripcion && <div className="muted">{producto.descripcion}</div>}
+                              </td>
+                              <td className="num"><span className="monto">{producto.precioLabel}</span></td>
+                              <td>
+                                <div className="stock-cell">
+                                  <span className={`badge ${producto.stockClass}`}>{producto.stockLabel}</span>
+                                  {nivel === 'out' && <span className="sc-note out">Agotado</span>}
+                                  {nivel === 'low' && <span className="sc-note low">Stock bajo</span>}
                                 </div>
-                                <button
-                                  className="btn btn-sm btn-ghost"
-                                  disabled={saving || !online}
-                                  onClick={() => handleReponer(producto.id)}
-                                >
-                                  Reponer
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              </td>
+                              <td>
+                                <div className="avail-cell">
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={producto.disponible}
+                                    aria-label={`${producto.disponible ? 'Marcar no disponible' : 'Marcar disponible'}: ${producto.nombre}`}
+                                    className={`toggle ${producto.disponible ? 'on' : ''}`}
+                                    disabled={saving || !online}
+                                    onClick={() => handleToggleDisponible(producto)}
+                                  >
+                                    <span className="knob" />
+                                  </button>
+                                  <span className={`av-lbl ${producto.disponible ? '' : 'off'}`}>
+                                    {producto.disponible ? 'Sí' : 'No'}
+                                  </span>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="repo-cell">
+                                  <div className="repo-quick">
+                                    <button disabled={saving || !online} aria-label={`Reponer 5 de ${producto.nombre}`} onClick={() => handleReponerQuick(producto.id, 5)}>+5</button>
+                                    <button disabled={saving || !online} aria-label={`Reponer 10 de ${producto.nombre}`} onClick={() => handleReponerQuick(producto.id, 10)}>+10</button>
+                                  </div>
+                                  <div className="input">
+                                    <input
+                                      min="1"
+                                      type="number"
+                                      inputMode="numeric"
+                                      placeholder="Cant."
+                                      aria-label={`Cantidad a reponer de ${producto.nombre}`}
+                                      value={stockInputs[producto.id] ?? ''}
+                                      onChange={(event) =>
+                                        setStockInputs((current) => ({
+                                          ...current,
+                                          [producto.id]: event.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                  <button
+                                    className="btn btn-sm btn-soft"
+                                    disabled={saving || !online || !(Number(stockInputs[producto.id]) > 0)}
+                                    onClick={() => handleReponer(producto.id)}
+                                  >
+                                    Reponer
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -195,12 +299,16 @@ export function InventarioScreen() {
 
         <aside className="module-side">
           <section className="panel">
-            <div className="panel-h"><h3>Nuevo producto</h3></div>
+            <div className="panel-h">
+              <Icons.Plus s={16} />
+              <h3>Nuevo producto</h3>
+            </div>
             <form className="form-stack" onSubmit={handleCrear}>
               <div className="field">
-                <label>Categoría</label>
+                <label htmlFor="np-cat">Categoría</label>
                 <div className="input">
                   <select
+                    id="np-cat"
                     value={productoForm.categoriaId}
                     onChange={(event) => updateProductoForm('categoriaId', event.target.value)}
                     required
@@ -213,44 +321,52 @@ export function InventarioScreen() {
                 </div>
               </div>
               <div className="field">
-                <label>Nombre</label>
+                <label htmlFor="np-nombre">Nombre</label>
                 <div className="input">
                   <input
+                    id="np-nombre"
                     required
                     value={productoForm.nombre}
                     onChange={(event) => updateProductoForm('nombre', event.target.value)}
+                    placeholder="Nombre del producto"
                   />
                 </div>
               </div>
               <div className="field">
-                <label>Descripción</label>
+                <label htmlFor="np-desc">Descripción</label>
                 <div className="input">
                   <textarea
+                    id="np-desc"
                     rows={3}
                     value={productoForm.descripcion}
                     onChange={(event) => updateProductoForm('descripcion', event.target.value)}
+                    placeholder="Opcional"
                   />
                 </div>
               </div>
               <div className="form-grid-2">
                 <div className="field">
-                  <label>Precio</label>
+                  <label htmlFor="np-precio">Precio</label>
                   <div className="input">
                     <input
+                      id="np-precio"
                       min="0"
                       step="0.01"
                       type="number"
+                      inputMode="decimal"
                       value={productoForm.precio}
                       onChange={(event) => updateProductoForm('precio', Number(event.target.value))}
                     />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Stock inicial</label>
+                  <label htmlFor="np-stock">Stock inicial</label>
                   <div className="input">
                     <input
+                      id="np-stock"
                       min="0"
                       type="number"
+                      inputMode="numeric"
                       value={productoForm.stockActual}
                       onChange={(event) => updateProductoForm('stockActual', Number(event.target.value))}
                     />
@@ -266,7 +382,7 @@ export function InventarioScreen() {
                 Disponible para pedidos
               </label>
               <button className="btn btn-primary btn-block" disabled={saving || categorias.length === 0 || !online} type="submit">
-                {saving ? <span className="spinner" /> : <BoxIcon />}
+                {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
                 Crear producto
               </button>
             </form>
@@ -277,7 +393,7 @@ export function InventarioScreen() {
   );
 }
 
-// ─── Componentes Auxiliares e Iconos ────────────────────────
+// ─── Componentes auxiliares ─────────────────────────────────
 
 function LoadingRows() {
   return (
@@ -286,9 +402,9 @@ function LoadingRows() {
         <thead>
           <tr>
             <th>Producto</th>
-            <th>Precio</th>
+            <th className="num">Precio</th>
             <th>Stock</th>
-            <th>Estado</th>
+            <th>Disponible</th>
             <th>Reponer</th>
           </tr>
         </thead>
@@ -296,48 +412,14 @@ function LoadingRows() {
           {[1, 2, 3, 4, 5].map((i) => (
             <tr key={i}>
               <td><div className="skel" style={{ width: 120, height: 16 }} /></td>
-              <td><div className="skel" style={{ width: 60, height: 16 }} /></td>
+              <td><div className="skel" style={{ width: 60, height: 16, marginLeft: 'auto' }} /></td>
               <td><div className="skel" style={{ width: 40, height: 16 }} /></td>
-              <td><div className="skel" style={{ width: 70, height: 16 }} /></td>
-              <td><div className="skel" style={{ width: 90, height: 28 }} /></td>
+              <td><div className="skel" style={{ width: 48, height: 24 }} /></td>
+              <td><div className="skel" style={{ width: 150, height: 30 }} /></td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" />
-    </svg>
-  );
-}
-
-function BoxIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-      <polyline points="3.29 7 12 12 20.71 7" />
-      <line x1="12" x2="12" y1="22" y2="12" />
-    </svg>
   );
 }
