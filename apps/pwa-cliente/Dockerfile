@@ -1,6 +1,11 @@
 FROM node:22-alpine AS builder
 WORKDIR /usr/src/app
 
+# URL del API Gateway (Kong) horneada en el bundle por Vite.
+# Por defecto apunta al stack local/CI; en prod se pasa el dominio HTTPS real:
+#   docker build --build-arg VITE_API_BASE_URL=https://api.tudominio.com ...
+ARG VITE_API_BASE_URL=http://localhost:8000
+
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* nx.json tsconfig.base.json ./
 COPY apps/pwa-cliente/package.json ./apps/pwa-cliente/package.json
 COPY libs/ ./libs/
@@ -8,6 +13,9 @@ COPY libs/ ./libs/
 RUN npm install --ignore-scripts
 
 COPY apps/pwa-cliente ./apps/pwa-cliente
+# Vite hornea import.meta.env.VITE_* desde .env.production (root = apps/pwa-cliente).
+# Lo reescribimos con la URL del gateway de este entorno antes de compilar.
+RUN printf 'VITE_API_BASE_URL=%s\nVITE_WS_PATH=/notificaciones/socket.io\n' "$VITE_API_BASE_URL" > apps/pwa-cliente/.env.production
 RUN npx nx build pwa-cliente --configuration=production
 
 FROM nginx:alpine
