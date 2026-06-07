@@ -1,7 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Roles, RolesGuard } from '@org/shared-auth';
 import { CrearReservaCommand, ListarReservasQuery } from '@org/contracts';
 import { ReservasService } from './reservas.service';
 
+// Reservas: gestionadas por recepción y meseros; gerencia las consulta.
+@UseGuards(RolesGuard)
+@Roles('ADMIN', 'SISTEMA', 'GERENCIA', 'MESERO', 'RECEPCION')
 @Controller()
 export class AppController {
   constructor(private readonly reservas: ReservasService) {}

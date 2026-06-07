@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, HttpCode, UseGuards } from '@nestjs/common';
+import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
 import {
   AbrirCuentaCommand,
@@ -6,6 +7,10 @@ import {
   DividirCuentaCommand
 } from '@org/contracts';
 
+// Cuentas: abiertas/consultadas desde el salón (mesero, recepción) y cobradas
+// en caja; servicio-caja también las consulta/cierra con token SISTEMA.
+@UseGuards(RolesGuard)
+@Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO', 'RECEPCION')
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

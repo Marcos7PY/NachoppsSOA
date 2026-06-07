@@ -141,19 +141,21 @@ async function main() {
   console.log('\n🍽️  Creando productos...');
   const productos: Producto[] = [];
 
-  const productosData: Array<{ cat: string; nombre: string; precio: number; stock: number }> = [
-    { cat: 'Entradas', nombre: 'Ceviche Clásico', precio: 35, stock: 50 },
-    { cat: 'Entradas', nombre: 'Tiradito de Pescado', precio: 28, stock: 40 },
-    { cat: 'Entradas', nombre: 'Causa Limeña', precio: 22, stock: 30 },
-    { cat: 'Entradas', nombre: 'Anticuchos', precio: 18, stock: 60 },
-    { cat: 'Entradas', nombre: 'Tequeños', precio: 15, stock: 80 },
-    { cat: 'Platos de Fondo', nombre: 'Lomo Saltado', precio: 42, stock: 40 },
-    { cat: 'Platos de Fondo', nombre: 'Ají de Gallina', precio: 38, stock: 35 },
-    { cat: 'Platos de Fondo', nombre: 'Arroz Chaufa', precio: 32, stock: 45 },
-    { cat: 'Platos de Fondo', nombre: 'Tallarines Verdes', precio: 30, stock: 40 },
-    { cat: 'Parrillas', nombre: 'Parrilla Mixta', precio: 65, stock: 20 },
-    { cat: 'Parrillas', nombre: 'Anticucho de Corazón', precio: 25, stock: 50 },
-    { cat: 'Parrillas', nombre: 'Chorizo Parrillero', precio: 28, stock: 40 },
+  // Platos preparados (a la orden) → SIN stock → módulo Carta / Menú.
+  // Productos contables / embotellados → CON stock → módulo Inventario.
+  const productosData: Array<{ cat: string; nombre: string; precio: number; stock?: number }> = [
+    { cat: 'Entradas', nombre: 'Ceviche Clásico', precio: 35 },
+    { cat: 'Entradas', nombre: 'Tiradito de Pescado', precio: 28 },
+    { cat: 'Entradas', nombre: 'Causa Limeña', precio: 22 },
+    { cat: 'Entradas', nombre: 'Anticuchos', precio: 18 },
+    { cat: 'Entradas', nombre: 'Tequeños', precio: 15 },
+    { cat: 'Platos de Fondo', nombre: 'Lomo Saltado', precio: 42 },
+    { cat: 'Platos de Fondo', nombre: 'Ají de Gallina', precio: 38 },
+    { cat: 'Platos de Fondo', nombre: 'Arroz Chaufa', precio: 32 },
+    { cat: 'Platos de Fondo', nombre: 'Tallarines Verdes', precio: 30 },
+    { cat: 'Parrillas', nombre: 'Parrilla Mixta', precio: 65 },
+    { cat: 'Parrillas', nombre: 'Anticucho de Corazón', precio: 25 },
+    { cat: 'Parrillas', nombre: 'Chorizo Parrillero', precio: 28 },
     { cat: 'Bebidas', nombre: 'Inca Kola', precio: 8, stock: 200 },
     { cat: 'Bebidas', nombre: 'Coca Cola', precio: 8, stock: 200 },
     { cat: 'Bebidas', nombre: 'Agua Mineral', precio: 5, stock: 150 },
@@ -163,10 +165,10 @@ async function main() {
     { cat: 'Cócteles', nombre: 'Chilcano de Pisco', precio: 22, stock: 70 },
     { cat: 'Cócteles', nombre: 'Maracuyá Sour', precio: 24, stock: 70 },
     { cat: 'Cócteles', nombre: 'Mojito Clásico', precio: 28, stock: 60 },
-    { cat: 'Postres', nombre: 'Suspiro Limeño', precio: 18, stock: 30 },
-    { cat: 'Postres', nombre: 'Picarones', precio: 16, stock: 40 },
-    { cat: 'Postres', nombre: 'Tres Leches', precio: 20, stock: 30 },
-    { cat: 'Postres', nombre: 'Crema Volteada', precio: 15, stock: 25 },
+    { cat: 'Postres', nombre: 'Suspiro Limeño', precio: 18 },
+    { cat: 'Postres', nombre: 'Picarones', precio: 16 },
+    { cat: 'Postres', nombre: 'Tres Leches', precio: 20 },
+    { cat: 'Postres', nombre: 'Crema Volteada', precio: 15 },
   ];
 
   for (const p of productosData) {
@@ -175,10 +177,10 @@ async function main() {
         categoriaId: categorias[p.cat].id,
         nombre: p.nombre,
         precio: p.precio,
-        stockActual: p.stock,
+        ...(p.stock != null ? { stockActual: p.stock } : {}),
       });
       productos.push(prod);
-      console.log(`   ✅ ${p.cat} → ${p.nombre} (S/ ${p.precio}, stock: ${p.stock})`);
+      console.log(`   ✅ ${p.cat} → ${p.nombre} (S/ ${p.precio}${p.stock != null ? `, stock: ${p.stock}` : ', carta'})`);
     } catch (err: any) {
       if (err.response?.status === 409 || (err.response?.status === 400 && err.response?.data?.message?.includes('existe'))) {
         console.log(`   ⚠️  ${p.nombre} ya existe`);
