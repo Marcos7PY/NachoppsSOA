@@ -77,6 +77,7 @@ jobs:
       - name: Run service e2e suites (9 servicios contra el stack)
         env:
           SERVICE_JWT_SECRET: nachopps_service_secret_dev
+          RABBITMQ_URI: amqp://nachopps:nachopps_secret@localhost:5672
         run: |
           set -e
           # Cada e2e pega directamente al servicio en su puerto de host del compose.
