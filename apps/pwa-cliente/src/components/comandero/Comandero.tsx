@@ -5,7 +5,7 @@
 // no hay modificadores ni descuentos por línea, así que el comandero usa nota de
 // cocina por ítem (las "notas rápidas" son constantes de UI).
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Icons, type IconName } from '../ui/icons';
 import { useToast } from '../ui/ToastProvider';
 import { fmt } from '../../utils/format';
@@ -13,6 +13,7 @@ import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
 import { NOTAS_RAPIDAS } from '../../data/notas-cocina.const';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { ProductoVM } from '../../types/inventario.types';
 import type { CrearPedidoItemPayload } from '../../types/pedido.types';
 
@@ -60,6 +61,8 @@ export function Comandero({
   modoAgregar = false,
 }: ComanderoProps) {
   const { toast } = useToast();
+  const cmdRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(cmdRef, { active: true, onClose });
   const [cat, setCat] = useState<string>('TODAS');
   const [q, setQ] = useState('');
   const search = q.trim();
@@ -194,7 +197,13 @@ export function Comandero({
 
   return (
     <div className="cmd-overlay">
-      <div className="cmd">
+      <div
+        className="cmd"
+        ref={cmdRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+      >
         {/* Header */}
         <div className="cmd-head">
           <button className="icon-btn" onClick={onClose} title="Cerrar"><Icons.Close s={18} /></button>

@@ -5,8 +5,9 @@ import { useAuthStore } from '../../store/auth.store';
 import { APP_CONFIG, getTurnoActual } from '../../config';
 import { useNotificacionesQuery } from '../../hooks/queries/useNotificacionesQuery';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { applyThemeColor } from '../../utils/theme';
 import { Icons } from '../ui/icons';
 
@@ -29,6 +30,10 @@ export function Header() {
   const [now, setNow] = useState(() => new Date());
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(settingsRef, { active: settingsOpen, onClose: () => setSettingsOpen(false) });
+  useFocusTrap(notifRef, { active: notificationsOpen, onClose: () => setNotificationsOpen(false) });
   const [theme, setTheme] = useState<Theme>(() => readAttr('data-theme', 'light'));
   const [density, setDensity] = useState<Density>(() => readAttr('data-density', 'comfy'));
   const [fontscale, setFontscale] = useState<FontScale>(() => readAttr('data-fontscale', 'md'));
@@ -108,7 +113,7 @@ export function Header() {
         {settingsOpen && (
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setSettingsOpen(false)} />
-            <div className="settings-pop" role="dialog" aria-label="Vista y accesibilidad">
+            <div className="settings-pop" ref={settingsRef} role="dialog" aria-modal="true" aria-label="Vista y accesibilidad">
               <div className="sp-row">
                 <span className="sp-lbl">Densidad</span>
                 <div className="seg sm" style={{ width: '100%' }}>
@@ -163,7 +168,7 @@ export function Header() {
           {unreadCount > 0 && <span className="bdg danger">{Math.min(unreadCount, 9)}</span>}
         </button>
         {notificationsOpen && (
-          <div className="notif-popover" role="dialog" aria-label="Notificaciones">
+          <div className="notif-popover" ref={notifRef} role="dialog" aria-modal="true" aria-label="Notificaciones">
             <div className="panel-h">
               <h3>Notificaciones</h3>
               <span className="spacer" />

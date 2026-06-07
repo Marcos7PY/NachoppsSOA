@@ -1,8 +1,9 @@
 // screens/caja/MovimientoModal.tsx — Egreso / Ingreso de efectivo.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { CrearMovimientoCajaPayload } from '../../types/caja.types';
 
 const CATS: Record<'EGRESO' | 'INGRESO', string[]> = {
@@ -21,6 +22,8 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
   const [monto, setMonto] = useState('');
   const [cat, setCat] = useState(CATS[tipoInicial][0]);
   const [nota, setNota] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, { active: true, onClose });
 
   const esEgreso = tipo === 'EGRESO';
   const num = Number(monto || 0);
@@ -40,7 +43,14 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
   return (
     <div className="modal-wrap">
       <div className="scrim" onClick={onClose} />
-      <div className="modal wide" style={{ position: 'relative', zIndex: 1 }}>
+      <div
+        className="modal wide"
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Movimiento de efectivo"
+        style={{ position: 'relative', zIndex: 1 }}
+      >
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: esEgreso ? 'var(--danger-soft)' : 'var(--ok-soft)', color: esEgreso ? 'var(--danger-text)' : 'var(--ok-text)' }}>
             {esEgreso ? <Icons.ArrowDown s={17} /> : <Icons.ArrowUp s={17} />}
