@@ -1,0 +1,24 @@
+groups:
+  - name: outbox
+    rules:
+      # Profundidad del outbox: si se acumulan eventos PENDING el publisher está
+      # atascado (RabbitMQ caído, conexión rota, o cron detenido).
+      - alert: OutboxBacklogAlto
+        expr: max by (service) (outbox_pending_total) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Backlog de outbox alto en {{ $labels.service }}'
+          description: '{{ $labels.service }} acumula {{ $value }} eventos PENDING en el outbox (>100) durante 2m. Revisar RabbitMQ y el outbox.processor.'
+
+      # Cualquier evento FAILED es dead-letter en BD: requiere reproceso manual
+      # (POST /outbox/:id/retry) y se purga a los 7 días.
+      - alert: OutboxEventosFallidos
+        expr: max by (service) (outbox_failed_total) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Eventos FAILED en el outbox de {{ $labels.service }}'
+          description: '{{ $labels.service }} tiene {{ $value }} evento(s) en estado FAILED. Reprocesar con POST /outbox/:id/retry antes de la purga (7 días).'

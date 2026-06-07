@@ -5,6 +5,7 @@ import { queryClient } from '../api/queryClient';
 import { MESAS_QUERY_KEY } from '../hooks/queries/useMesasQuery';
 import { PEDIDOS_QUERY_KEY } from '../hooks/queries/usePedidosQuery';
 import { CUENTAS_QUERY_KEY } from '../hooks/queries/useCuentasQuery';
+import { CAJA_QUERY_KEY } from '../hooks/queries/useCajaQuery';
 import { pushSocketNotification } from '../hooks/queries/useNotificacionesQuery';
 
 interface NotificacionEvento {
@@ -20,7 +21,7 @@ const pendingInvalidations = new Set<string>();
 let invalidationTimer: ReturnType<typeof setTimeout> | null = null;
 const INVALIDATION_DEBOUNCE_MS = 300;
 
-type StoreKey = 'pedidos' | 'mesas' | 'cuentas';
+type StoreKey = 'pedidos' | 'mesas' | 'cuentas' | 'caja';
 
 function storesForPattern(pattern?: string) {
   const stores = new Set<StoreKey>();
@@ -35,6 +36,7 @@ function storesForPattern(pattern?: string) {
     stores.add('mesas');
     stores.add('pedidos');
     stores.add('cuentas');
+    stores.add('caja');
   }
 
   if (pattern?.startsWith('mesa.')) {
@@ -63,6 +65,13 @@ function invalidateStores(stores: Set<StoreKey>) {
   if (stores.has('cuentas')) {
     queryClient.invalidateQueries({
       queryKey: CUENTAS_QUERY_KEY,
+      exact: false,
+      refetchType: 'active',
+    });
+  }
+  if (stores.has('caja')) {
+    queryClient.invalidateQueries({
+      queryKey: CAJA_QUERY_KEY,
       exact: false,
       refetchType: 'active',
     });

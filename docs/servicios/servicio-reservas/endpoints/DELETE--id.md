@@ -4,25 +4,25 @@ servicio: servicio-reservas
 metodo: DELETE
 ruta: /:id
 handler: apps/servicio-reservas/src/app/app.controller.ts:29
-fuente: [apps/servicio-reservas/src/app/app.controller.ts:29, apps/servicio-reservas/src/app/app.controller.ts:30, apps/servicio-reservas/src/app/reservas.service.ts:93]
-revisado: 2026-05-31
-commit: c5c7891
+fuente: [apps/servicio-reservas/src/app/app.controller.ts:29, apps/servicio-reservas/src/app/reservas.service.ts:118]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # DELETE /:id
 
-**Proposito.** Cancela una reserva existente. [apps/servicio-reservas/src/app/app.controller.ts:29]
+**Proposito.** cancelar atiende DELETE /:id en servicio-reservas. [apps/servicio-reservas/src/app/app.controller.ts:29]
 
-**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-reservas/src/app/app.module.ts:2, apps/servicio-reservas/src/app/app.controller.ts:29]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-reservas/src/app/app.controller.ts:29]
 
-**Entrada.** `id: string` via Param. [apps/servicio-reservas/src/app/app.controller.ts:30]
+**Entrada.** params id: string; query params motivo: string. [apps/servicio-reservas/src/app/app.controller.ts:30]
 
-**Salida.** Respuesta derivada del handler `cancelar` y del servicio `cancelar`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-reservas/src/app/app.controller.ts:30]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-reservas/src/app/app.controller.ts:29]
 
-**Efectos.** Usa `reserva.update`, `outboxEvent.create`, `reserva.findUnique`. La operacion incluye una transaccion Prisma. [apps/servicio-reservas/src/app/reservas.service.ts:93] Emite o consume eventos `RoutingKeys.ReservaCancelada`. [apps/servicio-reservas/src/app/reservas.service.ts:105]
+**Efectos.** llama `cancelar`; Prisma: `reserva.update`, `outboxEvent.create`; eventos: `RoutingKeys.ReservaCancelada`. [apps/servicio-reservas/src/app/reservas.service.ts:118]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 404 por `NotFoundException`: throw new NotFoundException(Reserva ${id} no encontrada);. [apps/servicio-reservas/src/app/reservas.service.ts:177]
+- No se detectan excepciones Nest explicitas en el camino principal; errores restantes salen de validacion global o infraestructura.

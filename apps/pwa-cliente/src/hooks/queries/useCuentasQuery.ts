@@ -4,6 +4,7 @@ import { mapCuenta } from '../../mappers/cuenta.mapper';
 import { queryClient } from '../../api/queryClient';
 import { MESAS_QUERY_KEY } from './useMesasQuery';
 import { PEDIDOS_QUERY_KEY } from './usePedidosQuery';
+import { CAJA_QUERY_KEY } from './useCajaQuery';
 import type { DividirCuentaPayload, RegistrarPagoPayload } from '../../types/cuenta.types';
 
 export const CUENTAS_QUERY_KEY = ['cuentas'];
@@ -38,12 +39,13 @@ export function useCuentasQuery(mesaId?: string) {
 
   const mutationRegistrarPago = useMutation({
     mutationFn: async (payload: RegistrarPagoPayload) => {
-      await cuentasApi.registrarPago(payload);
+      return cuentasApi.registrarPago(payload);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
     },
   });
 
@@ -70,7 +72,7 @@ export function useCuentasQuery(mesaId?: string) {
     loading: query.isLoading || mutationAbrir.isPending || mutationRegistrarPago.isPending || mutationCerrar.isPending,
     error: query.isError ? (query.error as Error).message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
     success: mutationAbrir.isSuccess ? 'Cuenta abierta.' : mutationRegistrarPago.isSuccess ? 'Pago registrado correctamente.' : mutationCerrar.isSuccess ? mutationCerrar.data.message : null,
-    ticket: mutationCerrar.data?.ticket ?? null,
+    ticket: mutationRegistrarPago.data?.ticket ?? mutationCerrar.data?.ticket ?? null,
     division: mutationDividir.data ?? null,
     
     // Mapeo de métodos compatibles con el store original

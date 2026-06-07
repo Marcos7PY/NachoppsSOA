@@ -2,6 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, JwtFromRequestFunction } from 'passport-jwt';
 import { Request } from 'express';
+import {
+  getJwtPublicKey,
+  getServiceJwtSecret,
+  makeJwtSecretOrKeyProvider,
+  JWT_VERIFY_ALGORITHMS,
+} from './jwt-keys';
 
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
   return req?.cookies?.['access_token'] ?? null;
@@ -10,8 +16,6 @@ const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET env variable is required');
     super({
       // 1º cookie httpOnly, 2º header Bearer (fallback no-breaking)
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -19,7 +23,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      // Verifica RS256 (usuario, clave pública) y HS256 (servicio, secreto).
+      secretOrKeyProvider: makeJwtSecretOrKeyProvider(getJwtPublicKey(), getServiceJwtSecret()),
+      algorithms: [...JWT_VERIFY_ALGORITHMS],
     });
   }
 
@@ -28,6 +34,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       sub: payload.sub,
       email: payload.email,
       rol: payload.rol,
+      nombre: payload.nombre,
     };
   }
 }

@@ -1,27 +1,22 @@
 ---
 tipo: evento
-routingKey: reserva.confirmada
-exchange: nachopps_exchange (topic)
-payload: libs/contracts/src/events/routing-keys.ts:9
-fuente: [libs/contracts/src/events/routing-keys.ts:9, libs/contracts/src/messaging/exchange.ts:2, libs/contracts/src/messaging/envelope.ts:13]
-revisado: 2026-05-31
-commit: c5c7891
+routing_key: reserva.confirmada
+constante: RoutingKeys.ReservaConfirmada
+fuente: [libs/contracts/src/events/routing-keys.ts:9]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # reserva.confirmada
 
-**Payload.** El routing key se declara como `ReservaConfirmada: 'reserva.confirmada'`. [libs/contracts/src/events/routing-keys.ts:9] La envoltura `DomainEventEnvelope<TPayload>` tiene `pattern`, `data` y `metadata`. [libs/contracts/src/messaging/envelope.ts:13] No se detecto clase de payload dedicada en contracts.
+**Definicion.** `RoutingKeys.ReservaConfirmada` = `reserva.confirmada`. [libs/contracts/src/events/routing-keys.ts:9]
 
-**Productor(es).**
+**Productores detectados.**
 
-- No se detecto productor por busqueda de `RoutingKeys.ReservaConfirmada` en propiedades `routingKey` o llamadas `publish`. [libs/contracts/src/events/routing-keys.ts:9]
+- Sin productor detectado en escrituras `outboxEvent` actuales.
 
-**Consumidor(es).**
+**Consumidores detectados.**
 
-- No se detecto consumidor `@EventPattern(RoutingKeys.ReservaConfirmada)`. [libs/contracts/src/events/routing-keys.ts:9]
+- Sin consumidor `@EventPattern` detectado.
 
-**Idempotencia.** La envoltura soporta `metadata.idempotencyKey`. [libs/contracts/src/messaging/envelope.ts:2] Las garantias concretas viven en los consumidores citados.
-
-**Camino de fallo.** El publicador compartido declara DLQ por cola cuando recibe `queue` y `bindings`. [libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts:34] El interceptor RMQ aplica tres reintentos con demora inicial de 1000ms y NACK al agotar intentos. [libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:45, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
-
-**Invariantes.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este evento -->
+**Estado.** definido-no-usado.

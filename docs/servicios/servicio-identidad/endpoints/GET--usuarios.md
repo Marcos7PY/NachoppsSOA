@@ -3,26 +3,27 @@ tipo: endpoint
 servicio: servicio-identidad
 metodo: GET
 ruta: /usuarios
-handler: apps/servicio-identidad/src/auth/auth.controller.ts:74
-fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:74, apps/servicio-identidad/src/auth/auth.controller.ts:75, apps/servicio-identidad/src/auth/auth.service.ts:135]
-revisado: 2026-05-31
-commit: c5c7891
+handler: apps/servicio-identidad/src/auth/auth.controller.ts:120
+fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:120, apps/servicio-identidad/src/auth/auth.service.ts:138]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # GET /usuarios
 
-**Proposito.** Lista usuarios para administracion. [apps/servicio-identidad/src/auth/auth.controller.ts:74]
+**Proposito.** listarUsuarios atiende GET /usuarios en servicio-identidad. [apps/servicio-identidad/src/auth/auth.controller.ts:120]
 
-**Autorizacion.** `JwtAuthGuard` y `RolesGuard` en el endpoint; roles exigidos: ADMIN. [apps/servicio-identidad/src/auth/auth.controller.ts:57, apps/servicio-identidad/src/auth/auth.controller.ts:66]
+**Autorizacion.** @UseGuards(JwtAuthGuard, RolesGuard) con @Roles('ADMIN'). [apps/servicio-identidad/src/auth/auth.controller.ts:118]
 
-**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
+**Entrada.** query `ListarUsuariosQuery` (limit?: number, cursor?: string, rol?: RolUsuario, search?: string, updatedSince?: string). [apps/servicio-identidad/src/auth/auth.controller.ts:121]
 
-**Salida.** Respuesta derivada del handler `listarUsuarios` y del servicio `listarUsuarios`; codigos esperados: 200 si el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:75]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:120]
 
-**Efectos.** Usa `usuario.findMany`. [apps/servicio-identidad/src/auth/auth.service.ts:135]
+**Efectos.** llama `listarUsuarios`; Prisma: `usuario.findMany`. [apps/servicio-identidad/src/auth/auth.service.ts:138]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-identidad/src/auth/auth.service.ts:135]
+- 401 si `JwtAuthGuard` rechaza credenciales o token.
+- 403 si `RolesGuard` rechaza el rol requerido.

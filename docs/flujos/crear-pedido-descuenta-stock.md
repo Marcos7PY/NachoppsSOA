@@ -1,10 +1,10 @@
----
+﻿---
 tipo: flujo
 nombre: crear-pedido-descuenta-stock
 disparador: apps/servicio-pedidos/src/app/app.controller.ts:12
 fuente: [apps/servicio-pedidos/src/app/app.controller.ts:12, apps/servicio-pedidos/src/app/app.service.ts:45, apps/servicio-pedidos/src/app/app.service.ts:170, apps/servicio-pedidos/src/app/app.service.ts:227, apps/servicio-cuentas/src/app/events.controller.ts:15, apps/servicio-inventario/src/app/events.controller.ts:12]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Crear pedido descuenta stock
@@ -24,3 +24,4 @@ commit: c5c7891
 **Fallo y reconvergencia.** Si falla un consumidor de `pedido.creado`, el interceptor reintenta con backoff y termina en NACK hacia DLQ; la idempotencia de inventario evita doble descuento cuando el mensaje vuelve. [libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49, apps/servicio-inventario/src/app/app.service.ts:222, apps/servicio-inventario/src/app/app.service.ts:231]
 
 **Invariantes de extremo a extremo.** [no-oversell](../invariantes/no-oversell.md), [idempotencia-directa](../invariantes/idempotencia-directa.md), [colas-limpias-happy-path](../invariantes/colas-limpias-happy-path.md)
+

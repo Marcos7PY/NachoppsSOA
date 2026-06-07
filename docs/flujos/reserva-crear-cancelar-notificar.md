@@ -1,10 +1,10 @@
----
+﻿---
 tipo: flujo
 nombre: reserva-crear-cancelar-notificar
 disparador: apps/servicio-reservas/src/app/app.controller.ts:19
 fuente: [apps/servicio-reservas/src/app/app.controller.ts:19, apps/servicio-reservas/src/app/app.controller.ts:29, apps/servicio-reservas/src/app/reservas.service.ts:70, apps/servicio-reservas/src/app/reservas.service.ts:137, apps/servicio-notificaciones/src/app/app.controller.ts:45]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Reserva crear cancelar notificar
@@ -23,3 +23,4 @@ commit: c5c7891
 **Fallo y reconvergencia.** Si notificaciones falla, su cola esta con `noAck:false` y DLQ configurada; la reserva ya quedo persistida y el evento puede reintentarse desde RabbitMQ/Outbox. [apps/servicio-notificaciones/src/main.ts:43, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
 
 **Invariantes de extremo a extremo.** [slot-reserva-activo-unico](../invariantes/slot-reserva-activo-unico.md), [exactamente-un-exito-bajo-carrera](../invariantes/exactamente-un-exito-bajo-carrera.md)
+

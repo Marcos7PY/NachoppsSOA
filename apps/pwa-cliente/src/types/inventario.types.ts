@@ -3,6 +3,7 @@
 import type {
   CategoriaDto as ContractCategoriaDto,
   CrearProductoCommand,
+  ActualizarProductoCommand,
   ListarProductosQuery,
   ProductoDto as ContractProductoDto,
   ProductoListResponse as ContractProductoListResponse,
@@ -28,6 +29,7 @@ export interface ProductoVM {
 }
 
 export type CrearProductoPayload = CrearProductoCommand;
+export type ActualizarProductoPayload = ActualizarProductoCommand;
 
 export interface ProductoResponse {
   message: string;

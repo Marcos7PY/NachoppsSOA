@@ -15,7 +15,7 @@ import { RoutingKeys } from '@org/contracts';
     ObservabilidadModule,
     SharedAuthModule,
     RabbitMQModule.forRoot({
-      uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
+      uri: process.env['RABBITMQ_URI'],
       queue: 'notificaciones_queue',
       bindings: [
         RoutingKeys.PedidoCreado,

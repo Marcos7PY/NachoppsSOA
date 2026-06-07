@@ -14,8 +14,9 @@ export function Shell({ children }: ShellProps) {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#contenido">Saltar al contenido</a>
       {!online && (
-        <div className="offline-banner">
+        <div className="offline-banner" role="alert">
           <OfflineIcon />
           Sin conexión. Las acciones que modifican datos están pausadas.
         </div>
@@ -23,9 +24,9 @@ export function Shell({ children }: ShellProps) {
       <Sidebar />
       <div className="main">
         <Header />
-        <div className="content">
+        <main id="contenido" className="content" tabIndex={-1}>
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );

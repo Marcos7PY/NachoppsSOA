@@ -1,3 +1,6 @@
+x-jwt-public-key: &jwt_public '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxPdsdoAUj6GJgmYtuQnF\nd7FMXQ1GSRRjZs+e3VOxduQpklHiRVQv+JTOguLcVWLMG50AM9pRop+soRJNXqpu\nsaDiZ6jHnvNQlUL5GFTqMCjCJ/SAznROy8uP55GkdoAdoo3tBFFejn33bOxzg73a\nMbpU2O9DnHsos6DSz/4r5VInUIyDEuoqZKEIJwFEOKf26JHOifB3JnGoQywxwQu0\n7DPLwSfFmSxrQPGbZ8StARCtthKsTwObUhaXqqnXJqFEN1vXdrkBArIdcDu4MZoB\nePQ6es2HaVRlnJECkWfVWpJGgsGvsZEFWB+bYLKUZ9iyiUq3fSOcljFvvpVjrxAu\nLQIDAQAB\n-----END PUBLIC KEY-----'
+x-jwt-private-key: &jwt_private '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDE92x2gBSPoYmC\nZi25CcV3sUxdDUZJFGNmz57dU7F25CmSUeJFVC/4lM6C4txVYswbnQAz2lGin6yh\nEk1eqm6xoOJnqMee81CVQvkYVOowKMIn9IDOdE7Ly4/nkaR2gB2ije0EUV6Offds\n7HODvdoxulTY70OceyizoNLP/ivlUidQjIMS6ipkoQgnAUQ4p/bokc6J8HcmcahD\nLDHBC7TsM8vBJ8WZLGtA8ZtnxK0BEK22EqxPA5tSFpeqqdcmoUQ3W9d2uQECsh1w\nO7gxmgF49Dp6zYdpVGWckQKRZ9VakkaCwa+xkQVYH5tgspRn2LKJSrd9I5yWMW++\nlWOvEC4tAgMBAAECggEAD6Vv8kHeYEJ+v+MKAsbp7sYgwMuLJ8b81m/ruL0rPbyG\nKN9kUAmN/fskJHWM9yNv/0mLeJMBJR/2AJ2Jk9mKDYYwNffMU64UWqcFTo+AQu8Z\n7T6Y9M18bOfwuH5zSA6JTB5mE4+7KSqMexSVYIO2T3jzwH/RKR8Hbq150ZfpOMAY\nL2UNgS7lj1DsqZOioUSKlbn0WwEijLLsC0jfswggXIOshemqXhpVakmug98KBWs8\nTSwCRNOnIYBNg8VCUHWdc/ODw28XIJk5PODrGV8gfE905oUuFcnmbVwbO3G0XYXV\nlvsM7mt3ZNO37Qa74MSXGKtIL2Jw2Z8L7M8DriddqQKBgQDt1HrtioG4WIRKm7Nk\nn7sBvGYoWOKhoSYtW7uFQnbFrYWVKMA9oqlDskTozuAAXFY8dOCSbiYEKnSWsXCC\np07B6xp83JrtbKMBZE+LYUWbnNdr3dp/C/3qIUThYaRFAqU/pVGvb3YTXiorcCLk\nj/9as/4e84CKyazvwPlbulZ9iwKBgQDUA7pnTDMBhtOrOg3Ws55ihb0zRiAmE28L\nqYi4f2CLfQgNaGa7BFhMaEPRsnxVF1cf5poVHdhhTTrJZzzEoMOdEeMmh3zbP37X\nS9dTjHVZ/MRVJ4SO22u3BMMA2iexCHNp9bKvcTHFaQmPxJE3Sv3WPzOSzPmBhOze\nm84qH6bqJwKBgQDp7rlnk3ibKj4d4N7o2BCq2XSmtR9emlMiBHwDzOdk85RUrjvB\npJDXrK8JTAubbzfHybLndX7hVB1P6ILhkM3wAmAQdzHQ3a3Mfa2cTHaaZQCj8hms\nI9CDDmxhQJjC5KJEY0lgxcMfs9zI00kPBvDGeAs6yIskeNEpFuhvqG7QlwKBgEHz\nDu7G8y7MY9dlbZyVrvTyqRHkBGgTr30vNUo+xSdeszyIdzxBc74AyOfX33kQk5dm\nwhNDf2V1Ao5XwL1hTLf1MnVvu9TvgWMzQj3I+VAOonvimQdfFbiOkKIZOjOFb3FM\nblLIoTTJIaJJAOr0NtWIP2CwxgQV9yCf0pej1OYNAoGAT1dplU1vf6OCIv3CimG3\nWnnuUyr7deVVfG4o0MKFZdATrPSyodcUDyB3dCpR5vzD3UsiaYEoYcNG+4/k45pm\nYkqw7rqwdzCJvR0lZw6d8ryV20CZ92WM70qFuTIYNiBr+OXCM+DhZydMhcqXT1sF\nm8bJ94dmRcXtYoXbc6oamso=\n-----END PRIVATE KEY-----'
+
 services:
   # ═══════════════════════════════════════════════════
   # INFRAESTRUCTURA COMPARTIDA
@@ -183,8 +186,14 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-identidad:5432/identidad_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
-      JWT_EXPIRES_IN: '24h'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
+      JWT_EXPIRES_IN: '15m'
+      REFRESH_TOKEN_TTL_DAYS: '7'
+      JWT_PRIVATE_KEY: *jwt_private
+      COOKIE_SECURE: 'false'
+      COOKIE_SAMESITE: 'strict'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -206,7 +215,9 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-mesas:5432/mesas_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -228,8 +239,10 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-pedidos:5432/pedidos_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -251,8 +264,10 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-cuentas:5432/cuentas_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -274,7 +289,9 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reservas:5432/reservas_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -296,7 +313,9 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-inventario:5432/inventario_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -318,7 +337,9 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-notificaciones:5432/notificaciones_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -340,9 +361,10 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-caja:5432/caja_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -364,7 +386,9 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reportes:5432/reportes_db?schema=public'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
-      JWT_SECRET: 'nachopps_jwt_secret_dev'
+      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
+      JWT_PUBLIC_KEY: *jwt_public
+      SERVICE_JWT_SECRET: 'nachopps_service_secret_dev'
     profiles: ['all']
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
@@ -397,9 +421,10 @@ services:
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PLUGINS: 'bundled,jwt-cache'
-      KONG_JWT_SECRET: ${KONG_JWT_SECRET:-nachopps_jwt_secret_dev}
+      KONG_JWT_PUBLIC_KEY: *jwt_public
       KONG_RATE_LIMIT_MINUTE: ${KONG_RATE_LIMIT_MINUTE:-3000}
       KONG_RATE_LIMIT_HOUR: ${KONG_RATE_LIMIT_HOUR:-30000}
+      KONG_CORS_ORIGINS: ${KONG_CORS_ORIGINS:-["http://localhost:4200","http://localhost:4201","http://localhost:5173","http://127.0.0.1:4200","http://127.0.0.1:4201","http://127.0.0.1:5173"]}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: 'jwt_cache 12m'
     ports:
       - '8000:8000'
@@ -433,6 +458,16 @@ services:
       - '9090:9090'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+    profiles: ['infra', 'all', 'dev']
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: nachopps-alertmanager
+    ports:
+      - '9093:9093'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     profiles: ['infra', 'all', 'dev']
 
   grafana:
@@ -442,6 +477,32 @@ services:
       - '3000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    profiles: ['infra', 'all', 'dev']
+
+  # Agregación de logs estructurados (plan 5.1): Loki almacena, Promtail recoge
+  # el stdout JSON (con trace_id/correlationId) de los contenedores.
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: nachopps-loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    profiles: ['infra', 'all', 'dev']
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: nachopps-promtail
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
     profiles: ['infra', 'all', 'dev']
 
   pwa-cliente:

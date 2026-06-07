@@ -27,6 +27,8 @@ export interface PedidoEntity {
   direccion?: string | null;
   proveedor?: string | null;
   modalidad?: string | null;
+  meseroId?: string | null;
+  meseroNombre?: string | null;
   createdAt: Date;
   items: PedidoItemEntity[];
 }
@@ -42,6 +44,8 @@ export interface PedidoItemEntity {
   notas: string | null;
   estado: string;
   comensal: number;
+  meseroId?: string | null;
+  meseroNombre?: string | null;
   modificadores: ModificadorEntity[];
 }
 

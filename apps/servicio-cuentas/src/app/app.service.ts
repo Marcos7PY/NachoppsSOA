@@ -268,12 +268,14 @@ export class AppService {
         cantidad: item.cantidad,
         precioUnitario: Number(item.precioUnitario || 0)
       }));
+      const meseroCuenta = this.obtenerMeseroCuenta(pedidos);
 
       const cuentaCerradaPayload: CuentaCerradaPayload = {
         cuentaId: id,
         mesaId: cuenta.mesaId,
         total: total.toNumber(),
         items: mappedItems,
+        ...meseroCuenta,
       };
 
       const ticketGeneradoPayload: TicketGeneradoPayload = {
@@ -369,5 +371,29 @@ export class AppService {
       createdAt: c.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: c.updatedAt?.toISOString() || new Date().toISOString(),
     };
+  }
+
+  private obtenerMeseroCuenta(pedidos: any[]): { meseroId?: string; meseroNombre?: string } {
+    const porMesero = new Map<string, { meseroNombre?: string; total: number; pedidos: number }>();
+
+    for (const pedido of pedidos) {
+      const meseroId = typeof pedido?.meseroId === 'string' ? pedido.meseroId.trim() : '';
+      if (!meseroId) continue;
+
+      const actual = porMesero.get(meseroId) ?? { total: 0, pedidos: 0 };
+      actual.total += Number(pedido.total ?? 0);
+      actual.pedidos += 1;
+      actual.meseroNombre = actual.meseroNombre ?? pedido.meseroNombre ?? meseroId;
+      porMesero.set(meseroId, actual);
+    }
+
+    const ganador = Array.from(porMesero.entries()).sort(([, a], [, b]) => {
+      const porTotal = b.total - a.total;
+      return porTotal !== 0 ? porTotal : b.pedidos - a.pedidos;
+    })[0];
+
+    if (!ganador) return {};
+    const [meseroId, data] = ganador;
+    return { meseroId, meseroNombre: data.meseroNombre ?? meseroId };
   }
 }

@@ -21,6 +21,8 @@ export const PedidoEstado = {
   Entregado: 'ENTREGADO',
   Pagado: 'PAGADO',
   Cancelado: 'CANCELADO',
+  /** Compensación de la saga de stock: el descuento real falló en Inventario. */
+  RechazadoSinStock: 'RECHAZADO_SIN_STOCK',
 } as const;
 
 export type PedidoEstado = (typeof PedidoEstado)[keyof typeof PedidoEstado];
@@ -31,6 +33,21 @@ export const ItemArea = {
 } as const;
 
 export type ItemArea = (typeof ItemArea)[keyof typeof ItemArea];
+
+/**
+ * Estados válidos de un ítem individual (producción en cocina).
+ * Subconjunto de PedidoEstado: un ítem nunca está PAGADO ni CANCELADO.
+ */
+export const EstadoItem = {
+  Pendiente: 'PENDIENTE',
+  EnPreparacion: 'EN_PREPARACION',
+  Listo: 'LISTO',
+  Entregado: 'ENTREGADO',
+  /** El ítem no pudo descontarse del stock real (compensación de saga). */
+  RechazadoSinStock: 'RECHAZADO_SIN_STOCK',
+} as const;
+
+export type EstadoItem = (typeof EstadoItem)[keyof typeof EstadoItem];
 
 export class ModificadorItem {
   @IsString()
@@ -64,8 +81,14 @@ export class PedidoItemDto {
   @IsString()
   notas?: string;
   @IsOptional()
-  @IsEnum(PedidoEstado)
-  estado?: PedidoEstado;
+  @IsEnum(EstadoItem)
+  estado?: EstadoItem;
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
 }
 
 export class PedidoDto {
@@ -99,6 +122,12 @@ export class PedidoDto {
   @IsOptional()
   @IsString()
   modalidad?: string;
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
   @IsString()
   createdAt: string;
 }
@@ -155,8 +184,8 @@ export class PedidoItemInput {
   @IsString()
   notas?: string;
   @IsOptional()
-  @IsEnum(PedidoEstado)
-  estado?: PedidoEstado;
+  @IsEnum(EstadoItem)
+  estado?: EstadoItem;
   @IsOptional()
   @IsNumber()
   identificadorComensal?: number;
@@ -191,6 +220,11 @@ export class CrearPedidoCommand {
 export class ActualizarEstadoPedidoCommand {
   @IsEnum(PedidoEstado)
   estado: PedidoEstado;
+}
+
+export class ActualizarEstadoItemCommand {
+  @IsEnum(EstadoItem)
+  estado: EstadoItem;
 }
 
 export class PedidoCreadoPayload {

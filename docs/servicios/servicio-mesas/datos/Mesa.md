@@ -1,35 +1,29 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-mesas
-tabla: mesas
 modelo: Mesa
-fuente: [apps/servicio-mesas/prisma/schema.prisma:17, apps/servicio-mesas/prisma/migrations/20260525022052_init/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-mesas/prisma/schema.prisma:17]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Mesa
 
-**Campos.**
+**Fuente.** Modelo Prisma `Mesa` definido en [apps/servicio-mesas/prisma/schema.prisma:17].
 
-- `id             String     @id @default(uuid())`. [apps/servicio-mesas/prisma/schema.prisma:18]
-- `numero         Int        @unique`. [apps/servicio-mesas/prisma/schema.prisma:19]
-- `capacidad      Int`. [apps/servicio-mesas/prisma/schema.prisma:20]
-- `ubicacion      String     @default("Salon Principal")`. [apps/servicio-mesas/prisma/schema.prisma:21]
-- `estado         MesaEstado @default(LIBRE)`. [apps/servicio-mesas/prisma/schema.prisma:22]
-- `cuentaAsociada String?`. [apps/servicio-mesas/prisma/schema.prisma:23]
-- `createdAt      DateTime   @default(now())`. [apps/servicio-mesas/prisma/schema.prisma:24]
-- `updatedAt      DateTime   @updatedAt`. [apps/servicio-mesas/prisma/schema.prisma:25]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-mesas/prisma/schema.prisma:18 | `id             String     @id @default(uuid())` |
+| apps/servicio-mesas/prisma/schema.prisma:19 | `numero         Int        @unique` |
+| apps/servicio-mesas/prisma/schema.prisma:20 | `capacidad      Int` |
+| apps/servicio-mesas/prisma/schema.prisma:21 | `ubicacion      String     @default("Salon Principal")` |
+| apps/servicio-mesas/prisma/schema.prisma:22 | `estado         MesaEstado @default(LIBRE)` |
+| apps/servicio-mesas/prisma/schema.prisma:23 | `cuentaAsociada String?` |
+| apps/servicio-mesas/prisma/schema.prisma:24 | `createdAt      DateTime   @default(now())` |
+| apps/servicio-mesas/prisma/schema.prisma:25 | `updatedAt      DateTime   @updatedAt` |
+| apps/servicio-mesas/prisma/schema.prisma:27 | `@@index([estado])` |
+| apps/servicio-mesas/prisma/schema.prisma:28 | `@@map("mesas")` |
 
-- `id             String     @id @default(uuid())`. [apps/servicio-mesas/prisma/schema.prisma:18]
-- `numero         Int        @unique`. [apps/servicio-mesas/prisma/schema.prisma:19]
-- `@@index([estado])`. [apps/servicio-mesas/prisma/schema.prisma:27]
-- `@@map("mesas")`. [apps/servicio-mesas/prisma/schema.prisma:28]
-
-**Migraciones.** [apps/servicio-mesas/prisma/migrations/20260525022052_init/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `Mesa` en el servicio `servicio-mesas`; este atomo fija la estructura declarada por Prisma. [apps/servicio-mesas/prisma/schema.prisma:17]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-mesas/prisma/schema.prisma:17]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

@@ -1,10 +1,10 @@
----
+﻿---
 tipo: flujo
 nombre: apertura-cuenta-ocupa-mesa
 disparador: apps/servicio-cuentas/src/app/app.service.ts:69
 fuente: [apps/servicio-cuentas/src/app/app.controller.ts:18, apps/servicio-cuentas/src/app/app.service.ts:45, apps/servicio-cuentas/src/app/app.service.ts:69, apps/servicio-mesas/src/app/events.controller.ts:16]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Apertura de cuenta ocupa mesa
@@ -23,3 +23,4 @@ commit: c5c7891
 **Fallo y reconvergencia.** Si el evento no llega a mesas o caja, queda pendiente en Outbox hasta publicarse; si el consumidor falla, el interceptor reintenta y luego manda a DLQ. [apps/servicio-cuentas/src/app/outbox.processor.ts:21, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:45, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49]
 
 **Invariantes de extremo a extremo.** [colas-limpias-happy-path](../invariantes/colas-limpias-happy-path.md)
+

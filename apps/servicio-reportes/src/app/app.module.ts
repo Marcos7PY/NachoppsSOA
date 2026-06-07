@@ -13,7 +13,7 @@ import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
     PrismaModule,
     SharedAuthModule,
     RabbitMQModule.forRoot({
-      uri: process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@localhost:5672',
+      uri: process.env['RABBITMQ_URI'],
       queue: 'reportes_queue',
       bindings: [RoutingKeys.CuentaCerrada]
     }),

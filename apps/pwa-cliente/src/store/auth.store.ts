@@ -15,6 +15,7 @@ interface AuthState {
 interface AuthActions {
   login: (req: LoginRequest) => Promise<void>;
   logout: () => void;
+  expireSession: () => void;
   restore: () => Promise<void>;
 }
 
@@ -35,6 +36,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     void authApi.logout().catch(() => {
       // La sesión puede estar expirada o el backend rechazar logout; el estado local igual debe limpiarse.
     });
+    clearAuthToken();
+    socketService.disconnect();
+    set({ user: null, authenticated: false });
+  },
+
+  expireSession: () => {
     clearAuthToken();
     socketService.disconnect();
     set({ user: null, authenticated: false });

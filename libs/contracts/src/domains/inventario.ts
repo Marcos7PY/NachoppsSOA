@@ -12,7 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export class StockBajoPayload {
   @IsString()
@@ -32,6 +32,26 @@ export class StockDescontadoPayload {
   cantidad: number;
   @IsString()
   motivo: string;
+}
+
+/**
+ * Emitido por Inventario cuando, al consumir un `PedidoCreado`, el descuento
+ * atómico de stock real falla (`count === 0`) por divergencia/staleness de la
+ * proyección `productos_locales`. Dispara la compensación en Pedidos
+ * (ítem/pedido → `RECHAZADO_SIN_STOCK`).
+ */
+export class StockInsuficientePayload {
+  @IsOptional()
+  @IsString()
+  eventId?: string;
+  @IsString()
+  pedidoId: string;
+  @IsString()
+  productoId: string;
+  @IsNumber()
+  solicitado: number;
+  @IsNumber()
+  disponible: number;
 }
 
 export class CategoriaDto {
@@ -82,8 +102,18 @@ export class ListarProductosQuery {
 
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true')
   disponible?: boolean;
+
+  /**
+   * Filtra por control de stock: `true` devuelve solo productos con stock
+   * (módulo Inventario), `false` solo productos sin stock (Carta / Menú).
+   * Omitido devuelve todos (p. ej. el comandero).
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  conStock?: boolean;
 
   @IsOptional()
   @IsString()
@@ -132,6 +162,24 @@ export class CrearProductoCommand {
   @IsOptional()
   @IsNumber()
   stockActual?: number;
+}
+
+export class ActualizarProductoCommand {
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+  @IsOptional()
+  @IsString()
+  descripcion?: string | null;
+  @IsOptional()
+  @IsNumber()
+  precio?: number;
+  @IsOptional()
+  @IsBoolean()
+  disponible?: boolean;
 }
 
 export class ObtenerProductosLoteCommand {

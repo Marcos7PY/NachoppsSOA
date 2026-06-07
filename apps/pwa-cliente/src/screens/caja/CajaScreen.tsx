@@ -1,90 +1,63 @@
-// screens/caja/CajaScreen.tsx - Cuenta activa, pagos y cierre
+// screens/caja/CajaScreen.tsx — Caja: dashboard de turno + cobro de mesa + cierre operativo.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Icons } from '../../components/ui/icons';
+import { MiniStat } from '../../components/ui/Stat';
+import { useToast } from '../../components/ui/ToastProvider';
+import { useAuthStore } from '../../store/auth.store';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
-import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
-import type { MetodoPago } from '../../types/cuenta.types';
+import { useCajaQuery } from '../../hooks/queries/useCajaQuery';
+import { fmt, horaOf } from '../../utils/format';
+import { METODO_META, METODOS_ORDEN, computeKpis } from './cajaMeta';
+import { MovimientoModal } from './MovimientoModal';
+import { CierreDrawer } from './CierreDrawer';
+import { CobroMesaDrawer } from './CobroMesaDrawer';
+import type { MovimientoCajaDto } from '../../types/caja.types';
 
-const METODOS: { value: MetodoPago; label: string }[] = [
-  { value: 'EFECTIVO', label: 'Efectivo' },
-  { value: 'TARJETA', label: 'Tarjeta' },
-  { value: 'TRANSFERENCIA', label: 'Transferencia' },
-  { value: 'YAPE', label: 'Yape' },
-  { value: 'PLIN', label: 'Plin' },
-];
+type Modal = null | 'apertura' | 'cierre' | 'egreso' | 'ingreso';
+
+interface CobroState { mesaId: string; mesaNumero?: string }
 
 export function CajaScreen() {
-  const online = useOnlineStatus();
-  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+  const cajero = useAuthStore((s) => s.user);
   const { mesas } = useMesasQuery();
-  const [mesaId, setMesaId] = useState('');
-  
-  const {
-    cuentaActiva,
-    loading,
-    error,
-    success,
-    ticket,
-    division,
-    cargar,
-    abrir,
-    registrarPago,
-    cerrar,
-    dividir,
-    clearFeedback,
-  } = useCuentasQuery(mesaId || undefined);
+  const { resumen, turno, loading, error, abrirTurno, crearMovimiento, cerrarTurno } = useCajaQuery();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
-  const [monto, setMonto] = useState('');
-  const [descuento, setDescuento] = useState('0');
-  const [partes, setPartes] = useState('2');
+  const [modal, setModal] = useState<Modal>(null);
+  const [cobro, setCobro] = useState<CobroState | null>(null);
+  const [cobroPicker, setCobroPicker] = useState(false);
 
+  const movs = resumen?.movimientos ?? [];
+  const k = useMemo(() => computeKpis(movs, resumen?.efectivoEsperado ?? 0), [movs, resumen?.efectivoEsperado]);
+  const cajeroNombre = cajero?.nombre ?? 'Cajero';
+
+  // Mesas ocupadas (para cobrar)
+  const ocupadas = useMemo(() => mesas.filter((m) => m.numeroRaw < 90 && m.estado === 'OCUPADA'), [mesas]);
+
+  // ?mesaId en la URL (desde Mesas → "Cobrar")
   useEffect(() => {
-    if (!mesaId && mesas.length > 0) {
-      const mesaFromQuery = searchParams.get('mesaId');
-      if (mesaFromQuery && mesas.some((mesa) => mesa.id === mesaFromQuery)) {
-        setMesaId(mesaFromQuery);
-        return;
-      }
-
-      const ocupada = mesas.find((mesa) => mesa.estado === 'OCUPADA');
-      setMesaId((ocupada ?? mesas[0]).id);
+    const mid = searchParams.get('mesaId');
+    if (mid && !cobro) {
+      const mesa = mesas.find((m) => m.id === mid);
+      setCobro({ mesaId: mid, mesaNumero: mesa?.numero });
     }
-  }, [mesaId, mesas, searchParams]);
+  }, [searchParams, mesas]);
 
-  // La carga inicial de la cuenta ahora es reactiva por useCuentasQuery(mesaId)
-
-  useEffect(() => {
-    if (cuentaActiva && !monto) {
-      setMonto(cuentaActiva.total.toFixed(2));
+  const closeCobro = () => {
+    setCobro(null);
+    if (searchParams.get('mesaId')) {
+      searchParams.delete('mesaId');
+      setSearchParams(searchParams, { replace: true });
     }
-  }, [cuentaActiva, monto]);
-
-  const selectedMesa = mesas.find((mesa) => mesa.id === mesaId);
-  const totalConDescuento = useMemo(() => {
-    const descuentoNumero = Number(descuento) || 0;
-    return Math.max(0, (cuentaActiva?.total ?? 0) - descuentoNumero);
-  }, [cuentaActiva?.total, descuento]);
-
-  const handlePagar = async () => {
-    if (!cuentaActiva || !online) return;
-    await registrarPago({
-      cuentaId: cuentaActiva.id,
-      montoRecibido: Number(monto),
-      metodo,
-    });
   };
 
-  const handleCerrar = async () => {
-    if (!online) return;
-    await cerrar(Number(descuento) || 0);
-  };
-
-  const handleDividir = async () => {
-    if (!online) return;
-    await dividir({ metodo: 'IGUALES', numPartes: Math.max(1, Number(partes) || 1) });
+  const abrirCaja = async (fondoInicial: number) => {
+    await abrirTurno({ fondoInicial, cajeroNombre });
+    setModal(null);
+    toast({ title: 'Caja abierta', msg: `Fondo inicial ${fmt(fondoInicial)}`, icon: 'Cash', kind: 'ok' });
   };
 
   return (
@@ -92,235 +65,273 @@ export function CajaScreen() {
       <div className="page-h">
         <div>
           <h1>Caja</h1>
-          <div className="sub">Cobros, división y cierre de cuenta</div>
+          <div className="sub">Turno, cobros y cierre Z</div>
         </div>
         <span className="spacer" />
-        <button className="btn btn-ghost btn-sm" onClick={() => mesaId && cargar(mesaId)} title="Refrescar">
-          <RefreshIcon />
-        </button>
+        {!turno && <button className="btn btn-primary" disabled={loading} onClick={() => setModal('apertura')}><Icons.Cash s={16} /> Abrir caja</button>}
+        <button className="btn btn-soft" disabled={!turno || loading} onClick={() => setModal('cierre')}><Icons.Lock s={16} /> Cerrar caja</button>
+        <button className="btn btn-primary" disabled={!turno || loading} onClick={() => setCobroPicker(true)}><Icons.Plus s={16} /> Cobrar cuenta</button>
       </div>
 
-      {(error || success) && (
-        <div className={`banner ${error ? 'err' : 'ok'}`} style={{ marginBottom: 16 }}>
-          {error ? <AlertIcon /> : <CheckIcon />}
-          <span>{error ?? success}</span>
-          <span className="spacer" />
-          <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
+      {error && (
+        <div className="banner err" style={{ marginBottom: 14 }}>
+          <Icons.Alert s={16} /><span>{error}</span>
         </div>
       )}
 
-      <div className="caja-grid">
+      {!turno && !loading && (
+        <section className="panel" style={{ padding: 24, marginBottom: 16 }}>
+          <div className="empty" style={{ padding: 18 }}>
+            <div className="e-ic"><Icons.Cash s={26} /></div>
+            <h3>Abre un turno de caja</h3>
+            <p>Los cobros, ingresos, egresos y el arqueo se registran contra el turno activo.</p>
+            <button className="btn btn-primary" onClick={() => setModal('apertura')}><Icons.Cash s={16} /> Abrir caja</button>
+          </div>
+        </section>
+      )}
+
+      {/* Estado del turno */}
+      <div className="turno-bar">
+        <div className="turno-state"><span className="pip" /> {turno ? 'Caja abierta' : 'Sin turno abierto'}</div>
+        <div style={{ width: 1, height: 26, background: 'var(--border)' }} />
+        <div className="turno-meta">
+          <div className="turno-mi"><div className="k">Apertura</div><div className="v">{turno ? `${horaOf(turno.abiertoAt)} · ${fmt(turno.fondoInicial)}` : 'Pendiente'}</div></div>
+          <div className="turno-mi"><div className="k">Cajero</div><div className="v">{cajeroNombre}</div></div>
+          <div className="turno-mi"><div className="k">Cuentas cobradas</div><div className="v">{k.comprobantes}</div></div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid-stats" style={{ marginBottom: 16 }}>
+        <MiniStat icon="Trend" color="var(--accent)" soft="var(--accent-soft)" k="Ventas del turno" v={fmt(k.totalVentas)} d={`${k.ventas.length} cuentas cerradas`} />
+        <MiniStat icon="Cash" color="var(--ok)" soft="var(--ok-soft)" k="Efectivo esperado en caja" v={fmt(k.efectivoEsperado)} d="Fondo, ventas, propinas y movimientos en efectivo" />
+        <MiniStat icon="Coins" color="var(--warn)" soft="var(--warn-soft)" k="Propinas acumuladas" v={fmt(k.propinas)} d="Pendiente de repartir" />
+        <MiniStat icon="Receipt" color="var(--info)" soft="var(--info-soft)" k="Tickets internos" v={k.comprobantes} d="Cuentas cobradas en el turno" />
+      </div>
+
+      <div className="module-grid">
+        {/* Movimientos */}
         <section className="panel">
           <div className="panel-h">
-            <h3>Cuenta activa</h3>
+            <h3>Movimientos del turno</h3>
             <span className="spacer" />
-            {cuentaActiva && <span className="badge badge-info">{cuentaActiva.estadoLabel}</span>}
+            <span className="pill-soft">{movs.length} registros</span>
           </div>
-          <div style={{ padding: 16 }}>
-            <div className="field" style={{ marginBottom: 16 }}>
-              <label>Mesa</label>
-              <div className="input">
-                <select value={mesaId} onChange={(event) => setMesaId(event.target.value)}>
-                  {mesas.map((mesa) => (
-                    <option key={mesa.id} value={mesa.id}>
-                      Mesa {mesa.numero} - {mesa.estadoLabel}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {loading && !cuentaActiva ? (
-              <div className="table-wrap">
-                {[1, 2, 3].map((row) => (
-                  <div key={row} style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                    <div className="skel" style={{ width: '70%', height: 16 }} />
-                  </div>
-                ))}
-              </div>
-            ) : !cuentaActiva ? (
-              <div className="empty">
-                <div className="e-ic"><WalletIcon /></div>
-                <h3>Sin cuenta abierta</h3>
-                <p>{selectedMesa ? `La mesa ${selectedMesa.numero} no tiene cuenta activa.` : 'Selecciona una mesa.'}</p>
-                {mesaId && (
-                  <button className="btn btn-primary" onClick={() => abrir(mesaId)} disabled={loading || !online}>
-                    Abrir cuenta
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="table-wrap">
-                <table className="dt">
-                  <thead>
-                    <tr>
-                      <th>Pedido</th>
-                      <th>Items</th>
-                      <th>Estado</th>
-                      <th style={{ textAlign: 'right' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cuentaActiva.pedidos.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="muted">La cuenta no tiene pedidos consolidados.</td>
-                      </tr>
-                    ) : (
-                      cuentaActiva.pedidos.map((pedido) => (
-                        <tr key={pedido.id}>
-                          <td><strong>Mesa {pedido.mesaNumero}</strong></td>
-                          <td>{pedido.cantidadItems}</td>
-                          <td><span className={`badge dot ${pedido.estadoClass}`}>{pedido.estadoLabel}</span></td>
-                          <td style={{ textAlign: 'right' }}><strong>S/ {pedido.total.toFixed(2)}</strong></td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {cuentaActiva && (
-              <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
-                {cuentaActiva.pedidos.flatMap((pedido) =>
-                  pedido.items.map((item) => (
-                    <div key={`${pedido.id}-${item.id}`} className="kds-item" style={{ justifyContent: 'space-between' }}>
-                      <div>
-                        <strong>{item.cantidad}x {item.nombre}</strong>
-                        {item.notas && <div className="note">{item.notas}</div>}
-                      </div>
-                      <span className="mono">S/ {item.subtotal.toFixed(2)}</span>
-                    </div>
-                  )),
-                )}
-              </div>
-            )}
+          <div className="table-wrap table-wrap-flat">
+            <table className="dt">
+              <thead>
+                <tr><th>Hora</th><th>Detalle</th><th>TX</th><th>Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
+              </thead>
+              <tbody>
+                {movs.map((m) => <MovRow key={m.id} m={m} />)}
+              </tbody>
+            </table>
           </div>
         </section>
 
-        <aside style={{ display: 'grid', gap: 13, alignContent: 'start' }}>
-          <div className="stat">
-            <div className="k">Total cuenta</div>
-            <div className="v">S/ {(cuentaActiva?.total ?? 0).toFixed(2)}</div>
-            <div className="d">{cuentaActiva?.cantidadItems ?? 0} items</div>
-          </div>
-
+        {/* Lateral */}
+        <aside className="module-side">
+          {/* Desglose por método */}
           <section className="panel">
-            <div className="panel-h"><h3>Pago</h3></div>
-            <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-              <div className="field">
-                <label>Método</label>
-                <div className="input">
-                  <select value={metodo} onChange={(event) => setMetodo(event.target.value as MetodoPago)}>
-                    {METODOS.map((item) => (
-                      <option key={item.value} value={item.value}>{item.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="field">
-                <label>Monto recibido</label>
-                <div className="input">
-                  <input value={monto} onChange={(event) => setMonto(event.target.value)} inputMode="decimal" />
-                </div>
-              </div>
-              <button className="btn btn-primary btn-block" disabled={!cuentaActiva || loading || !online} onClick={handlePagar}>
-                {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <CardIcon />}
-                Registrar pago
-              </button>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-h"><h3>Dividir y cerrar</h3></div>
-            <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-              <div className="field">
-                <label>Partes iguales</label>
-                <div className="input">
-                  <input value={partes} onChange={(event) => setPartes(event.target.value)} inputMode="numeric" />
-                </div>
-              </div>
-              <button className="btn btn-ghost btn-block" disabled={!cuentaActiva || loading || !online} onClick={handleDividir}>
-                Dividir cuenta
-              </button>
-              {division && (
-                <div style={{ display: 'grid', gap: 6 }}>
-                  {division.partes.map((parte) => (
-                    <div key={parte.parte ?? parte.comensal} className="kds-item" style={{ justifyContent: 'space-between' }}>
-                      <span>Parte {parte.parte ?? parte.comensal}</span>
-                      <strong>S/ {parte.monto.toFixed(2)}</strong>
+            <div className="panel-h"><h3>Ingresos por método</h3></div>
+            <div className="pay-rows">
+              {METODOS_ORDEN.map((key) => {
+                const meta = METODO_META[key];
+                const val = k.porMetodo[key];
+                const pct = k.totalVentas ? (val / k.totalVentas) * 100 : 0;
+                return (
+                  <div className="pay-row" key={key}>
+                    <span className={`pay-ic ${meta.cls}`}>{meta.abbr}</span>
+                    <div className="pay-bar-wrap">
+                      <div className="pay-bar-top"><b>{meta.label}</b><span className="muted">{pct.toFixed(0)}%</span></div>
+                      <div className="pay-track"><div className="pay-fill" style={{ width: `${pct}%`, background: meta.color }} /></div>
                     </div>
-                  ))}
-                </div>
-              )}
-              <div className="field">
-                <label>Descuento</label>
-                <div className="input">
-                  <input value={descuento} onChange={(event) => setDescuento(event.target.value)} inputMode="decimal" />
-                </div>
-              </div>
-              <div className="kds-item" style={{ justifyContent: 'space-between' }}>
-                <span>Total cierre</span>
-                <strong>S/ {totalConDescuento.toFixed(2)}</strong>
-              </div>
-              <button className="btn btn-success btn-block" disabled={!cuentaActiva || loading || !online} onClick={handleCerrar}>
-                <CheckIcon /> Cerrar cuenta
+                    <span className="pay-amt">{fmt(val)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Acciones rápidas */}
+          <section className="panel">
+            <div className="panel-h"><h3>Acciones</h3></div>
+            <div className="qa-grid">
+              <button className="qa" onClick={() => setCobroPicker(true)}>
+                <span className="qa-ic" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}><Icons.Plus s={16} /></span>
+                <b>Cobrar cuenta</b><small>Boleta / Factura</small>
+              </button>
+              <button className="qa" onClick={() => setModal('egreso')}>
+                <span className="qa-ic" style={{ background: 'var(--danger-soft)', color: 'var(--danger-text)' }}><Icons.ArrowDown s={16} /></span>
+                <b>Registrar egreso</b><small>Gastos del turno</small>
+              </button>
+              <button className="qa" onClick={() => setModal('ingreso')}>
+                <span className="qa-ic" style={{ background: 'var(--ok-soft)', color: 'var(--ok-text)' }}><Icons.ArrowUp s={16} /></span>
+                <b>Ingreso de efectivo</b><small>Vuelto / fondo</small>
+              </button>
+              <button className="qa" onClick={() => setModal('cierre')}>
+                <span className="qa-ic" style={{ background: 'var(--surface-3)', color: 'var(--text-2)' }}><Icons.Lock s={16} /></span>
+                <b>Cierre interno</b><small>Arqueo del turno</small>
               </button>
             </div>
           </section>
 
-          {ticket && (
-            <section className="panel">
-              <div className="panel-h"><h3>Ticket</h3></div>
-              <div style={{ padding: 16, display: 'grid', gap: 8 }}>
-                <div className="mono">{ticket.id}</div>
-                <strong>S/ {ticket.total.toFixed(2)}</strong>
-                <span className="muted">{new Date(ticket.fecha).toLocaleString()}</span>
-              </div>
-            </section>
-          )}
+          {/* Tickets internos */}
+          <section className="panel">
+            <div className="panel-h"><h3>Tickets internos</h3><span className="spacer" /><span className="badge badge-ok dot">Operativo</span></div>
+            <div style={{ padding: '8px 16px 16px' }}>
+              <div className="kv" style={{ borderBottom: '1px solid var(--border)' }}><span className="k">Cuentas cobradas</span><span className="v">{k.comprobantes}</span></div>
+              <div className="kv" style={{ borderBottom: '1px solid var(--border)' }}><span className="k">Turno</span><span className="v">{turno?.cajaNombre ?? 'Sin turno'}</span></div>
+              <div className="kv"><span className="k">Estado</span><span className="v"><span className={`badge ${turno ? 'badge-ok' : 'badge-muted'} dot`}>{turno ? 'Abierto' : 'Pendiente'}</span></span></div>
+            </div>
+          </section>
         </aside>
+      </div>
+
+      {/* Selector de mesa para cobrar */}
+      {cobroPicker && (
+        <div className="modal-wrap">
+          <div className="scrim" onClick={() => setCobroPicker(false)} />
+          <div className="modal" style={{ width: 460, position: 'relative', zIndex: 1 }}>
+            <div className="panel-h" style={{ padding: '16px 20px' }}>
+              <h3 style={{ fontSize: 17 }}>Cobrar cuenta · elegir mesa</h3>
+              <span className="spacer" />
+              <button className="icon-btn" onClick={() => setCobroPicker(false)}><Icons.Close s={17} /></button>
+            </div>
+            <div style={{ padding: 20, display: 'grid', gap: 9, maxHeight: '60vh', overflowY: 'auto' }}>
+              {ocupadas.length === 0 ? (
+                <div className="muted" style={{ fontSize: 13, padding: 8 }}>No hay mesas ocupadas con cuenta para cobrar.</div>
+              ) : ocupadas.map((m) => (
+                <button key={m.id} className="rep-opt" onClick={() => { setCobro({ mesaId: m.id, mesaNumero: m.numero }); setCobroPicker(false); }}>
+                  <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{m.numero}</span>
+                  <div style={{ flex: 1, textAlign: 'left' }}><b style={{ fontSize: 14 }}>Mesa {m.numero}</b><div className="muted" style={{ fontSize: 12 }}>{m.zona} · {m.capacidad} pers</div></div>
+                  <Icons.ArrowDown s={14} style={{ transform: 'rotate(-90deg)' }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cobro && (
+        <CobroMesaDrawer
+          mesaId={cobro.mesaId}
+          mesaNumero={cobro.mesaNumero}
+          onClose={closeCobro}
+          onPaid={() => toast({ title: 'Pago registrado correctamente.', msg: `Mesa ${cobro.mesaNumero ?? ''}`.trim(), icon: 'Receipt', kind: 'ok' })}
+        />
+      )}
+
+      {modal === 'apertura' && (
+        <AperturaCajaModal
+          loading={loading}
+          onClose={() => setModal(null)}
+          onOpen={abrirCaja}
+        />
+      )}
+
+      {(modal === 'egreso' || modal === 'ingreso') && (
+        <MovimientoModal
+          tipoInicial={modal === 'egreso' ? 'EGRESO' : 'INGRESO'}
+          onClose={() => setModal(null)}
+          onSave={async (mov) => {
+            if (!turno) return;
+            await crearMovimiento(turno.id, mov);
+            setModal(null);
+            toast({ title: mov.tipo === 'EGRESO' ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: mov.tipo === 'EGRESO' ? 'ArrowDown' : 'ArrowUp', kind: mov.tipo === 'EGRESO' ? 'info' : 'ok' });
+          }}
+        />
+      )}
+
+      {modal === 'cierre' && turno && (
+        <CierreDrawer
+          k={k}
+          cajeroNombre={cajeroNombre}
+          onClose={() => setModal(null)}
+          onDone={async (denominaciones) => {
+            await cerrarTurno(turno.id, { denominaciones });
+            setModal(null);
+            toast({ title: 'Caja cerrada', msg: 'Turno cerrado y arqueo guardado', icon: 'Lock' });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AperturaCajaModal({ loading, onClose, onOpen }: { loading: boolean; onClose: () => void; onOpen: (fondoInicial: number) => void | Promise<void> }) {
+  const [fondo, setFondo] = useState('0');
+  const monto = Math.max(0, Number(fondo) || 0);
+
+  const submit = async () => {
+    await onOpen(monto);
+  };
+
+  return (
+    <div className="modal-wrap">
+      <div className="scrim" onClick={onClose} />
+      <div className="modal" style={{ width: 420, position: 'relative', zIndex: 1 }}>
+        <div className="panel-h" style={{ padding: '16px 20px' }}>
+          <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: 'var(--ok-soft)', color: 'var(--ok-text)' }}><Icons.Cash s={17} /></span>
+          <h3 style={{ fontSize: 17 }}>Abrir caja</h3>
+          <span className="spacer" />
+          <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
+        </div>
+        <div style={{ padding: 20, display: 'grid', gap: 14 }}>
+          <div className="field">
+            <label>Fondo inicial</label>
+            <div className="input">
+              <span className="muted">S/</span>
+              <input
+                value={fondo}
+                onChange={(e) => setFondo(e.target.value.replace(/[^\d.]/g, ''))}
+                inputMode="decimal"
+                style={{ fontSize: 18, fontWeight: 800 }}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+          <span className="spacer" />
+          <button className="btn btn-primary" disabled={loading} onClick={submit}>
+            {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icons.Cash s={16} />}
+            Abrir caja
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function AlertIcon() {
+function MovRow({ m }: { m: MovimientoCajaDto }) {
+  const apertura = m.tipo === 'APERTURA';
+  const egreso = m.tipo === 'EGRESO';
+  const ingreso = m.tipo === 'INGRESO';
+  const meta = METODO_META[m.metodo];
   return (
-    <svg className="ic" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function CardIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg className="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" />
-    </svg>
-  );
-}
-
-function WalletIcon() {
-  return (
-    <svg className="ic" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3v3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5" /><path d="M18 12h.01" />
-    </svg>
+    <tr>
+      <td className="mono muted" style={{ whiteSpace: 'nowrap' }}>{horaOf(m.createdAt)}</td>
+      <td>
+        <div className="row" style={{ gap: 8 }}>
+          {apertura ? <span className="badge badge-muted">Apertura</span>
+            : egreso ? <span className="badge badge-danger dot">Egreso</span>
+            : ingreso ? <span className="badge badge-ok dot">Ingreso</span>
+            : <span className="tag-canal salon">Cobro</span>}
+          <strong>{m.donde}</strong>
+          {m.motivo && <span className="muted" style={{ fontSize: 12 }}>· {m.motivo}</span>}
+          {m.descuento ? <span className="muted" style={{ fontSize: 12 }}>· Desc. {fmt(m.descuento)}</span> : null}
+        </div>
+      </td>
+      <td>
+        {m.transaccionId ? <span className="mono muted">{m.transaccionId.slice(0, 8)}</span> : <span className="muted">—</span>}
+      </td>
+      <td>{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
+      <td className="num">
+        <span className="monto" style={egreso ? { color: 'var(--danger-text)' } : ingreso ? { color: 'var(--ok-text)' } : undefined}>{egreso ? '−' : ingreso ? '+' : ''}{fmt(Math.abs(m.monto))}</span>
+        {m.descuento ? <div className="muted" style={{ fontSize: 11 }}>Subtotal {fmt(Math.abs(m.monto) + m.descuento)}</div> : null}
+        {m.propina ? <div className="muted" style={{ fontSize: 11 }}>+{fmt(m.propina)} prop.</div> : null}
+      </td>
+    </tr>
   );
 }

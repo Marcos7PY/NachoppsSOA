@@ -149,6 +149,33 @@ describe('AppService — Cuentas', () => {
       expect(mockPrisma.outboxEvent.createMany).toHaveBeenCalledTimes(1);
     });
 
+    it('propaga el mesero del pedido al evento cuenta.cerrada', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        ...cuentaAbierta,
+        pedidos: [
+          {
+            id: 'p-001',
+            total: 50,
+            meseroId: 'u-mesero-1',
+            meseroNombre: 'Ana Mesa',
+            items: [{ productoId: 'prod-1', precioUnitario: 25, cantidad: 2 }],
+          },
+        ],
+      });
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.createMany.mockResolvedValue({ count: 2 });
+
+      await service.cerrarCuenta('c-001', {});
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
+      const cuentaCerrada = eventos.find((e: any) => e.routingKey === 'cuenta.cerrada');
+      const payload = JSON.parse(cuentaCerrada.payload);
+      expect(payload).toEqual(expect.objectContaining({
+        meseroId: 'u-mesero-1',
+        meseroNombre: 'Ana Mesa',
+      }));
+    });
+
     it('rechaza cierre concurrente sin emitir eventos duplicados', async () => {
       mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
       mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 0 });

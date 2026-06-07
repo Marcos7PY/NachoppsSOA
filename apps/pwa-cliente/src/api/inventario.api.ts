@@ -3,6 +3,7 @@
 import { client } from './client';
 import { unwrapArray, unwrapEntity } from './response';
 import type {
+  ActualizarProductoPayload,
   CategoriaDto,
   CategoriasResponse,
   CrearProductoPayload,
@@ -22,6 +23,7 @@ function buildProductosQuery(query: ProductoListQuery = {}): string {
   const params = new URLSearchParams();
   if (query.categoriaId) params.set('categoriaId', query.categoriaId);
   if (query.disponible != null) params.set('disponible', String(query.disponible));
+  if (query.conStock != null) params.set('conStock', String(query.conStock));
   if (query.search) params.set('search', query.search);
   if (query.limit != null) params.set('limit', String(query.limit));
   if (query.cursor) params.set('cursor', query.cursor);
@@ -59,6 +61,17 @@ export async function getProductos(categoriaId?: string): Promise<ProductoDto[]>
 
 export async function crearProducto(payload: CrearProductoPayload): Promise<ProductoDto> {
   const response = await client.post<ProductoResponse | ProductoDto>('/inventario/productos', payload);
+  return unwrapEntity<ProductoDto>(response, 'producto');
+}
+
+export async function actualizarProducto(
+  id: string,
+  payload: ActualizarProductoPayload,
+): Promise<ProductoDto> {
+  const response = await client.patch<ProductoResponse | ProductoDto>(
+    `/inventario/productos/${id}`,
+    payload,
+  );
   return unwrapEntity<ProductoDto>(response, 'producto');
 }
 

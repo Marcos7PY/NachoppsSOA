@@ -1,7 +1,13 @@
-import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
-import { CrearCategoriaCommand, CrearProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
+import { CrearCategoriaCommand, CrearProductoCommand, ActualizarProductoCommand, ListarProductosQuery, ObtenerProductosLoteCommand } from '@org/contracts';
 
+// Lectura del catálogo: la usan inventario/carta (admin, sistema, gerencia) y
+// también el comandero del PWA (cajero, mesero) al armar pedidos. La gestión
+// del catálogo (mutaciones) queda restringida a administración por método.
+@UseGuards(RolesGuard)
+@Roles('ADMIN', 'SISTEMA', 'GERENCIA', 'CAJERO', 'MESERO')
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
@@ -18,6 +24,7 @@ export class AppController {
     return this.appService.listarCategorias();
   }
 
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Post('categorias')
   crearCategoria(@Body() body: CrearCategoriaCommand) {
     return this.appService.crearCategoria(body);
@@ -35,18 +42,27 @@ export class AppController {
     return this.appService.obtenerProducto(id);
   }
 
+  // Consulta por lote: la invoca servicio-pedidos con token SISTEMA (cold-start).
   @Post('productos/lote')
   obtenerProductosLote(@Body() body: ObtenerProductosLoteCommand) {
     return this.appService.obtenerProductosLote(body.ids);
   }
 
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Post('productos')
   crearProducto(@Body() body: CrearProductoCommand) {
     return this.appService.crearProducto(body);
   }
 
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Patch('productos/:id/stock')
   actualizarStock(@Param('id') id: string, @Body('stock') stock: number) {
     return this.appService.actualizarStock(id, stock);
+  }
+
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
+  @Patch('productos/:id')
+  actualizarProducto(@Param('id') id: string, @Body() body: ActualizarProductoCommand) {
+    return this.appService.actualizarProducto(id, body);
   }
 }

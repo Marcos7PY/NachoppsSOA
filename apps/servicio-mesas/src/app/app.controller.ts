@@ -1,7 +1,11 @@
-import { Controller, Get, Post, Body, Param, Patch, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Roles, RolesGuard } from '@org/shared-auth';
 import { AppService } from './app.service';
 import { CrearMesaCommand, ActualizarEstadoMesaCommand } from '@org/contracts';
 
+// Salón: lo consultan/operan mesero, cajero y recepción (mapa de roles del PWA).
+@UseGuards(RolesGuard)
+@Roles('ADMIN', 'SISTEMA', 'CAJERO', 'MESERO', 'RECEPCION')
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
@@ -16,6 +20,8 @@ export class AppController {
     return this.appService.obtenerMesa(id);
   }
 
+  // Alta de mesas = configuración del salón, reservada a administración.
+  @Roles('ADMIN', 'SISTEMA')
   @Post()
   crearMesa(@Body() body: CrearMesaCommand) {
     return this.appService.crearMesa(body);

@@ -3,26 +3,28 @@ tipo: endpoint
 servicio: servicio-identidad
 metodo: PATCH
 ruta: /usuarios/:id/rol
-handler: apps/servicio-identidad/src/auth/auth.controller.ts:81
-fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:81, apps/servicio-identidad/src/auth/auth.controller.ts:82, apps/servicio-identidad/src/auth/auth.service.ts:142]
-revisado: 2026-05-31
-commit: c5c7891
+handler: apps/servicio-identidad/src/auth/auth.controller.ts:127
+fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:127, apps/servicio-identidad/src/auth/auth.service.ts:177]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # PATCH /usuarios/:id/rol
 
-**Proposito.** Actualiza el rol de un usuario. [apps/servicio-identidad/src/auth/auth.controller.ts:81]
+**Proposito.** cambiarRol atiende PATCH /usuarios/:id/rol en servicio-identidad. [apps/servicio-identidad/src/auth/auth.controller.ts:127]
 
-**Autorizacion.** `JwtAuthGuard` y `RolesGuard` en el endpoint; roles exigidos: ADMIN. [apps/servicio-identidad/src/auth/auth.controller.ts:57, apps/servicio-identidad/src/auth/auth.controller.ts:66]
+**Autorizacion.** @UseGuards(JwtAuthGuard, RolesGuard) con @Roles('ADMIN'). [apps/servicio-identidad/src/auth/auth.controller.ts:125]
 
-**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-identidad/src/auth/auth.controller.ts:82]
+**Entrada.** params id: string; body `CambiarRolCommand` (rol: RolUsuario). [apps/servicio-identidad/src/auth/auth.controller.ts:131]
 
-**Salida.** Respuesta derivada del handler `handler` y del servicio `cambiarRol`; codigos esperados: 200 si el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:82]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:127]
 
-**Efectos.** Usa `usuario.findUnique`, `usuario.update`, `auditoriaLog.create`. [apps/servicio-identidad/src/auth/auth.service.ts:142]
+**Efectos.** llama `cambiarRol`; Prisma: `usuario.findUnique`, `usuario.update`. [apps/servicio-identidad/src/auth/auth.service.ts:177]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 404 por `NotFoundException`: throw new NotFoundException('Usuario no encontrado');. [apps/servicio-identidad/src/auth/auth.service.ts:145]
+- 401 si `JwtAuthGuard` rechaza credenciales o token.
+- 403 si `RolesGuard` rechaza el rol requerido.
+- NotFound por `NotFoundException` declarado en el camino de servicio.

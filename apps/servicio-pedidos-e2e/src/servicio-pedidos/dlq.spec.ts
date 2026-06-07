@@ -2,7 +2,11 @@ import * as amqp from 'amqplib';
 
 describe('Dead Letter Queue (DLQ)', () => {
   it('debería confirmar que la DLQ existe y está atada al DLX', async () => {
-    const connection = await amqp.connect(process.env.RABBITMQ_URI || 'amqp://nachopps:nachopps_secret@localhost:5672');
+    if (!process.env.RABBITMQ_URI) {
+      throw new Error('RABBITMQ_URI environment variable is required');
+    }
+
+    const connection = await amqp.connect(process.env.RABBITMQ_URI);
     const channel = await connection.createChannel();
 
     const dlqName = 'dlq.pedidos_queue';

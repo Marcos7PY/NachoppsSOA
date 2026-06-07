@@ -28,4 +28,67 @@ describe('AppService — Notificaciones', () => {
       });
     });
   });
+
+  describe('registrarNotificacion', () => {
+    it('persiste contenido de pedido creado con numero de mesa y total', async () => {
+      prisma.notificacion.create.mockResolvedValue({ id: 'notif-1' });
+
+      const result = await service.registrarNotificacion('pedido.creado', {
+        numeroMesa: 7,
+        total: 42,
+      });
+
+      expect(result).toEqual({ id: 'notif-1' });
+      expect(prisma.notificacion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          eventoOrigen: 'pedido.creado',
+          destinatario: 'TODOS',
+          canal: 'UI',
+          contenido: 'Nuevo pedido registrado para la Mesa 7 por un total de S/ 42.00.',
+          estado: 'PENDIENTE',
+        }),
+      });
+    });
+
+    it('devuelve null si falla la persistencia', async () => {
+      prisma.notificacion.create.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        service.registrarNotificacion('pedido.actualizado', {
+          mesaId: 'mesa-1',
+          estado: 'EN_PREPARACION',
+        }),
+      ).resolves.toBeNull();
+    });
+
+    it('formatea reservas y payloads genericos', async () => {
+      prisma.notificacion.create
+        .mockResolvedValueOnce({ id: 'reserva' })
+        .mockResolvedValueOnce({ id: 'generico' });
+
+      await service.registrarNotificacion('reserva.creada', {
+        clienteNombre: 'Ana',
+        fecha: '2026-01-02',
+        hora: '20:00',
+      });
+      await service.registrarNotificacion('evento.desconocido', { ok: true });
+
+      expect(prisma.notificacion.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            contenido: 'Nueva reserva registrada a nombre de Ana para el 2026-01-02 a las 20:00.',
+          }),
+        }),
+      );
+      expect(prisma.notificacion.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          data: expect.objectContaining({
+            contenido: '{"ok":true}',
+          }),
+        }),
+      );
+    });
+  });
 });

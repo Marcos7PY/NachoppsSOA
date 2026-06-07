@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 3h
+
+receivers:
+  - name: 'default'
+    # Para enrutar las alertas a Slack, definir el webhook (idealmente inyectado
+    # por docker secret / variable de entorno) y descomentar:
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/XXX/YYY/ZZZ'
+    #     channel: '#alertas-nachopps'
+    #     send_resolved: true
+    #     title: '{{ .CommonAnnotations.summary }}'
+    #     text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"

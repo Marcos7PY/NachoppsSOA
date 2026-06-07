@@ -5,6 +5,22 @@ dist
 tmp
 out-tsc
 
+# Docker secrets (plan 2.3): nunca commitear el contenido real.
+infra/secrets/*
+!infra/secrets/README.md
+
+# Limpieza de repo (plan 6.4)
+logs/
+new-front/
+# docs-deprecated quedó trackeado; para sacarlo del control de versiones
+# (conservando los archivos en disco) ejecuta una vez:
+#   git rm -r --cached docs-deprecated
+docs-deprecated/
+
+# Evidencia local de corridas y CI, no versionar
+stress-tests/reports/
+.ci-logs/
+
 # dependencies
 node_modules
 

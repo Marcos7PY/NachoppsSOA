@@ -11,17 +11,37 @@ import { AppRouter } from './router/index';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './api/queryClient';
+import { ToastProvider } from './components/ui/ToastProvider';
+import { applyThemeColor } from './utils/theme';
 import './styles.css';
 
-// ─── Restaurar tema persistido ──────────────────────────────────
+// ─── Restaurar preferencias de vista persistidas ────────────────
+// Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
 const savedTheme = localStorage.getItem('nachopps-theme');
-if (savedTheme === 'dark' || savedTheme === 'light') {
-  document.documentElement.setAttribute('data-theme', savedTheme);
+const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+const initialTheme = savedTheme === 'dark' || savedTheme === 'light'
+  ? savedTheme
+  : systemPrefersDark
+    ? 'dark'
+    : 'light';
+document.documentElement.setAttribute('data-theme', initialTheme);
+applyThemeColor(initialTheme);
+
+const VIEW_PREFS: { key: string; attr: string; allowed: string[] }[] = [
+  { key: 'nachopps-density', attr: 'data-density', allowed: ['comfy', 'compact'] },
+  { key: 'nachopps-fontscale', attr: 'data-fontscale', allowed: ['md', 'lg', 'xl'] },
+  { key: 'nachopps-contrast', attr: 'data-contrast', allowed: ['normal', 'high'] },
+];
+for (const pref of VIEW_PREFS) {
+  const value = localStorage.getItem(pref.key);
+  if (value && pref.allowed.includes(value)) {
+    document.documentElement.setAttribute(pref.attr, value);
+  }
 }
 
 // ─── Escuchar auth:expired para forzar logout ───────────────────
 window.addEventListener('auth:expired', () => {
-  useAuthStore.getState().logout();
+  useAuthStore.getState().expireSession();
 });
 
 // ─── Restaurar sesión e iniciar app ─────────────────────────────
@@ -44,7 +64,9 @@ async function bootstrap() {
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AppRouter />
+        <ToastProvider>
+          <AppRouter />
+        </ToastProvider>
         <ReactQueryDevtools initialIsOpen={false} position="bottom" />
       </QueryClientProvider>
     </StrictMode>,

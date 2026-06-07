@@ -4,26 +4,26 @@ servicio: servicio-mesas
 metodo: PATCH
 ruta: /:id/estado
 handler: apps/servicio-mesas/src/app/app.controller.ts:24
-fuente: [apps/servicio-mesas/src/app/app.controller.ts:24, apps/servicio-mesas/src/app/app.controller.ts:25, apps/servicio-mesas/src/app/app.service.ts:50, libs/contracts/src/domains/mesas.ts:57]
-revisado: 2026-05-31
-commit: c5c7891
+fuente: [apps/servicio-mesas/src/app/app.controller.ts:24, apps/servicio-mesas/src/app/app.service.ts:50]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # PATCH /:id/estado
 
-**Proposito.** Cambia el estado de una mesa con control de concurrencia optimista. [apps/servicio-mesas/src/app/app.controller.ts:24]
+**Proposito.** actualizarEstado atiende PATCH /:id/estado en servicio-mesas. [apps/servicio-mesas/src/app/app.controller.ts:24]
 
-**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-mesas/src/app/app.module.ts:2, apps/servicio-mesas/src/app/app.controller.ts:24]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-mesas/src/app/app.controller.ts:24]
 
-**Entrada.** DTO `ActualizarEstadoMesaCommand` con campos: `estado: MesaEstado` (@IsEnum(MesaEstado)). [libs/contracts/src/domains/mesas.ts:59] `cuentaAsociada?: string` (@IsEnum(MesaEstado) @IsOptional() @IsString()). [libs/contracts/src/domains/mesas.ts:62]
+**Entrada.** body `ActualizarEstadoMesaCommand` (estado: MesaEstado, cuentaAsociada?: string | null). [apps/servicio-mesas/src/app/app.controller.ts:25]
 
-**Salida.** Respuesta derivada del handler `actualizarEstado` y del servicio `actualizarEstado`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-mesas/src/app/app.controller.ts:25]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-mesas/src/app/app.controller.ts:24]
 
-**Efectos.** Usa `mesa.findUnique`, `mesa.updateMany`, `outboxEvent.create`. La operacion incluye una transaccion Prisma. [apps/servicio-mesas/src/app/app.service.ts:50] Emite o consume eventos `RoutingKeys.MesaActualizada`. [apps/servicio-mesas/src/app/app.service.ts:78]
+**Efectos.** llama `actualizarEstado`; Prisma: `mesa.findUnique`, `mesa.updateMany`, `outboxEvent.create`; eventos: `RoutingKeys.MesaActualizada`. [apps/servicio-mesas/src/app/app.service.ts:50]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 404 por `NotFoundException`: throw new NotFoundException(Mesa con ID ${id} no encontrada.);. [apps/servicio-mesas/src/app/app.service.ts:53]
-- 409 por `ConflictException`: throw new ConflictException(El estado de la mesa fue modificado por otra transacción.);. [apps/servicio-mesas/src/app/app.service.ts:89]
+- NotFound por `NotFoundException` declarado en el camino de servicio.
+- Conflict por `ConflictException` declarado en el camino de servicio.

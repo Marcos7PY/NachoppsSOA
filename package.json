@@ -9,7 +9,9 @@
     "probar:concurrencia": "node stress-tests/run-concurrency-limits.js",
     "probar:seguridad": "node stress-tests/run-security-limits.js",
     "probar:stock": "node stress-tests/run-stock-idempotency-dlq.js",
-    "probar:alta-contencion": "node stress-tests/run-high-contention.js"
+    "probar:alta-contencion": "node stress-tests/run-high-contention.js",
+    "probar:caos": "node stress-tests/run-rabbitmq-chaos.js",
+    "drift": "bash scripts/check-migration-drift.sh"
   },
   "private": true,
   "devDependencies": {
@@ -44,9 +46,13 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
     "@vitejs/plugin-react": "^6.0.0",
+    "@vitest/coverage-v8": "^4.1.8",
     "@vitest/ui": "~4.1.0",
     "autoprefixer": "10.4.13",
+    "eslint": "~8.57.0",
     "jest": "^30.4.2",
     "jiti": "2.4.2",
     "jsdom": "~22.1.0",
@@ -116,6 +122,7 @@
     "clsx": "^2.1.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.0",
+    "helmet": "^8.2.0",
     "lucide-react": "^1.16.0",
     "nest-winston": "^1.10.2",
     "opossum": "^9.0.0",

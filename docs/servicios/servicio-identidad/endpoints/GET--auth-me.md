@@ -3,26 +3,27 @@ tipo: endpoint
 servicio: servicio-identidad
 metodo: GET
 ruta: /auth/me
-handler: apps/servicio-identidad/src/auth/auth.controller.ts:58
-fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:58, apps/servicio-identidad/src/auth/auth.controller.ts:59, apps/servicio-identidad/src/auth/auth.service.ts:95]
-revisado: 2026-05-31
-commit: c5c7891
+handler: apps/servicio-identidad/src/auth/auth.controller.ts:104
+fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:104, apps/servicio-identidad/src/auth/auth.service.ts:98]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # GET /auth/me
 
-**Proposito.** Devuelve el usuario autenticado. [apps/servicio-identidad/src/auth/auth.controller.ts:58]
+**Proposito.** me atiende GET /auth/me en servicio-identidad. [apps/servicio-identidad/src/auth/auth.controller.ts:104]
 
-**Autorizacion.** `JwtAuthGuard` en el endpoint, sin `@Roles` local. [apps/servicio-identidad/src/auth/auth.controller.ts:57]
+**Autorizacion.** @UseGuards(JwtAuthGuard). [apps/servicio-identidad/src/auth/auth.controller.ts:103]
 
-**Entrada.** Sin cuerpo DTO declarado en la firma; la entrada sale de parametros o query del handler. [apps/servicio-identidad/src/auth/auth.controller.ts:59]
+**Entrada.** request autenticado. [apps/servicio-identidad/src/auth/auth.controller.ts:105]
 
-**Salida.** Respuesta derivada del handler `me` y del servicio `obtenerPerfil`; codigos esperados: 200 si el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:59]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:104]
 
-**Efectos.** Usa `usuario.findUnique`. [apps/servicio-identidad/src/auth/auth.service.ts:95]
+**Efectos.** llama `obtenerPerfil`; Prisma: `usuario.findUnique`. [apps/servicio-identidad/src/auth/auth.service.ts:98]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 404 por `NotFoundException`: throw new NotFoundException('Usuario no encontrado');. [apps/servicio-identidad/src/auth/auth.service.ts:101]
+- 401 si `JwtAuthGuard` rechaza credenciales o token.
+- NotFound por `NotFoundException` declarado en el camino de servicio.

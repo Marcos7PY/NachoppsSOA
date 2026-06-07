@@ -8,6 +8,7 @@ import type {
   PedidoListResponse,
   CrearPedidoPayload,
   ActualizarEstadoPedidoPayload,
+  ActualizarEstadoItemPayload,
 } from '../types/pedido.types';
 
 function buildListQuery(query: PedidoListQuery = {}): string {
@@ -69,6 +70,6 @@ export async function avanzarEstado(
 }
 
 /** PATCH /pedidos/items/:itemId/estado — Avanzar estado de un ítem individual */
-export function avanzarItem(itemId: string, payload: ActualizarEstadoPedidoPayload): Promise<void> {
+export function avanzarItem(itemId: string, payload: ActualizarEstadoItemPayload): Promise<void> {
   return client.patch<void>(`/pedidos/items/${itemId}/estado`, payload);
 }

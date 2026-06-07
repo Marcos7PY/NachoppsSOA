@@ -277,4 +277,57 @@ describe('AppService — Inventario', () => {
       });
     });
   });
+
+  describe('compensación de saga — StockInsuficiente', () => {
+    it('emite StockInsuficiente cuando el descuento real falla (count===0)', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({
+        id: 'prod-x',
+        nombre: 'Limonada',
+        precio: { toNumber: () => 5 },
+        stockActual: 1,
+        disponible: true,
+        categoria: { nombre: 'Bebidas' },
+      });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.procesarPedidoCreado({
+        id: 'ped-77',
+        items: [{ productoId: 'prod-x', cantidad: 5 }],
+      });
+
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledTimes(1);
+      const arg = mockPrisma.outboxEvent.create.mock.calls[0][0];
+      expect(arg.data.routingKey).toBe('stock.insuficiente');
+      expect(JSON.parse(arg.data.payload)).toMatchObject({
+        pedidoId: 'ped-77',
+        productoId: 'prod-x',
+        solicitado: 5,
+        disponible: 1,
+      });
+    });
+
+    it('NO emite StockInsuficiente cuando el descuento tiene éxito', async () => {
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-x',
+          nombre: 'Limonada',
+          precio: { toNumber: () => 5 },
+          stockActual: 10,
+          disponible: true,
+          categoria: { nombre: 'Bebidas' },
+        })
+        .mockResolvedValueOnce({ id: 'prod-x', nombre: 'Limonada', stockActual: 5, disponible: true });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.procesarPedidoCreado({
+        id: 'ped-88',
+        items: [{ productoId: 'prod-x', cantidad: 5 }],
+      });
+
+      const stockInsuf = mockPrisma.outboxEvent.create.mock.calls.find(
+        (c: any) => c[0].data.routingKey === 'stock.insuficiente',
+      );
+      expect(stockInsuf).toBeUndefined();
+    });
+  });
 });

@@ -9,14 +9,17 @@ datasource db {
 }
 
 model VentaDiaria {
-  id          String   @id @default(uuid())
-  cuentaId    String   @unique
-  mesaId      String
-  total       Decimal  @db.Decimal(10, 2)
-  items       Json?
-  fecha       DateTime @default(now())
-  
+  id           String   @id @default(uuid())
+  cuentaId     String   @unique
+  mesaId       String
+  total        Decimal  @db.Decimal(10, 2)
+  items        Json?
+  meseroId     String?
+  meseroNombre String?
+  fecha        DateTime @default(now())
+
   @@index([fecha])
+  @@index([meseroId])
   @@map("ventas_diarias")
 }
 

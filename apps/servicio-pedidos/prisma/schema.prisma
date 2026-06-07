@@ -15,6 +15,7 @@ enum PedidoEstado {
   ENTREGADO
   CANCELADO
   PAGADO
+  RECHAZADO_SIN_STOCK
 }
 
 model Pedido {
@@ -30,11 +31,14 @@ model Pedido {
   direccion      String?
   proveedor      String?
   modalidad      String?      @default("MESA")
+  meseroId       String?
+  meseroNombre   String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@index([mesaId])
   @@index([estado])
+  @@index([meseroId])
   @@map("pedidos")
 }
 
@@ -51,8 +55,11 @@ model PedidoItem {
   estado         String        @default("PENDIENTE")
   modificadores  Modificador[]
   comensal       Int           @default(1)
+  meseroId       String?
+  meseroNombre   String?
 
   @@index([pedidoId])
+  @@index([meseroId])
   @@map("pedido_items")
 }
 
@@ -99,9 +106,16 @@ model ProductoLocal {
 }
 
 model IdempotencyKey {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  createdAt DateTime @default(now())
+  id          String    @id @default(uuid())
+  key         String    @unique
+  createdAt   DateTime  @default(now())
+  // Idempotencia HTTP (plan 1.3): además del dedup de eventos, almacena la
+  // respuesta para hacer *replay* en reintentos con la misma Idempotency-Key.
+  method      String?
+  path        String?
+  statusCode  Int?
+  body        String?
+  completedAt DateTime?
 
   @@index([createdAt])
   @@map("idempotency_keys")

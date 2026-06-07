@@ -184,4 +184,62 @@ describe('AuthService — Identidad', () => {
       expect(result.data).toEqual([]);
     });
   });
+
+  describe('refresh tokens (plan 1.4)', () => {
+    it('issueRefreshToken guarda el hash (no el token) y devuelve el valor en claro', async () => {
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+      const r = await service.issueRefreshToken('u-001');
+      expect(typeof r.token).toBe('string');
+      expect(r.token.length).toBeGreaterThan(20);
+      const arg = mockPrisma.refreshToken.create.mock.calls[0][0];
+      expect(arg.data.userId).toBe('u-001');
+      expect(arg.data.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(arg.data.tokenHash).not.toBe(r.token);
+      expect(arg.data.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('rota: emite uno nuevo, revoca el anterior y devuelve access', async () => {
+      mockPrisma.refreshToken.findUnique
+        .mockResolvedValueOnce({ id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() + 1e6) })
+        .mockResolvedValueOnce({ id: 'rt-2' });
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+      mockPrisma.refreshToken.update.mockResolvedValue({});
+
+      const r = await service.rotateRefreshToken('raw-token');
+      expect(r.access_token).toBe('fake-access-token');
+      expect(r.usuario.id).toBe('u-001');
+      expect(typeof r.refresh.token).toBe('string');
+      expect(mockPrisma.refreshToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rt-1' }, data: expect.objectContaining({ replacedById: 'rt-2' }) }),
+      );
+    });
+
+    it('detecta reuso: token revocado revoca toda la cadena y rechaza', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', userId: 'u-001', revokedAt: new Date(), expiresAt: new Date(Date.now() + 1e6) });
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
+    });
+
+    it('rechaza un token expirado', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() - 1000) });
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rechaza un token inexistente', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue(null);
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('revokeRefreshTokenByRaw revoca el token presentado y es no-op sin token', async () => {
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+      await service.revokeRefreshTokenByRaw('raw');
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+      await service.revokeRefreshTokenByRaw(null);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+    });
+  });
 });

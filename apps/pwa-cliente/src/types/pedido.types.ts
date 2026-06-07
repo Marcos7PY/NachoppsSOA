@@ -3,8 +3,10 @@
 
 import type {
   ActualizarEstadoPedidoCommand,
+  ActualizarEstadoItemCommand,
   CrearPedidoCommand,
   ItemArea as ContractItemArea,
+  EstadoItem as ContractEstadoItem,
   ListarPedidosQuery,
   ModificadorItem as ContractModificadorDto,
   PedidoDto as ContractPedidoDto,
@@ -13,6 +15,7 @@ import type {
   PedidoListResponse as ContractPedidoListResponse,
   PedidoItemInput,
 } from '@org/contracts';
+import type { Canal } from '../domain/pedido.flow';
 
 // ─── Enums ──────────────────────────────────────────────────────
 export const EstadoPedido = {
@@ -25,6 +28,15 @@ export const EstadoPedido = {
 } as const satisfies Record<string, ContractEstadoPedido>;
 
 export type EstadoPedido = ContractEstadoPedido;
+
+export const EstadoItem = {
+  Pendiente: 'PENDIENTE',
+  EnPreparacion: 'EN_PREPARACION',
+  Listo: 'LISTO',
+  Entregado: 'ENTREGADO',
+} as const satisfies Record<string, ContractEstadoItem>;
+
+export type EstadoItem = ContractEstadoItem;
 
 export const ItemArea = {
   Cocina: 'COCINA',
@@ -51,7 +63,7 @@ export interface PedidoItemVM {
   modificadores: ModificadorDto[];
   area: ItemArea;
   notas: string;
-  estado: EstadoPedido;
+  estado: EstadoItem;
   /** Clase CSS del badge de estado */
   estadoClass: string;
   /** Label legible */
@@ -73,8 +85,8 @@ export interface PedidoVM {
   direccion?: string;
   proveedor?: string;
   modalidad?: string;
-  /** Tiempo transcurrido legible */
-  tiempoTranscurrido: string;
+  /** Canal normalizado derivado de `modalidad`. */
+  canal: Canal;
   cantidadItems: number;
 }
 
@@ -82,3 +94,4 @@ export interface PedidoVM {
 export type CrearPedidoItemPayload = PedidoItemInput;
 export type CrearPedidoPayload = CrearPedidoCommand;
 export type ActualizarEstadoPedidoPayload = ActualizarEstadoPedidoCommand;
+export type ActualizarEstadoItemPayload = ActualizarEstadoItemCommand;

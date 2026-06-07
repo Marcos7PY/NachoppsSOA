@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-inventario
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:5]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:9]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-inventario
@@ -28,4 +28,4 @@ commit: 4c186bb
 
 **Eventos consumidos.**
 
-- `RoutingKeys.PedidoCreado` en `handlePedidoCreado`. [apps/servicio-inventario/src/app/events.controller.ts:12]
+- `RoutingKeys.PedidoCreado` -> `handlePedidoCreado` [apps/servicio-inventario/src/app/events.controller.ts:12]

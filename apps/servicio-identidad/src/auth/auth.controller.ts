@@ -7,11 +7,13 @@ import {
   Param,
   UseGuards,
   Request,
+  Req,
   HttpCode,
   Res,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request as ExpressRequest, Response } from 'express';
 import { randomBytes } from 'node:crypto';
 import { AuthService } from './auth.service';
 import {
@@ -24,13 +26,21 @@ import {
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { Roles } from './roles.decorator';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 const COOKIE_SAME_SITE = (process.env.COOKIE_SAMESITE ?? 'strict') as
   | 'strict'
   | 'lax'
   | 'none';
 const COOKIE_SECURE =
-  process.env.NODE_ENV === 'production' || COOKIE_SAME_SITE === 'none';
+  process.env.COOKIE_SECURE != null
+    ? process.env.COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production' || COOKIE_SAME_SITE === 'none';
+// Plan 1.4: access corto (alineado con JWT_EXPIRES_IN) + refresh largo con rotación.
+const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? '900'); // 15m
+const ACCESS_COOKIE_MAX_AGE_MS = ACCESS_TTL_SECONDS * 1000;
+const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7');
+const REFRESH_COOKIE_MAX_AGE_MS = REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 @Controller()
 export class AuthController {
@@ -43,6 +53,32 @@ export class AuthController {
 
   /* ── Públicos (sin JWT) ────────────────────────────── */
 
+  /** Fija las cookies de sesión: access (corto), refresh (largo) y csrf. */
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    const csrfToken = randomBytes(32).toString('base64url');
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE,
+      maxAge: ACCESS_COOKIE_MAX_AGE_MS,
+      path: '/',
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE,
+      maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+      path: '/',
+    });
+    res.cookie('nachopps.csrf_token', csrfToken, {
+      httpOnly: false,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE,
+      maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+      path: '/',
+    });
+  }
+
   @HttpCode(200)
   @Post('auth/login')
   async login(
@@ -50,31 +86,37 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(command);
-    const csrfToken = randomBytes(32).toString('base64url');
+    const refresh = await this.authService.issueRefreshToken(result.usuario.id);
+    this.setAuthCookies(res, result.access_token, refresh.token);
+    return { ...result, expires_in: ACCESS_TTL_SECONDS };
+  }
 
-    res.cookie('access_token', result.access_token, {
-      httpOnly: true,
-      secure: COOKIE_SECURE,
-      sameSite: COOKIE_SAME_SITE,
-      maxAge: 1000 * 60 * 60 * 12, // 12h, igual que expiresIn del token
-      path: '/',
-    });
-    res.cookie('nachopps.csrf_token', csrfToken, {
-      httpOnly: false,
-      secure: COOKIE_SECURE,
-      sameSite: COOKIE_SAME_SITE,
-      maxAge: 1000 * 60 * 60 * 12,
-      path: '/',
-    });
-
-    return result;
+  @HttpCode(200)
+  @Post('auth/refresh')
+  async refresh(
+    @Req() req: ExpressRequest,
+    @Body() body: RefreshTokenDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const raw = (req as any).cookies?.['refresh_token'] ?? body?.refresh_token;
+    if (!raw) throw new UnauthorizedException('No hay refresh token');
+    const result = await this.authService.rotateRefreshToken(raw);
+    this.setAuthCookies(res, result.access_token, result.refresh.token);
+    return { access_token: result.access_token, expires_in: ACCESS_TTL_SECONDS, usuario: result.usuario };
   }
 
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   @Post('auth/logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: ExpressRequest, @Res({ passthrough: true }) res: Response) {
+    await this.authService.revokeRefreshTokenByRaw((req as any).cookies?.['refresh_token']);
     res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: COOKIE_SECURE,
+      sameSite: COOKIE_SAME_SITE,
+      path: '/',
+    });
+    res.clearCookie('refresh_token', {
       httpOnly: true,
       secure: COOKIE_SECURE,
       sameSite: COOKIE_SAME_SITE,
@@ -115,8 +157,10 @@ export class AuthController {
     return this.authService.crearUsuario(command);
   }
 
+  // Lectura del equipo: visible para administración, sistema y gerencia
+  // (la pantalla "Usuarios" del PWA es de solo lectura para gerencia/sistema).
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('ADMIN', 'SISTEMA', 'GERENCIA')
   @Get('usuarios')
   async listarUsuarios(@Query() query: ListarUsuariosQuery): Promise<UsuarioListResponse> {
     return this.authService.listarUsuarios(query);

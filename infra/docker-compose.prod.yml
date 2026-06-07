@@ -8,7 +8,7 @@ services:
     # Sin puertos expuestos al host
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nachopps}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-nachopps_secret}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', 'check_running']
       interval: 10s
@@ -21,7 +21,7 @@ services:
     container_name: nachopps-db-reservas
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: reservas_db
     volumes:
       - nachopps-db-reservas:/var/lib/postgresql/data
@@ -36,7 +36,7 @@ services:
     container_name: nachopps-db-mesas
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: mesas_db
     volumes:
       - nachopps-db-mesas:/var/lib/postgresql/data
@@ -51,7 +51,7 @@ services:
     container_name: nachopps-db-pedidos
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: pedidos_db
     volumes:
       - nachopps-db-pedidos:/var/lib/postgresql/data
@@ -66,7 +66,7 @@ services:
     container_name: nachopps-db-cuentas
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: cuentas_db
     volumes:
       - nachopps-db-cuentas:/var/lib/postgresql/data
@@ -81,7 +81,7 @@ services:
     container_name: nachopps-db-inventario
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: inventario_db
     volumes:
       - nachopps-db-inventario:/var/lib/postgresql/data
@@ -96,7 +96,7 @@ services:
     container_name: nachopps-db-reportes
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: reportes_db
     volumes:
       - nachopps-db-reportes:/var/lib/postgresql/data
@@ -111,7 +111,7 @@ services:
     container_name: nachopps-db-caja
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: caja_db
     volumes:
       - nachopps-db-caja:/var/lib/postgresql/data
@@ -126,7 +126,7 @@ services:
     container_name: nachopps-db-identidad
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: identidad_db
     volumes:
       - nachopps-db-identidad:/var/lib/postgresql/data
@@ -141,7 +141,7 @@ services:
     container_name: nachopps-db-notificaciones
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
-      POSTGRES_PASSWORD: ${DB_PASS:-secret}
+      POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
       POSTGRES_DB: notificaciones_db
     volumes:
       - nachopps-db-notificaciones:/var/lib/postgresql/data
@@ -159,10 +159,16 @@ services:
     container_name: nachopps-servicio-identidad
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-identidad:5432/identidad_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: '24h'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-identidad:5432/identidad_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:?JWT_PRIVATE_KEY es obligatorio en identidad (PEM RS256)}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -180,9 +186,13 @@ services:
     container_name: nachopps-servicio-mesas
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-mesas:5432/mesas_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-mesas:5432/mesas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -200,10 +210,14 @@ services:
     container_name: nachopps-servicio-pedidos
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-pedidos:5432/pedidos_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-pedidos:5432/pedidos_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -221,10 +235,14 @@ services:
     container_name: nachopps-servicio-cuentas
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-cuentas:5432/cuentas_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-cuentas:5432/cuentas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -242,9 +260,13 @@ services:
     container_name: nachopps-servicio-reservas
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-reservas:5432/reservas_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reservas:5432/reservas_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -262,9 +284,13 @@ services:
     container_name: nachopps-servicio-inventario
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-inventario:5432/inventario_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-inventario:5432/inventario_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -282,9 +308,13 @@ services:
     container_name: nachopps-servicio-notificaciones
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-notificaciones:5432/notificaciones_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-notificaciones:5432/notificaciones_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -302,11 +332,14 @@ services:
     container_name: nachopps-servicio-caja
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-caja:5432/caja_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-caja:5432/caja_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
-      OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -324,9 +357,13 @@ services:
     container_name: nachopps-servicio-reportes
     environment:
       PORT: '3000'
-      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:-secret}@db-reportes:5432/reportes_db?schema=public'
-      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:-nachopps_secret}@rabbitmq:5672'
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reportes:5432/reportes_db?schema=public'
+      RABBITMQ_URI: 'amqp://${RABBITMQ_USER:-nachopps}:${RABBITMQ_PASS:?RABBITMQ_PASS es obligatorio en produccion}@rabbitmq:5672'
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
+      SERVICE_JWT_SECRET: ${SERVICE_JWT_SECRET:?SERVICE_JWT_SECRET es obligatorio (tokens S2S internos)}
+      NODE_ENV: 'production'
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN es obligatorio, p.ej. https://app.tudominio.com}
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
@@ -355,17 +392,21 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       KONG_ADMIN_ERROR_LOG: /dev/stderr
-      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      # Admin API solo en loopback DENTRO del contenedor: inalcanzable desde la
+      # red de Docker y desde el host. Para administrar: `docker exec` o túnel SSH.
+      KONG_ADMIN_LISTEN: 127.0.0.1:8001
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_PLUGINS: 'bundled,jwt-cache'
-      KONG_JWT_SECRET: ${KONG_JWT_SECRET}
+      KONG_JWT_PUBLIC_KEY: ${KONG_JWT_PUBLIC_KEY:?KONG_JWT_PUBLIC_KEY es obligatorio (PEM RS256, \n literales)}
       KONG_RATE_LIMIT_MINUTE: ${KONG_RATE_LIMIT_MINUTE:-3000}
       KONG_RATE_LIMIT_HOUR: ${KONG_RATE_LIMIT_HOUR:-30000}
+      # Dominio(s) https reales de la PWA. Obligatorio en producción.
+      KONG_CORS_ORIGINS: ${KONG_CORS_ORIGINS:?KONG_CORS_ORIGINS es obligatorio, p.ej. ["https://app.tudominio.com"]}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: 'jwt_cache 12m'
     ports:
       - '80:8000'
       - '443:8443'
-      - '8001:8001' # Ocultar en prod real si admin API no se expone al exterior
+      # La Admin API (8001) NO se publica en prod: queda en loopback interno.
     volumes:
       - ./kong/kong.yml.template:/tmp/kong.yml.template:ro
     healthcheck:
@@ -390,6 +431,13 @@ services:
     container_name: nachopps-prometheus
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: nachopps-alertmanager
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
 
   grafana:
     image: grafana/grafana:latest
@@ -398,8 +446,29 @@ services:
       - '3000:3000'
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  # Backups de las 9 BDs (plan 3.5): pg_dump diario + retención. Para almacenar
+  # fuera del host, montar un bind a un volumen de red/objeto o sincronizar
+  # nachopps-backups a S3 con un job aparte.
+  db-backup:
+    image: postgres:16-alpine
+    container_name: nachopps-db-backup
+    environment:
+      DB_USER: ${DB_USER:-nachopps}
+      DB_PASS: ${DB_PASS:?DB_PASS es obligatorio en produccion}
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_DIR: /backups
+    volumes:
+      - ../scripts/backup-postgres.sh:/usr/local/bin/backup.sh:ro
+      - nachopps-backups:/backups
+    entrypoint: ['/bin/sh', '-c', 'while true; do sh /usr/local/bin/backup.sh || echo "[db-backup] ciclo con fallos"; sleep 86400; done']
+    restart: unless-stopped
 
 volumes:
+  nachopps-backups:
   nachopps-db-reservas:
   nachopps-db-mesas:
   nachopps-db-pedidos:

@@ -1,9 +1,9 @@
 ---
 tipo: indice-servicio
 servicio: servicio-caja
-fuente: [apps/servicio-caja/src/app/app.controller.ts:5]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-caja/src/app/app.controller.ts:9]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # servicio-caja
@@ -23,5 +23,5 @@ commit: 4c186bb
 
 **Eventos consumidos.**
 
-- `RoutingKeys.CuentaAbierta` en `handleCuentaAbierta`. [apps/servicio-caja/src/app/events.controller.ts:16]
-- `RoutingKeys.CuentaCerrada` en `handleCuentaCerrada`. [apps/servicio-caja/src/app/events.controller.ts:29]
+- `RoutingKeys.CuentaAbierta` -> `handleCuentaAbierta` [apps/servicio-caja/src/app/events.controller.ts:16]
+- `RoutingKeys.CuentaCerrada` -> `handleCuentaCerrada` [apps/servicio-caja/src/app/events.controller.ts:29]
