@@ -16,9 +16,10 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    {
-      "path": "../shared-auth"
+  "references": [],
+  "nx": {
+    "sync": {
+      "ignoredDependencies": ["@org/shared-auth"]
     }
-  ]
+  }
 }

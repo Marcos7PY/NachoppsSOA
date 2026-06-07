@@ -5,7 +5,7 @@
   "nx": {
     "targets": {
       "typecheck": {
-        "command": "echo Typecheck delegado por proyecto: apps via build (tsc -p), libs/pwa via su propio typecheck. El solution-build tsc --build es incompatible con composite:false de los apps."
+        "command": "echo solution typecheck delegado a build por app y a typecheck por lib"
       }
     }
   },

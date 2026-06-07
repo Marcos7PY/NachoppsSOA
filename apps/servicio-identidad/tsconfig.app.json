@@ -21,18 +21,12 @@
     "sync": {
       "ignoredDependencies": [
         "@org/observabilidad",
+        "@org/resiliencia",
+        "@org/shared-auth",
         "@org/shared-rabbitmq",
         "contracts",
         "shared-prisma"
       ]
     }
-  },
-  "references": [
-    {
-      "path": "../../libs/shared-auth"
-    },
-    {
-      "path": "../../libs/resiliencia/tsconfig.lib.json"
-    }
-  ]
+  }
 }
