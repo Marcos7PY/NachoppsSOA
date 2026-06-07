@@ -1,6 +1,11 @@
 import { defineConfig } from 'vitest/config';
 import swc from 'unplugin-swc';
 
+// Zona horaria del negocio (restobar en Lima, UTC-5). Fija el TZ del runner para
+// que los tests sensibles a la hora (p.ej. reportes ventasPorHora/turno) sean
+// deterministas en cualquier máquina/CI, no dependientes del TZ del sistema.
+process.env.TZ = 'America/Lima';
+
 export default defineConfig({
   plugins: [
     swc.vite({
