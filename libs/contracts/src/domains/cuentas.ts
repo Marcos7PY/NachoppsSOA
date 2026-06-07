@@ -25,6 +25,14 @@ export class CuentaCerradaPayload {
   @IsOptional()
   @IsArray()
   items?: { productoId: string; nombre?: string; cantidad: number; precioUnitario: number }[];
+  // Reportes por mesero (plan 6.3). Opcional: lo poblará cuentas cuando propague
+  // el mesero del pedido; el read-model de reportes ya agrupa por este campo.
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
 }
 
 export class TicketGeneradoPayload {
