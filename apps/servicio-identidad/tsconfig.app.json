@@ -21,6 +21,8 @@
     "sync": {
       "ignoredDependencies": [
         "@org/observabilidad",
+        "@org/resiliencia",
+        "@org/shared-auth",
         "@org/shared-rabbitmq",
         "contracts",
         "shared-prisma"

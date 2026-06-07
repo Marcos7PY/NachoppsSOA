@@ -5,6 +5,7 @@ describe('GET /api', () => {
     const res = await axios.get(`/api`);
 
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.data.reservas)).toBe(true);
+    // Respuesta paginada: { data: [...], nextCursor }
+    expect(Array.isArray(res.data.data)).toBe(true);
   });
 });

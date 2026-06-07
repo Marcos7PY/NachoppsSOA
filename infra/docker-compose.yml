@@ -199,8 +199,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-identidad:
         condition: service_healthy
@@ -223,8 +223,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-mesas:
         condition: service_healthy
@@ -248,8 +248,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-pedidos:
         condition: service_healthy
@@ -273,8 +273,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-cuentas:
         condition: service_healthy
@@ -297,8 +297,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-reservas:
         condition: service_healthy
@@ -321,8 +321,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-inventario:
         condition: service_healthy
@@ -345,8 +345,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-notificaciones:
         condition: service_healthy
@@ -370,8 +370,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-caja:
         condition: service_healthy
@@ -394,8 +394,8 @@ services:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/telemetry/metrics']
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 60s
     depends_on:
       db-reportes:
         condition: service_healthy

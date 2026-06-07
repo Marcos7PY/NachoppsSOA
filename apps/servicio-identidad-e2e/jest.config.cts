@@ -1,5 +1,5 @@
 /* eslint-disable */
-import fs = require('fs');
+const fs = require('fs');
 
 // Reading the SWC compilation config for the spec files
 const swcJestConfig = JSON.parse(
@@ -9,7 +9,7 @@ const swcJestConfig = JSON.parse(
 // Disable .swcrc look-up by SWC core because we're passing in swcJestConfig ourselves
 swcJestConfig.swcrc = false;
 
-export = {
+module.exports = {
   displayName: 'servicio-identidad-e2e',
   preset: '../../jest.preset.js',
   globalSetup: '<rootDir>/src/support/global-setup.ts',

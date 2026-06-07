@@ -138,7 +138,9 @@ async function ensureProductos(
   headers: Record<string, string>,
   categoriaId: string,
 ) {
-  const firstPage = await getPage<Producto>(request, '/inventario/productos?limit=50', headers);
+  // La pantalla Inventario lista con conStock=true; el fixture debe garantizar
+  // la segunda página sobre ESA misma vista (no sobre el total sin filtrar).
+  const firstPage = await getPage<Producto>(request, '/inventario/productos?conStock=true&limit=50', headers);
   if ((firstPage.nextCursor ?? null) || firstPage.data.length > REQUIRED_PAGE_SIZE) {
     return;
   }
@@ -271,7 +273,12 @@ async function assertLoadMoreInPedidos(page: Page) {
 async function assertLoadMoreInCocina(page: Page) {
   await page.goto('/app/cocina');
   await expect(page.getByRole('heading', { name: /Cocina/ })).toBeVisible();
-  await expect(loadMoreButton(page)).toBeVisible();
+  // El KDS usa autoLoadAll (sin botón "Cargar más"): carga todas las páginas
+  // automáticamente. Verificamos que esa carga trajo más de una página de
+  // tickets (cada pedido en producción renderiza al menos una .kds-card).
+  await expect
+    .poll(() => page.locator('.kds-card').count(), { timeout: 15000 })
+    .toBeGreaterThan(REQUIRED_PAGE_SIZE);
 }
 
 async function clickLoadMore(page: Page) {

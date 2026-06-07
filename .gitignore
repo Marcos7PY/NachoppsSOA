@@ -66,6 +66,14 @@ Thumbs.db
 vite.config.*.timestamp*
 test-output
 
+# Playwright (output de corridas e2e)
+**/test-results/
+**/playwright-report/
+**/.playwright/
+
+# Vite env locales (generados en build, no versionar)
+**/.env.*.local
+
 # Prisma clients generados por servicio
 **/src/generated/prisma
 
