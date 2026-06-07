@@ -69,11 +69,13 @@ export default defineConfig({
       // No bajar estos números; solo subirlos cuando la cobertura real lo permita.
       // Escalón 1 (2026-06-07): +roles.guard, +helmet.config, +permisos,
       // +pedido.flow, +7 mappers PWA → ~43% branches, ~40% stmts.
+      // Escalón 2 (2026-06-07): +outbox.processor ×7 servicios, +outbox-admin,
+      // +outbox-alert → ~46% branches, ~54% stmts.
       thresholds: {
-        branches: 43,
-        functions: 36,
-        lines: 41,
-        statements: 40,
+        branches: 46,
+        functions: 40,
+        lines: 54,
+        statements: 53,
       },
     },
   },
