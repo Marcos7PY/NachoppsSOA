@@ -21,6 +21,9 @@ export class TransaccionDto {
   @IsNumber()
   monto: number;
 
+  @IsNumber()
+  descuento: number;
+
   @IsString()
   metodo: string;
 
