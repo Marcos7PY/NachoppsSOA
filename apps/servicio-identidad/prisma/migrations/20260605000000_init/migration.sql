@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateTable
 CREATE TABLE "Usuario" (
     "id" TEXT NOT NULL,
@@ -25,36 +28,24 @@ CREATE TABLE "AuditoriaLog" (
 );
 
 -- CreateTable
-CREATE TABLE "idempotency_keys" (
-    "key" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "idempotency_keys_pkey" PRIMARY KEY ("key")
-);
-
--- CreateTable
-CREATE TABLE "refresh_tokens" (
+CREATE TABLE "outbox_events" (
     "id" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "usuarioId" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
-    "revocado" BOOLEAN NOT NULL DEFAULT false,
+    "routingKey" TEXT NOT NULL,
+    "payload" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "attempts" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "outbox_events_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "refresh_tokens_token_key" ON "refresh_tokens"("token");
+CREATE INDEX "AuditoriaLog_usuarioId_idx" ON "AuditoriaLog"("usuarioId");
 
 -- CreateIndex
-CREATE INDEX "refresh_tokens_token_idx" ON "refresh_tokens"("token");
+CREATE INDEX "outbox_events_status_createdAt_idx" ON "outbox_events"("status", "createdAt");
 
--- CreateIndex
-CREATE INDEX "refresh_tokens_usuarioId_idx" ON "refresh_tokens"("usuarioId");
-
--- AddForeignKey
-ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "Usuario"("id") ON DELETE CASCADE ON UPDATE CASCADE;
