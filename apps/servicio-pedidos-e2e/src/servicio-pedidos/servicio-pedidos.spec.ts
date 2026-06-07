@@ -23,7 +23,9 @@ describe('POST /api', () => {
       fail('Debería haber lanzado un error 400');
     } catch (error: any) {
       expect(error.response.status).toBe(400);
-      expect(error.response.data.error).toBe('Bad Request');
+      // GlobalExceptionFilter normaliza el cuerpo a { statusCode, timestamp, path, message }
+      expect(error.response.data.statusCode).toBe(400);
+      expect(error.response.data.path).toBe('/api');
     }
   });
 });
