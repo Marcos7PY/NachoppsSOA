@@ -111,12 +111,25 @@ jobs:
           mkdir -p .ci-logs
           docker compose -f infra/docker-compose.yml --profile all ps > .ci-logs/docker-ps.txt
           docker compose -f infra/docker-compose.yml --profile all logs --no-color > .ci-logs/docker-compose.log
+          # Volcar al log del job el estado y los logs de cualquier contenedor no-healthy,
+          # para diagnosticar sin depender del artefacto.
+          echo "===== docker compose ps ====="
+          cat .ci-logs/docker-ps.txt
+          for c in $(docker ps -a --filter health=unhealthy --format '{{.Names}}'); do
+            echo "===== LOGS (unhealthy): $c ====="
+            docker logs --tail 120 "$c" 2>&1 || true
+          done
+          for c in $(docker ps -a --filter status=exited --format '{{.Names}}'); do
+            echo "===== LOGS (exited): $c ====="
+            docker logs --tail 120 "$c" 2>&1 || true
+          done
 
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: docker-integration-reports
+          include-hidden-files: true
           path: |
             docs/informe-pruebas.md
             stress-tests/reports/*.md
