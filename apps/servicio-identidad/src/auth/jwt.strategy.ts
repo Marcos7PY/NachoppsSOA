@@ -2,12 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, JwtFromRequestFunction } from 'passport-jwt';
 import { Request } from 'express';
+import {
+  getJwtPublicKey,
+  getServiceJwtSecret,
+  makeJwtSecretOrKeyProvider,
+  JWT_VERIFY_ALGORITHMS,
+} from '@org/shared-auth';
 
 /**
  * Estrategia Passport-JWT.
  * M4.2: extrae el token primero de la cookie httpOnly 'access_token',
  * con fallback al header Authorization Bearer.
  * El payload decodificado se inyecta en `req.user`.
+ * Plan 2.1: verifica RS256 (usuario, clave pública) y HS256 (servicio, secreto).
  */
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
   return req?.cookies?.['access_token'] ?? null;
@@ -16,8 +23,6 @@ const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET env variable is required');
     super({
       // 1º cookie httpOnly, 2º header Bearer (fallback no-breaking)
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -25,7 +30,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      secretOrKeyProvider: makeJwtSecretOrKeyProvider(getJwtPublicKey(), getServiceJwtSecret()),
+      algorithms: [...JWT_VERIFY_ALGORITHMS],
     });
   }
 
@@ -35,6 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       sub: payload.sub,
       email: payload.email,
       rol: payload.rol,
+      nombre: payload.nombre,
     };
   }
 }

@@ -2,7 +2,7 @@
 # Proxy: http://localhost:8000  |  Admin: http://localhost:8001
 #
 # ESTE ES UN TEMPLATE — se genera kong.yml en el entrypoint vía envsubst
-# Variable inyectada: ${KONG_JWT_SECRET}
+# Variable inyectada: ${KONG_JWT_PUBLIC_KEY} (PEM RS256, \n literales)
 #
 # Rutas: http://localhost:8000/{servicio}/...  →  microservicio en host:PORT/api/...
 # Ejemplo: POST http://localhost:8000/pedidos/pedidos  →  localhost:3004/api/pedidos
@@ -21,13 +21,10 @@ _transform: true
 plugins:
   - name: cors
     config:
-      origins:
-        - http://localhost:4200
-        - http://localhost:4201
-        - http://localhost:5173
-        - http://127.0.0.1:4200
-        - http://127.0.0.1:4201
-        - http://127.0.0.1:5173
+      # Orígenes permitidos inyectados por entorno (envsubst). En producción debe
+      # contener el/los dominio(s) https reales de la PWA. Formato: secuencia YAML
+      # en línea, p.ej.  KONG_CORS_ORIGINS='["https://app.tudominio.com"]'
+      origins: ${KONG_CORS_ORIGINS}
       methods:
         - GET
         - POST
@@ -65,9 +62,12 @@ plugins:
 consumers:
   - username: nachopps-app
     jwt_secrets:
+      # RS256 (plan 2.1): Kong sólo verifica con la clave pública. El `\n` literal
+      # de ${KONG_JWT_PUBLIC_KEY} se interpreta como salto de línea al estar en una
+      # cadena YAML entre comillas dobles.
       - key: nachopps-identidad
-        secret: ${KONG_JWT_SECRET}
-        algorithm: HS256
+        algorithm: RS256
+        rsa_public_key: "${KONG_JWT_PUBLIC_KEY}"
 
 # ── Servicios ────────────────────────────────────────────────────
 
@@ -79,6 +79,7 @@ services:
       - name: identidad-login
         paths:
           - /identidad/auth
+          - /v1/identidad/auth
         strip_path: true
         methods:
           - POST
@@ -103,7 +104,7 @@ services:
             - access_token
     routes:
       - name: identidad
-        paths: [/identidad]
+        paths: [/identidad, /v1/identidad]
         strip_path: true
 
   # ── Mesas ──
@@ -119,7 +120,7 @@ services:
             - access_token
     routes:
       - name: mesas
-        paths: [/mesas]
+        paths: [/mesas, /v1/mesas]
         strip_path: true
 
   # ── Pedidos ──
@@ -135,7 +136,7 @@ services:
             - access_token
     routes:
       - name: pedidos
-        paths: [/pedidos]
+        paths: [/pedidos, /v1/pedidos]
         strip_path: true
 
   # ── Cuentas ──
@@ -151,7 +152,7 @@ services:
             - access_token
     routes:
       - name: cuentas
-        paths: [/cuentas]
+        paths: [/cuentas, /v1/cuentas]
         strip_path: true
 
   # ── Reservas ──
@@ -167,7 +168,7 @@ services:
             - access_token
     routes:
       - name: reservas
-        paths: [/reservas]
+        paths: [/reservas, /v1/reservas]
         strip_path: true
 
   # ── Inventario ──
@@ -183,7 +184,7 @@ services:
             - access_token
     routes:
       - name: inventario
-        paths: [/inventario]
+        paths: [/inventario, /v1/inventario]
         strip_path: true
 
   # ── Notificaciones ──
@@ -199,7 +200,7 @@ services:
             - access_token
     routes:
       - name: notificaciones
-        paths: [/notificaciones]
+        paths: [/notificaciones, /v1/notificaciones]
         strip_path: true
 
   # ── Caja ──
@@ -215,7 +216,7 @@ services:
             - access_token
     routes:
       - name: caja
-        paths: [/caja]
+        paths: [/caja, /v1/caja]
         strip_path: true
 
   # ── Reportes ──
@@ -231,5 +232,5 @@ services:
             - access_token
     routes:
       - name: reportes
-        paths: [/reportes]
+        paths: [/reportes, /v1/reportes]
         strip_path: true
