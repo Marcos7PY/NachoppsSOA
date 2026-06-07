@@ -2,6 +2,7 @@ name: Docker Integration
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches:
       - main
@@ -63,6 +64,37 @@ jobs:
         run: |
           sleep 70
           npm run probar:seguridad
+
+      - name: Run service e2e suites (9 servicios contra el stack)
+        env:
+          SERVICE_JWT_SECRET: nachopps_service_secret_dev
+        run: |
+          set -e
+          # Cada e2e pega directamente al servicio en su puerto de host del compose.
+          declare -A ports=(
+            [servicio-identidad]=3001
+            [servicio-mesas]=3002
+            [servicio-pedidos]=3004
+            [servicio-cuentas]=3005
+            [servicio-reservas]=3006
+            [servicio-inventario]=3007
+            [servicio-notificaciones]=3008
+            [servicio-caja]=3009
+            [servicio-reportes]=3010
+          )
+          for svc in "${!ports[@]}"; do
+            echo "── e2e $svc (puerto ${ports[$svc]}) ──"
+            HOST=localhost PORT="${ports[$svc]}" \
+              npx jest --config "apps/$svc-e2e/jest.config.cts" --runInBand
+          done
+
+      - name: Run PWA Playwright e2e
+        env:
+          PWA_BASE_URL: http://localhost:4200
+          CI: 'true'
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test -c apps/pwa-cliente/playwright.config.ts
 
       - name: Capture Docker logs
         if: failure()
