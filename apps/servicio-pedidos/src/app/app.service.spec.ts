@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import axios from 'axios';
 import { AppService } from './app.service';
 import { PedidoEstado } from '@org/contracts';
 
@@ -12,7 +13,10 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
 }
 
 function createMockPublisher() {
-  return { publish: vi.fn().mockResolvedValue(undefined) };
+  return {
+    publish: vi.fn().mockResolvedValue(undefined),
+    sign: vi.fn().mockReturnValue('service-token'),
+  };
 }
 
 describe('AppService — Pedidos', () => {
@@ -48,6 +52,11 @@ describe('AppService — Pedidos', () => {
       },
       productoLocal: {
         findUnique: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn(),
+      },
+      mesaLocal: {
+        findUnique: vi.fn(),
         upsert: vi.fn(),
       },
       idempotencyKey: {
@@ -61,6 +70,41 @@ describe('AppService — Pedidos', () => {
     mockPublisher = createMockPublisher();
 
     service = new AppService(mockPrisma as any, mockPublisher as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('validarMesa', () => {
+    it('usa la proyección local cuando la mesa ya está sincronizada', async () => {
+      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocal);
+      const getSpy = vi.spyOn(axios, 'get');
+
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('sincroniza la mesa desde servicio-mesas cuando falta en pedidos', async () => {
+      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      mockPrisma.mesaLocal.findUnique.mockResolvedValue(null);
+      mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocal);
+      vi.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
+
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.stringContaining('/mesas/mesa-1'),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer service-token' },
+        }),
+      );
+      expect(mockPrisma.mesaLocal.upsert).toHaveBeenCalledWith({
+        where: { id: 'mesa-1' },
+        create: { id: 'mesa-1', numero: 1 },
+        update: { numero: 1 },
+      });
+    });
   });
 
   describe('procesarPagoRecibido', () => {

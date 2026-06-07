@@ -36,6 +36,11 @@ interface ProductoRemotoLote {
   disponible: boolean;
 }
 
+interface MesaRemota {
+  id: string;
+  numero: number;
+}
+
 interface MeseroPedido {
   id: string;
   nombre?: string | null;
@@ -54,6 +59,8 @@ export class AppService {
   private readonly HTTP_TIMEOUT_MS = 5000;
   private readonly INVENTARIO_URL =
     process.env['INVENTARIO_SERVICE_URL'] ?? 'http://servicio-inventario:3000/api';
+  private readonly MESAS_URL =
+    process.env['MESAS_SERVICE_URL'] ?? 'http://servicio-mesas:3000/api';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -87,10 +94,54 @@ export class AppService {
 
   private async validarMesa(mesaId: string): Promise<MesaLocalEntity> {
     const mesa = await this.prisma.mesaLocal.findUnique({ where: { id: mesaId } });
-    if (!mesa) {
-      throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
+    if (mesa) {
+      return mesa;
     }
-    return mesa;
+
+    return this.sincronizarMesaLocal(mesaId);
+  }
+
+  private async sincronizarMesaLocal(mesaId: string): Promise<MesaLocalEntity> {
+    let token: string;
+    try {
+      token = this.jwtService.sign(
+        { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
+        { expiresIn: '1h' },
+      );
+    } catch {
+      throw new ServiceUnavailableException('No se pudo generar token para consultar mesas. Reintente.');
+    }
+
+    try {
+      const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/mesas/${mesaId}`, {
+        timeout: this.HTTP_TIMEOUT_MS,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      return this.prisma.mesaLocal.upsert({
+        where: { id: data.id },
+        create: {
+          id: data.id,
+          numero: data.numero,
+        },
+        update: {
+          numero: data.numero,
+        },
+      });
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status: number }; code?: string; message?: string };
+      if (axiosError.response?.status === 404) {
+        throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
+      }
+      if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
+        throw new ServiceUnavailableException('El servicio de mesas no responde. Reintente.');
+      }
+      if (axiosError.code === 'ECONNREFUSED') {
+        throw new ServiceUnavailableException('El servicio de mesas no está disponible.');
+      }
+      this.logger.error(`Error en cold-start de mesa ${mesaId}: ${axiosError.message}`);
+      throw new InternalServerErrorException('No se pudo cargar la mesa desde mesas. Reintente.');
+    }
   }
 
   private async asegurarProductosLocales(productoIds: string[]): Promise<void> {
