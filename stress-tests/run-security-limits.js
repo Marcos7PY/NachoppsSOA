@@ -144,7 +144,7 @@ async function scenarioCookieAttributes() {
   const expected =
     /access_token=/.test(setCookie) &&
     /HttpOnly/i.test(setCookie) &&
-    /SameSite=Lax/i.test(setCookie) &&
+    /SameSite=Strict/i.test(setCookie) &&
     /Path=\//i.test(setCookie);
   record('Cookie de login segura en dev', [res], expected, { setCookie: redactToken(setCookie) });
 }

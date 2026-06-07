@@ -21,6 +21,9 @@ const SETUP_CONCURRENCY = Number.parseInt(process.env.SETUP_CONCURRENCY || '25',
 const REPORT_DIR = 'stress-tests/reports';
 
 let token = '';
+let tokenIssuedAt = 0;
+const TOKEN_REFRESH_MS = 12 * 60 * 1000;
+let reloginInFlight = null;
 const results = [];
 let mesaCounter = Date.now() % 1000000000;
 let reservaSlotCounter = Date.now() % 100000;
@@ -72,9 +75,26 @@ function requestsPerSecond(count, durationMs) {
   return Number((count / (Math.max(durationMs, 1) / 1000)).toFixed(2));
 }
 
+async function ensureRelogin() {
+  if (!reloginInFlight) {
+    reloginInFlight = login().finally(() => { reloginInFlight = null; });
+  }
+  return reloginInFlight;
+}
+
 async function req(method, path, body, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (opts.token !== false && token) headers.Authorization = `Bearer ${token}`;
+  if (opts.token !== false && token) {
+    if (
+      opts._retried !== true &&
+      tokenIssuedAt &&
+      Date.now() - tokenIssuedAt > TOKEN_REFRESH_MS &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,6 +107,15 @@ async function req(method, path, body, opts = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
+    if (
+      res.status === 401 &&
+      opts.token !== false &&
+      opts._retried !== true &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+      return req(method, path, body, { ...opts, _retried: true });
+    }
     const ms = Date.now() - started;
     let data = null;
     const text = await res.text();
@@ -178,7 +207,8 @@ async function waitFor(label, fn, predicate, timeoutMs = 12000, intervalMs = 250
 
 function extractArray(data, key) {
   if (Array.isArray(data)) return data;
-  return data?.[key] || [];
+  // La API pagina con { data, nextCursor }; aceptamos también el campo legacy.
+  return data?.[key] || data?.data || [];
 }
 
 function extractEntity(data, key) {
@@ -219,6 +249,7 @@ async function login() {
     throw new Error(`Login failed: ${res.status} ${JSON.stringify(res.data)}`);
   }
   token = res.data.access_token;
+  tokenIssuedAt = Date.now();
 }
 
 async function createMesa(label) {

@@ -22,6 +22,9 @@ const FORCE_DLQ_MARKER = '__QA_INVENTARIO_FORCE_DLQ__';
 const MAX_REINJECTIONS = Number.parseInt(process.env.MAX_REINJECTIONS || '2', 10);
 const STOCK_ITERATIONS = Number.parseInt(process.env.STOCK_ITERATIONS || '1', 10);
 const STOCK_HIGH_CONTENTION = process.env.STOCK_HIGH_CONTENTION === '1';
+const QUEUE_DRAIN_TIMEOUT_MS = Number.parseInt(process.env.QUEUE_DRAIN_TIMEOUT_MS || '20000', 10);
+const TRANSIENT_RETRY_ATTEMPTS = Number.parseInt(process.env.TRANSIENT_RETRY_ATTEMPTS || '3', 10);
+const TRANSIENT_RETRY_BASE_MS = Number.parseInt(process.env.TRANSIENT_RETRY_BASE_MS || '250', 10);
 
 const results = [];
 let token = '';
@@ -29,6 +32,18 @@ let mesaCounter = Date.now() % 1000000000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientError(error) {
+  return /ECONNRESET|ECONNREFUSED|EPIPE|ETIMEDOUT|socket|network|terminated|fetch failed/i.test(error?.message || '');
+}
+
+function isTransientStatus(status) {
+  return [502, 503, 504].includes(status);
+}
+
+function retryDelayMs(attempt) {
+  return TRANSIENT_RETRY_BASE_MS * 2 ** attempt;
 }
 
 function unique(prefix) {
@@ -40,9 +55,35 @@ function nextMesaNumero() {
   return 1000000000 + mesaCounter;
 }
 
+// El access token es corto (15m, plan 1.4). En pruebas largas re-autenticamos
+// de forma transparente al recibir 401, compartiendo un único login concurrente
+// para no gatillar el rate limit del gateway.
+let tokenIssuedAt = 0;
+const TOKEN_REFRESH_MS = 12 * 60 * 1000; // refresca antes de los 15m de expiración
+let reloginInFlight = null;
+async function ensureRelogin() {
+  if (!reloginInFlight) {
+    reloginInFlight = login().finally(() => { reloginInFlight = null; });
+  }
+  return reloginInFlight;
+}
+
 async function req(method, path, body, opts = {}) {
+  const attempt = opts._attempt ?? 0;
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (opts.token !== false && token) headers.Authorization = `Bearer ${token}`;
+  if (opts.token !== false && token) {
+    // Refresco PROACTIVO antes de expirar (un solo login serializado por ventana),
+    // evita tormentas de 401 concurrentes que saturarían el rate limit de login.
+    if (
+      opts._retried !== true &&
+      tokenIssuedAt &&
+      Date.now() - tokenIssuedAt > TOKEN_REFRESH_MS &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
   const started = Date.now();
   try {
     const res = await fetch(`${BASE}${path}`, {
@@ -50,6 +91,23 @@ async function req(method, path, body, opts = {}) {
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (
+      opts.retryTransient !== false &&
+      isTransientStatus(res.status) &&
+      attempt < TRANSIENT_RETRY_ATTEMPTS
+    ) {
+      await sleep(retryDelayMs(attempt));
+      return req(method, path, body, { ...opts, _attempt: attempt + 1 });
+    }
+    if (
+      res.status === 401 &&
+      opts.token !== false &&
+      opts._retried !== true &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+      return req(method, path, body, { ...opts, _retried: true });
+    }
     const text = await res.text();
     let data = null;
     if (text) {
@@ -59,9 +117,17 @@ async function req(method, path, body, opts = {}) {
         data = text;
       }
     }
-    return { ok: res.ok, status: res.status, ms: Date.now() - started, data };
+    return { ok: res.ok, status: res.status, ms: Date.now() - started, data, attempts: attempt + 1 };
   } catch (error) {
-    return { ok: false, status: 0, ms: Date.now() - started, error: error.message };
+    if (
+      opts.retryTransient !== false &&
+      isTransientError(error) &&
+      attempt < TRANSIENT_RETRY_ATTEMPTS
+    ) {
+      await sleep(retryDelayMs(attempt));
+      return req(method, path, body, { ...opts, _attempt: attempt + 1 });
+    }
+    return { ok: false, status: 0, ms: Date.now() - started, error: error.message, attempts: attempt + 1 };
   }
 }
 
@@ -107,6 +173,7 @@ async function login() {
     throw new Error(`Login failed: ${res.status} ${JSON.stringify(res.data)}`);
   }
   token = res.data.access_token;
+  tokenIssuedAt = Date.now();
 }
 
 async function createMesa(label = 'QA-STOCK-IDEMPOTENCY') {
@@ -206,9 +273,10 @@ function getIdempotencyUniqueEvidence() {
   };
 }
 
-async function withChannel(fn) {
-  const conn = await amqp.connect(RABBITMQ_URI);
+async function withChannel(fn, attempt = 0) {
+  let conn;
   try {
+    conn = await amqp.connect(RABBITMQ_URI);
     const channel = await conn.createConfirmChannel();
     await channel.assertExchange(EXCHANGE, 'topic', { durable: true });
     await channel.assertExchange(DLX, 'topic', { durable: true });
@@ -219,8 +287,20 @@ async function withChannel(fn) {
     await channel.waitForConfirms();
     await channel.close();
     return result;
+  } catch (error) {
+    if (isTransientError(error) && attempt < TRANSIENT_RETRY_ATTEMPTS) {
+      await sleep(retryDelayMs(attempt));
+      return withChannel(fn, attempt + 1);
+    }
+    throw error;
   } finally {
-    await conn.close();
+    if (conn) {
+      try {
+        await conn.close();
+      } catch {
+        // The broker may already have closed a transiently broken socket.
+      }
+    }
   }
 }
 
@@ -885,12 +965,40 @@ async function scenarioPoisonParking() {
 }
 
 async function scenarioFinalQueuesClean() {
-  const queues = await rabbitQueues();
-  const backlog = assertNoUnexpectedQueueBacklog(queues.rows);
+  let queues;
+  let backlog = [];
+  try {
+    queues = await waitFor(
+      'queues without unexpected backlog',
+      rabbitQueues,
+      (probe) => {
+        backlog = assertNoUnexpectedQueueBacklog(probe.rows);
+        return backlog.length === 0;
+      },
+      QUEUE_DRAIN_TIMEOUT_MS,
+      500,
+    );
+    backlog = assertNoUnexpectedQueueBacklog(queues.rows);
+  } catch (error) {
+    queues = await rabbitQueues();
+    backlog = assertNoUnexpectedQueueBacklog(queues.rows);
+    return {
+      label: 'Colas finales sin pendientes inesperados',
+      invariant: false,
+      details: {
+        backlog,
+        drainTimeoutMs: QUEUE_DRAIN_TIMEOUT_MS,
+        error: error.message,
+      },
+    };
+  }
   return {
     label: 'Colas finales sin pendientes inesperados',
     invariant: backlog.length === 0,
-    details: { backlog },
+    details: {
+      backlog,
+      drainTimeoutMs: QUEUE_DRAIN_TIMEOUT_MS,
+    },
   };
 }
 
