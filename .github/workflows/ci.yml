@@ -78,3 +78,36 @@ jobs:
           name: ci-logs
           path: .ci-logs
           if-no-files-found: ignore
+
+  migration-drift:
+    # Falla el build si algún schema.prisma quedó desincronizado de sus
+    # migraciones (plan 1.2). Usa un Postgres descartable como shadow DB.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: drift_shadow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Check migration drift
+        env:
+          SHADOW_DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/drift_shadow'
+        run: bash scripts/check-migration-drift.sh
