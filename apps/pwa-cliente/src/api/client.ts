@@ -12,16 +12,20 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 
+let authToken: string | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
+
 export function setAuthToken(token: string) {
-  void token;
+  authToken = token;
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
 export function getAuthToken() {
-  return null;
+  return authToken;
 }
 
 export function clearAuthToken() {
+  authToken = null;
   localStorage.removeItem(LEGACY_AUTH_TOKEN_KEY);
 }
 
@@ -59,9 +63,8 @@ export class ApiError extends Error {
 }
 
 // Refresh tokens (plan 1.4): intenta renovar el access token con la cookie
-// refresh_token httpOnly. Devuelve true si la renovación tuvo éxito.
-let refreshInFlight: Promise<boolean> | null = null;
-async function tryRefresh(): Promise<boolean> {
+// refresh_token httpOnly y guarda el access token solo en memoria.
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
@@ -71,14 +74,22 @@ async function tryRefresh(): Promise<boolean> {
         credentials: 'include',
         headers: csrf ? { [CSRF_HEADER_KEY]: csrf } : {},
       });
-      return res.ok;
+      if (!res.ok) return null;
+      const body = await res.json() as { access_token?: string };
+      if (!body.access_token) return null;
+      setAuthToken(body.access_token);
+      return body.access_token;
     } catch {
-      return false;
+      return null;
     } finally {
       refreshInFlight = null;
     }
   })();
   return refreshInFlight;
+}
+
+async function tryRefresh(): Promise<boolean> {
+  return (await refreshAccessToken()) != null;
 }
 
 // ─── Request interno ────────────────────────────────────────────

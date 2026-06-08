@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, type InfiniteData } from '@tanstack/reac
 import * as pedidosApi from '../../api/pedidos.api';
 import { mapPedido, mapPedidos, estadoClassOf, estadoLabelOf } from '../../mappers/pedido.mapper';
 import { queryClient } from '../../api/queryClient';
+import { MESAS_QUERY_KEY } from './useMesasQuery';
 import { ESTADOS_PRODUCCION, derivarEstadoProduccion } from '../../domain/pedido.flow';
 import type {
   CrearPedidoPayload,
@@ -10,8 +11,11 @@ import type {
   EstadoItem,
   PedidoVM,
 } from '../../types/pedido.types';
+import type { MesaVM } from '../../types/mesa.types';
 
 export const PEDIDOS_QUERY_KEY = ['pedidos'];
+const CUENTAS_QUERY_KEY = ['cuentas'];
+const POST_CREATE_REFETCH_DELAYS_MS = [800, 2500];
 
 interface PedidosPage {
   pedidos: PedidoVM[];
@@ -38,6 +42,71 @@ function mapPedidoEnCache(
       pedidos: page.pedidos.map((p) => (predicate(p) ? fn(p) : p)),
     })),
   };
+}
+
+function prependPedidoEnCache(
+  old: PedidosData | undefined,
+  pedido: PedidoVM,
+): PedidosData | undefined {
+  if (!old || old.pages.some((page) => page.pedidos.some((p) => p.id === pedido.id))) {
+    return old;
+  }
+
+  return {
+    ...old,
+    pages: old.pages.map((page, index) =>
+      index === 0
+        ? { ...page, pedidos: [pedido, ...page.pedidos] }
+        : page,
+    ),
+  };
+}
+
+function markMesaOcupadaEnCache(mesaId: string) {
+  queryClient.setQueryData<MesaVM[] | undefined>(MESAS_QUERY_KEY, (old) =>
+    old?.map((m) =>
+      m.id === mesaId
+        ? {
+            ...m,
+            estado: 'OCUPADA',
+            estadoClass: 'ocup',
+            estadoLabel: 'Ocupada',
+          }
+        : m,
+    ),
+  );
+}
+
+function invalidateOperationalData(mesaId?: string) {
+  queryClient.invalidateQueries({
+    queryKey: PEDIDOS_QUERY_KEY,
+    exact: false,
+    refetchType: 'all',
+  });
+  queryClient.invalidateQueries({
+    queryKey: MESAS_QUERY_KEY,
+    exact: false,
+    refetchType: 'all',
+  });
+  queryClient.invalidateQueries({
+    queryKey: CUENTAS_QUERY_KEY,
+    exact: false,
+    refetchType: 'all',
+  });
+
+  if (mesaId) {
+    queryClient.invalidateQueries({
+      queryKey: [...CUENTAS_QUERY_KEY, 'mesa', mesaId],
+      exact: false,
+      refetchType: 'all',
+    });
+  }
+}
+
+function schedulePostCreateConsistencyRefetch(mesaId?: string) {
+  POST_CREATE_REFETCH_DELAYS_MS.forEach((delay) => {
+    window.setTimeout(() => invalidateOperationalData(mesaId), delay);
+  });
 }
 
 export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}) {
@@ -72,14 +141,22 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
       const dto = await pedidosApi.crear(payload);
       return mapPedido(dto);
     },
-    // El id del nuevo pedido es desconocido: invalidamos para traerlo.
-    // (El socket también emitirá pedido.creado.)
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: PEDIDOS_QUERY_KEY,
-        exact: false,
-        refetchType: 'active',
+    onSuccess: (pedido, payload) => {
+      queryClient.getQueriesData<PedidosData>({ queryKey: PEDIDOS_QUERY_KEY }).forEach(([key]) => {
+        const scopedMesaId = Array.isArray(key) && typeof key[1] === 'string' ? key[1] : undefined;
+        if (!scopedMesaId || scopedMesaId === pedido.mesaId || scopedMesaId === payload.mesaId) {
+          queryClient.setQueryData<PedidosData>(key, (old) => prependPedidoEnCache(old, pedido));
+        }
       });
+
+      if (payload.mesaId) {
+        markMesaOcupadaEnCache(payload.mesaId);
+      }
+
+      // Crear pedido dispara efectos asíncronos en cuentas/mesas. Refrescamos
+      // ahora y repetimos poco después para no depender sólo del socket.
+      invalidateOperationalData(payload.mesaId);
+      schedulePostCreateConsistencyRefetch(payload.mesaId);
     },
   });
 

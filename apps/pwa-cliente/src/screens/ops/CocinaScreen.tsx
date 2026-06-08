@@ -1,10 +1,10 @@
 // screens/ops/CocinaScreen.tsx — Cocina (KDS) mejorado, cableado a usePedidosQuery.
-// Columnas por estado de ítem, filtro por área (COCINA/BAR), SLA en vivo, métricas,
-// conteo del día y bump bar con atajos de teclado.
+// Columnas por estado de ítem, filtro por área (COCINA/BAR), SLA en vivo, métricas
+// y conteo del día.
 // Nota: el backend no expone estaciones (CALIENTE/FRIA/…) ni SLA por estación; se
 // usa el "área" (COCINA/BAR) del ítem y un SLA fijo basado en createdAt.
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useNow } from '../../hooks/useNow';
 import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
@@ -14,7 +14,6 @@ import {
   ETAPAS_PRODUCCION as COLS,
   ESTADOS_PRODUCCION,
   NEXT_ITEM,
-  PREV_ITEM,
   SLA_MIN,
   slaRatio as ratioOf,
   urgClass,
@@ -37,9 +36,7 @@ export function CocinaScreen() {
   // y conteo del día sean completos.
   const { pedidos, loading, error, fetch, avanzarItem } = usePedidosQuery(undefined, { autoLoadAll: true });
   const [area, setArea] = useState<'TODAS' | ItemArea>('TODAS');
-  const [sel, setSel] = useState<string | null>(null);
   const [fs, setFs] = useState(false);
-  const lastBumped = useRef<string | null>(null);
 
   const matchArea = (it: PedidoItemVM) => area === 'TODAS' || it.area === area;
 
@@ -49,12 +46,6 @@ export function CocinaScreen() {
   const activos = useMemo(
     () => pedidos.filter((p) => ESTADOS_PRODUCCION.has(p.estado)),
     [pedidos],
-  );
-
-  // tickets accionables (con ítems no-listos en el área activa)
-  const actionables = useMemo(
-    () => activos.filter((p) => p.items.some((it) => matchArea(it) && it.estado !== 'LISTO')),
-    [activos, area],
   );
 
   const advanceItem = async (itemId: string, estado: EstadoItem) => {
@@ -74,33 +65,8 @@ export function CocinaScreen() {
     const p = activos.find((x) => x.id === pid);
     if (!p) return;
     const targets = p.items.filter((it) => matchArea(it) && NEXT_ITEM[it.estado]);
-    lastBumped.current = pid;
     try { await Promise.all(targets.map((it) => avanzarItem(it.id, NEXT_ITEM[it.estado]!))); } catch { /* */ }
   };
-  const recall = async () => {
-    const pid = lastBumped.current;
-    if (!pid || !online) return;
-    const p = activos.find((x) => x.id === pid);
-    if (!p) return;
-    const targets = p.items.filter((it) => PREV_ITEM[it.estado]);
-    try { await Promise.all(targets.map((it) => avanzarItem(it.id, PREV_ITEM[it.estado]!))); } catch { /* */ }
-  };
-
-  // teclado (bump bar)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tgt = e.target as HTMLElement | null;
-      if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA' || tgt.isContentEditable)) return;
-      if (e.key >= '1' && e.key <= '9') { const t = actionables[+e.key - 1]; if (t) setSel(t.id); }
-      else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); const i = actionables.findIndex((t) => t.id === sel); setSel(actionables[Math.min(actionables.length - 1, i + 1)]?.id ?? actionables[0]?.id ?? null); }
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); const i = actionables.findIndex((t) => t.id === sel); setSel(actionables[Math.max(0, i - 1)]?.id ?? actionables[0]?.id ?? null); }
-      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (sel) void bumpTicket(sel); }
-      else if (e.key.toLowerCase() === 'r') { e.preventDefault(); void recall(); }
-      else if (e.key.toLowerCase() === 'f') { setFs((x) => !x); }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [actionables, sel, online]);
 
   // métricas
   const metrics = useMemo(() => {
@@ -204,9 +170,8 @@ export function CocinaScreen() {
                 {cards.length === 0 ? <div className="muted" style={{ textAlign: 'center', padding: 24, fontSize: 13 }}>Sin tickets</div> :
                   cards.map(({ p, items }) => (
                     <TicketCard key={`${p.id}-${col.estado}`} p={p} items={items} col={col} now={now}
-                      selected={sel === p.id} idx={actionables.findIndex((x) => x.id === p.id)}
                       online={online}
-                      onAdvance={advanceItem} onRegress={regressItem} onBump={() => bumpTicket(p.id)} onSelect={() => setSel(p.id)} />
+                      onAdvance={advanceItem} onRegress={regressItem} onBump={() => bumpTicket(p.id)} />
                   ))}
               </div>
             </div>
@@ -214,18 +179,6 @@ export function CocinaScreen() {
         })}
       </div>
 
-      <div className="bumpbar">
-        <span className="bb-title">BUMP BAR</span>
-        <span className="bb-key"><span className="kcap">1–9</span> seleccionar</span>
-        <span className="bb-key"><span className="kcap">↵ Enter</span> avanzar</span>
-        <span className="bb-key"><span className="kcap">R</span> recall</span>
-        <span className="bb-key"><span className="kcap">F</span> pantalla completa</span>
-        <span className="spacer" />
-        {sel && <button className="bump-btn recall" aria-label="Recall del último ticket" onClick={() => void recall()}>Recall</button>}
-        <button className="bump-btn" aria-label="Marcar ticket" onClick={() => sel ? void bumpTicket(sel) : actionables[0] && void bumpTicket(actionables[0].id)}>
-          <Icons.Check s={15} /> Marcar ticket {sel ? `#${(activos.find((t) => t.id === sel)?.mesaNumero) ?? ''}` : 'siguiente'}
-        </button>
-      </div>
     </>
   );
 
@@ -281,30 +234,25 @@ interface TicketCardProps {
   items: PedidoItemVM[];
   col: { estado: EstadoPedido; label: string; color: string };
   now: number;
-  selected: boolean;
-  idx: number;
   online: boolean;
   onAdvance: (itemId: string, estado: EstadoItem) => void;
   onRegress: (itemId: string, estado: EstadoItem) => void;
   onBump: () => void;
-  onSelect: () => void;
 }
 
-function TicketCard({ p, items, col, now, selected, idx, online, onAdvance, onRegress, onBump, onSelect }: TicketCardProps) {
+function TicketCard({ p, items, col, now, online, onAdvance, onRegress, onBump }: TicketCardProps) {
   const el = elapsedMinF(p.createdAt, now);
-  const showBumpIdx = col.estado !== 'LISTO' && idx >= 0 && idx < 9;
   const canalCls = CANAL_CLS[p.canal];
   const donde = p.canal === 'SALON' ? `Mesa ${p.mesaNumero}` : (p.cliente ?? 'Cliente');
 
   return (
-    <div className={`kds-card ${urgClass(ratioOf(el))} ${selected ? 'sel' : ''}`} onClick={onSelect}>
+    <div className={`kds-card ${urgClass(ratioOf(el))}`}>
       <div className="kds-head">
         {col.estado !== 'LISTO' && <SlaRing el={el} />}
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="row" style={{ gap: 7 }}>
             <span className={`tag-canal ${canalCls}`}>{CANAL_LABEL[p.canal]}</span>
             <span className="tk-num">{p.id.slice(0, 6)}</span>
-            {showBumpIdx && <span className="kbd" style={{ marginLeft: 'auto' }}>{idx + 1}</span>}
           </div>
           <div className="tk-where">{donde}</div>
         </div>

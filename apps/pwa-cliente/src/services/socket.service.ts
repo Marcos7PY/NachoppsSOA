@@ -1,6 +1,7 @@
 // services/socket.service.ts - Singleton Socket.IO para actualizaciones en tiempo real
 
 import { io, type Socket } from 'socket.io-client';
+import { getAuthToken, refreshAccessToken } from '../api/client';
 import { queryClient } from '../api/queryClient';
 import { MESAS_QUERY_KEY } from '../hooks/queries/useMesasQuery';
 import { PEDIDOS_QUERY_KEY } from '../hooks/queries/usePedidosQuery';
@@ -20,6 +21,7 @@ let socket: Socket | null = null;
 const pendingInvalidations = new Set<string>();
 let invalidationTimer: ReturnType<typeof setTimeout> | null = null;
 const INVALIDATION_DEBOUNCE_MS = 300;
+let authRetrying = false;
 
 type StoreKey = 'pedidos' | 'mesas' | 'cuentas' | 'caja';
 
@@ -99,24 +101,44 @@ function scheduleInvalidate(pattern?: string) {
 }
 
 export const socketService = {
-  connect() {
+  async connect() {
     if (socket?.connected) return;
+
+    const token = getAuthToken() ?? await refreshAccessToken();
 
     if (!socket) {
       socket = io(BASE_URL, {
         path: WS_PATH,
+        auth: token ? { token } : {},
         withCredentials: true,
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 500,
         reconnectionDelayMax: 5000,
+        autoConnect: false,
       });
 
       socket.on('pedidoUpdate', (evento: NotificacionEvento) => {
         pushSocketNotification(evento);
         scheduleInvalidate(evento?.pattern);
       });
+
+      socket.on('auth:error', () => {
+        if (authRetrying) return;
+        authRetrying = true;
+        void refreshAccessToken()
+          .then((newToken) => {
+            if (!newToken || !socket) return;
+            socket.auth = { token: newToken };
+            socket.connect();
+          })
+          .finally(() => {
+            authRetrying = false;
+          });
+      });
+    } else {
+      socket.auth = token ? { token } : {};
     }
 
     socket.connect();

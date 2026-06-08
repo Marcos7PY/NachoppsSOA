@@ -36,6 +36,7 @@ plugins:
         - Accept
         - Authorization
         - Content-Type
+        - Idempotency-Key
         - X-CSRF-Token
         - X-Requested-With
       exposed_headers:

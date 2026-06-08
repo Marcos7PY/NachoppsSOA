@@ -31,9 +31,7 @@ export function Header() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const notifRef = useRef<HTMLDivElement>(null);
   useFocusTrap(settingsRef, { active: settingsOpen, onClose: () => setSettingsOpen(false) });
-  useFocusTrap(notifRef, { active: notificationsOpen, onClose: () => setNotificationsOpen(false) });
   const [theme, setTheme] = useState<Theme>(() => readAttr('data-theme', 'light'));
   const [density, setDensity] = useState<Density>(() => readAttr('data-density', 'comfy'));
   const [fontscale, setFontscale] = useState<FontScale>(() => readAttr('data-fontscale', 'md'));
@@ -168,7 +166,9 @@ export function Header() {
           {unreadCount > 0 && <span className="bdg danger">{Math.min(unreadCount, 9)}</span>}
         </button>
         {notificationsOpen && (
-          <div className="notif-popover" ref={notifRef} role="dialog" aria-modal="true" aria-label="Notificaciones">
+          <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setNotificationsOpen(false)} />
+          <div className="notif-popover" role="dialog" aria-label="Notificaciones">
             <div className="panel-h">
               <h3>Notificaciones</h3>
               <span className="spacer" />
@@ -198,6 +198,7 @@ export function Header() {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
 

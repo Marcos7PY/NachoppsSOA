@@ -5,6 +5,7 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     container_name: nachopps-rabbitmq
+    restart: unless-stopped
     # Sin puertos expuestos al host
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-nachopps}
@@ -19,6 +20,7 @@ services:
   db-reservas:
     image: postgres:16-alpine
     container_name: nachopps-db-reservas
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -34,6 +36,7 @@ services:
   db-mesas:
     image: postgres:16-alpine
     container_name: nachopps-db-mesas
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -49,6 +52,7 @@ services:
   db-pedidos:
     image: postgres:16-alpine
     container_name: nachopps-db-pedidos
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -64,6 +68,7 @@ services:
   db-cuentas:
     image: postgres:16-alpine
     container_name: nachopps-db-cuentas
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -79,6 +84,7 @@ services:
   db-inventario:
     image: postgres:16-alpine
     container_name: nachopps-db-inventario
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -94,6 +100,7 @@ services:
   db-reportes:
     image: postgres:16-alpine
     container_name: nachopps-db-reportes
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -109,6 +116,7 @@ services:
   db-caja:
     image: postgres:16-alpine
     container_name: nachopps-db-caja
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -124,6 +132,7 @@ services:
   db-identidad:
     image: postgres:16-alpine
     container_name: nachopps-db-identidad
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -139,6 +148,7 @@ services:
   db-notificaciones:
     image: postgres:16-alpine
     container_name: nachopps-db-notificaciones
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-nachopps}
       POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS es obligatorio en produccion}
@@ -157,6 +167,8 @@ services:
   servicio-identidad:
     image: ${REGISTRY:-nachopps}/servicio-identidad:latest
     container_name: nachopps-servicio-identidad
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-identidad:5432/identidad_db?schema=public'
@@ -184,6 +196,8 @@ services:
   servicio-mesas:
     image: ${REGISTRY:-nachopps}/servicio-mesas:latest
     container_name: nachopps-servicio-mesas
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-mesas:5432/mesas_db?schema=public'
@@ -208,6 +222,8 @@ services:
   servicio-pedidos:
     image: ${REGISTRY:-nachopps}/servicio-pedidos:latest
     container_name: nachopps-servicio-pedidos
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-pedidos:5432/pedidos_db?schema=public'
@@ -234,6 +250,8 @@ services:
   servicio-cuentas:
     image: ${REGISTRY:-nachopps}/servicio-cuentas:latest
     container_name: nachopps-servicio-cuentas
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-cuentas:5432/cuentas_db?schema=public'
@@ -259,6 +277,8 @@ services:
   servicio-reservas:
     image: ${REGISTRY:-nachopps}/servicio-reservas:latest
     container_name: nachopps-servicio-reservas
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reservas:5432/reservas_db?schema=public'
@@ -283,6 +303,8 @@ services:
   servicio-inventario:
     image: ${REGISTRY:-nachopps}/servicio-inventario:latest
     container_name: nachopps-servicio-inventario
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-inventario:5432/inventario_db?schema=public'
@@ -307,6 +329,8 @@ services:
   servicio-notificaciones:
     image: ${REGISTRY:-nachopps}/servicio-notificaciones:latest
     container_name: nachopps-servicio-notificaciones
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-notificaciones:5432/notificaciones_db?schema=public'
@@ -331,6 +355,8 @@ services:
   servicio-caja:
     image: ${REGISTRY:-nachopps}/servicio-caja:latest
     container_name: nachopps-servicio-caja
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-caja:5432/caja_db?schema=public'
@@ -356,6 +382,8 @@ services:
   servicio-reportes:
     image: ${REGISTRY:-nachopps}/servicio-reportes:latest
     container_name: nachopps-servicio-reportes
+    restart: unless-stopped
+    stop_grace_period: 30s
     environment:
       PORT: '3000'
       DATABASE_URL: 'postgresql://${DB_USER:-nachopps}:${DB_PASS:?DB_PASS es obligatorio en produccion}@db-reportes:5432/reportes_db?schema=public'
@@ -386,6 +414,7 @@ services:
       dockerfile: Dockerfile
     image: ${REGISTRY:-nachopps}/kong:latest
     container_name: nachopps-kong
+    restart: unless-stopped
     environment:
       KONG_DATABASE: 'off'
       KONG_DECLARATIVE_CONFIG: /kong/kong.yml
@@ -423,6 +452,7 @@ services:
   otel-collector:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
+    restart: unless-stopped
     # Sin exponer puertos en prod o exponer solo el de grafana
     ports:
       - '16686:16686'
@@ -430,6 +460,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: nachopps-prometheus
+    restart: unless-stopped
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
@@ -437,12 +468,14 @@ services:
   alertmanager:
     image: prom/alertmanager:latest
     container_name: nachopps-alertmanager
+    restart: unless-stopped
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
 
   grafana:
     image: grafana/grafana:latest
     container_name: nachopps-grafana
+    restart: unless-stopped
     ports:
       - '3000:3000'
     environment:

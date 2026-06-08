@@ -7,6 +7,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { getJwtPublicKey, getServiceJwtSecret } from '@org/shared-auth';
 
 export interface NotificacionEvento {
   pattern: string;
@@ -46,7 +47,7 @@ export class NotificationsGateway
       const token = this.extractToken(client);
       if (!token) throw new Error('missing token');
 
-      client.data.user = await this.jwtService.verifyAsync(token);
+      client.data.user = await this.verifyToken(token);
       this.logger.log(`Cliente KDS conectado: ${client.id}`);
     } catch {
       this.logger.warn(`Conexión WebSocket no autorizada: ${client.id}`);
@@ -63,6 +64,39 @@ export class NotificationsGateway
   emitPedidoUpdate(evento: NotificacionEvento) {
     this.logger.log('Emitiendo evento pedidoUpdate por WebSocket...');
     this.server.emit('pedidoUpdate', evento);
+  }
+
+  /**
+   * Verifica el token del handshake con el MISMO modelo de confianza que el
+   * guard HTTP (`jwt-keys.ts`): RS256 → clave pública (tokens de usuario, los que
+   * envía la PWA por cookie), HS256 → secreto de servicio (tokens S2S internos).
+   *
+   * El `JwtService` global está configurado solo para FIRMAR HS256, por eso aquí
+   * pasamos la clave y el algoritmo explícitos por llamada. Restringir el `alg`
+   * por rama es lo que cierra el ataque de confusión RS256→HS256: nunca se admite
+   * un HS256 firmado con la clave pública conocida.
+   */
+  private verifyToken(token: string): Promise<unknown> {
+    const alg = this.readAlg(token);
+    if (alg === 'RS256') {
+      return this.jwtService.verifyAsync(token, {
+        secret: getJwtPublicKey(),
+        algorithms: ['RS256'],
+      });
+    }
+    if (alg === 'HS256') {
+      return this.jwtService.verifyAsync(token, {
+        secret: getServiceJwtSecret(),
+        algorithms: ['HS256'],
+      });
+    }
+    throw new Error(`unsupported jwt alg: ${alg}`);
+  }
+
+  private readAlg(token: string): string | undefined {
+    const headerB64 = token.split('.')[0];
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+    return header?.alg;
   }
 
   private extractToken(client: Socket): string | undefined {

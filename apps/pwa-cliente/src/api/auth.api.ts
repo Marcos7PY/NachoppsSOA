@@ -1,6 +1,6 @@
 // api/auth.api.ts — Llamadas de autenticación
 
-import { client } from './client';
+import { client, setAuthToken } from './client';
 import type {
   LoginRequest,
   LoginResponseDto,
@@ -14,6 +14,7 @@ export async function login(req: LoginRequest): Promise<UserDto> {
     req,
   );
   if ('usuario' in response) {
+    setAuthToken(response.access_token);
     return response.usuario;
   }
   return response;

@@ -10,7 +10,6 @@ interface NavItem {
   key: string;
   label: string;
   icon: IconName;
-  tag?: string;
 }
 
 interface NavGroup {
@@ -24,17 +23,17 @@ const NAV: NavGroup[] = [
     items: [
       { key: 'inicio', label: 'Inicio', icon: 'Inicio' },
       { key: 'mesas', label: 'Mesas', icon: 'Mesas' },
-      { key: 'pedidos', label: 'Pedidos', icon: 'Pedidos', tag: 'Hub' },
-      { key: 'cocina', label: 'Cocina', icon: 'Cocina', tag: 'KDS' },
-      { key: 'caja', label: 'Caja', icon: 'Caja', tag: 'Z' },
+      { key: 'pedidos', label: 'Pedidos', icon: 'Pedidos' },
+      { key: 'cocina', label: 'Cocina', icon: 'Cocina' },
+      { key: 'caja', label: 'Caja', icon: 'Caja' },
       { key: 'reservas', label: 'Reservas', icon: 'Reservas' },
     ],
   },
   {
     group: 'Administración',
     items: [
-      { key: 'carta', label: 'Carta / Menú', icon: 'Pedidos', tag: 'New' },
-      { key: 'compras', label: 'Compras', icon: 'Bag', tag: 'New' },
+      { key: 'carta', label: 'Carta / Menú', icon: 'Pedidos' },
+      { key: 'compras', label: 'Compras', icon: 'Bag' },
       { key: 'inventario', label: 'Inventario', icon: 'Inventario' },
       { key: 'reportes', label: 'Reportes', icon: 'Reportes' },
       { key: 'usuarios', label: 'Usuarios', icon: 'Usuarios' },
@@ -83,14 +82,6 @@ export function Sidebar() {
                 >
                   <Ic s={18} />
                   <span>{it.label}</span>
-                  {it.tag && (
-                    <span
-                      className="cnt"
-                      style={on ? undefined : { background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
-                    >
-                      {it.tag}
-                    </span>
-                  )}
                 </button>
               );
             })}
