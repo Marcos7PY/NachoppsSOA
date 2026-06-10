@@ -20,6 +20,16 @@ const CONCURRENCY = parseInt(process.env.CONCURRENCY || '20', 10);
 const ROUNDS = parseInt(process.env.ROUNDS || '50', 10);
 const TIMEOUT_MS = 15000;
 
+// ── Higiene de rate-limit (T-28.4) ──────────────────────────────────────────
+// Kong limita /auth/login a 5/min por IP. Encadenar este script con otros (o
+// repetir corridas) agota ese presupuesto y contamina los asserts de límite con
+// 429 que no son fallos. Antes de medir reseteamos el contador:
+//   RATE_LIMIT_RESET=restart  → reinicia el contenedor Kong (rápido; requiere docker)
+//   RATE_LIMIT_RESET=wait     → espera la ventana (por defecto), sin dependencias
+const KONG_CONTAINER = process.env.KONG_CONTAINER || 'nachopps-kong';
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '61000', 10);
+const LOGIN_BUDGET = parseInt(process.env.LOGIN_BUDGET || '5', 10);
+
 let authToken = null;
 let adminToken = null;
 let testResults = [];
@@ -95,6 +105,39 @@ async function runConcurrent(label, fn, concurrency = CONCURRENCY, rounds = ROUN
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Resetea el presupuesto de rate-limit de login (ver nota de cabecera).
+async function resetRateLimit(reason = '') {
+  if ((process.env.RATE_LIMIT_RESET || 'wait') === 'restart') {
+    try {
+      const { execFileSync } = await import('node:child_process');
+      execFileSync('docker', ['restart', KONG_CONTAINER], { stdio: 'ignore' });
+      await sleep(8000); // Kong vuelve a estar listo
+      console.log(`  ↻ Rate-limit reseteado vía restart de ${KONG_CONTAINER} ${reason}`);
+      return;
+    } catch (err) {
+      console.log(`  ⚠ No se pudo reiniciar Kong (${err.message}); esperando la ventana`);
+    }
+  }
+  console.log(`  ⏳ Esperando ${Math.round(RATE_LIMIT_WINDOW_MS / 1000)}s a que se reabra el presupuesto de login ${reason}`);
+  await sleep(RATE_LIMIT_WINDOW_MS);
+}
+
+// Empuja al reporte un resultado de un test bespoke (no concurrente).
+function pushResult({ label, rounds, ok, statuses }) {
+  const id = ++testId;
+  const result = {
+    id, label, concurrency: 1, rounds, totalMs: 0,
+    successes: ok ? rounds : 0,
+    failures: ok ? 0 : rounds,
+    statuses,
+    latency: { avg: 0, p50: 0, p95: 0, p99: 0, max: 0 },
+    rps: 0,
+  };
+  testResults.push(result);
+  console.log(`  [${id}] ${label}: ${ok ? '✅ OK' : '⚠️ FALLA'} — ${JSON.stringify(statuses)}`);
+  return result;
+}
+
 // ═══════════════════════════════════════════
 // AUTH SETUP
 // ═══════════════════════════════════════════
@@ -115,22 +158,38 @@ async function setupAuth() {
 }
 
 // ═══════════════════════════════════════════
-// TEST 1: IDENTIDAD — Login Burst
+// TEST 1: IDENTIDAD — Presupuesto de rate-limit de login
 // ═══════════════════════════════════════════
+//
+// T-28.3: antes había dos pruebas que generaban ruido en vez de señal:
+//   - "Login burst" lanzaba 50 logins → agotaba el presupuesto 5/min y contaba
+//     los 429 (el rate-limit funcionando) como fallos.
+//   - "Token validation burst" golpeaba POST /auth/validate, eliminado en T-02
+//     → 100% de "fallo" garantizado.
+// Las reemplaza una única prueba que convierte el límite en un assert: con
+// credenciales inválidas esperamos 401 hasta agotar el presupuesto y 429 después.
 
-async function testIdentidadLoginBurst() {
-  console.log('\n═══ TEST 1: servicio-identidad — Login Burst ═══');
-  await runConcurrent('Login burst (20 concurrent logins)', async (i) => {
-    return req('POST', '/identidad/auth/login', {
-      email: 'admin@nachopps.pe', password: 'nachopps123'
+async function testLoginRateLimitBudget() {
+  console.log('\n═══ TEST 1: servicio-identidad — Presupuesto de rate-limit de login ═══');
+  await resetRateLimit('(antes de medir el presupuesto)');
+  const attempts = LOGIN_BUDGET + 3;
+  const statuses = [];
+  for (let i = 0; i < attempts; i++) {
+    const r = await req('POST', '/identidad/auth/login', {
+      email: 'noexiste@nachopps.pe', password: 'credencial-invalida'
     });
-  });
-}
-
-async function testIdentidadTokenValidation() {
-  console.log('\n═══ TEST 1b: servicio-identidad — Token Validation Burst ═══');
-  await runConcurrent('Token validation burst', async (i) => {
-    return req('POST', '/identidad/auth/validate', { token: authToken });
+    statuses.push(r.status);
+  }
+  const dentroDelPresupuesto = statuses.slice(0, LOGIN_BUDGET);
+  const fueraDelPresupuesto = statuses.slice(LOGIN_BUDGET);
+  const ok =
+    dentroDelPresupuesto.every((s) => s === 401 || s === 200) &&
+    fueraDelPresupuesto.some((s) => s === 429);
+  pushResult({
+    label: `Login rate-limit budget (${LOGIN_BUDGET}/min → 429 desde el ${LOGIN_BUDGET + 1}.º)`,
+    rounds: attempts,
+    ok,
+    statuses: statuses.reduce((a, s) => ({ ...a, [s]: (a[s] || 0) + 1 }), {}),
   });
 }
 
@@ -420,11 +479,13 @@ async function main() {
   console.log(`  Concurrency: ${CONCURRENCY}`);
   console.log(`  Rounds: ${ROUNDS}`);
 
+  // Higiene T-28.4: arrancar con el presupuesto de login limpio para que el login
+  // de setup no choque con un 429 dejado por una corrida o script anterior.
+  await resetRateLimit('(arranque del suite)');
   await setupAuth();
 
   // Individual service tests
-  await testIdentidadLoginBurst();
-  await testIdentidadTokenValidation();
+  await testLoginRateLimitBudget();
   await testMesasReads();
   await testMesasCreateAndRead();
   await testPedidosConcurrentCreate();

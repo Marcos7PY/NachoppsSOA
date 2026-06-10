@@ -95,10 +95,13 @@ async function waitRabbitHealthy(timeoutMs = 60000) {
 
 async function createMesaYPedido(label) {
   const numero = 2000000000 + (Date.now() % 100000000);
-  const mesa = await req('POST', '/mesas', { numero, capacidad: 4, zona: label });
-  if (!mesa.ok || !mesa.data?.id) return { ok: false, detail: `mesa ${mesa.status}` };
+  // T-28/T-30: el DTO de mesas usa `ubicacion` (el backend nunca aceptó `zona`).
+  const mesa = await req('POST', '/mesas', { numero, capacidad: 4, ubicacion: label });
+  // La API de mesas envuelve la entidad como `{ mesa: {...} }`; aceptar ambas formas.
+  const mesaId = mesa.data?.mesa?.id ?? mesa.data?.id;
+  if (!mesa.ok || !mesaId) return { ok: false, detail: `mesa ${mesa.status}` };
   const pedido = await req('POST', '/pedidos', {
-    mesaId: mesa.data.id,
+    mesaId,
     items: [{ productoId: '__inexistente__', cantidad: 1 }],
   });
   // 201 (creado) o 400 (validación de stock/producto) ambos prueban que el plano
