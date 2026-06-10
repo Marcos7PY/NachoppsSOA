@@ -1,15 +1,22 @@
 import { CronExpression } from '@nestjs/schedule';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { OutboxProcessor } from './outbox.processor';
 
-// ─── Mocks de módulos externos ────────────────────────────────────────────────
-vi.mock('@org/resiliencia', () => ({
+// Métricas: stubs que no tocan el registro real de Prometheus.
+vi.mock('@org/observabilidad', () => ({
+  getOrCreateGauge: () => ({ set: vi.fn() }),
+  getOrCreateHistogram: () => ({ observe: vi.fn() }),
+}));
+
+// Alerta Slack: la espiamos para verificar el disparo en FAILED.
+vi.mock('./outbox-alert', () => ({
   notifyOutboxFailed: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { notifyOutboxFailed } from '@org/resiliencia';
+import { OutboxProcessor, OutboxProcessorConfig } from './outbox.processor';
+import { notifyOutboxFailed } from './outbox-alert';
 
 const CRON_OPTIONS_METADATA = 'SCHEDULE_CRON_OPTIONS';
+const PRODUCER = 'servicio-pedidos';
 
 function makeEvent(overrides: Record<string, unknown> = {}) {
   return {
@@ -23,7 +30,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createProcessor() {
+function createProcessor(config: Partial<OutboxProcessorConfig> = {}) {
   const prisma = {
     outboxEvent: {
       count: vi.fn().mockResolvedValue(0),
@@ -31,62 +38,40 @@ function createProcessor() {
       update: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
-    idempotencyKey: {
-      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-    },
   };
   const rabbitmq = { publish: vi.fn().mockResolvedValue(undefined) };
   return {
     prisma,
     rabbitmq,
-    processor: new OutboxProcessor(prisma as any, rabbitmq as any),
+    processor: new OutboxProcessor(prisma as any, rabbitmq as any, { producer: PRODUCER, ...config }),
   };
 }
 
 // ─── Metadatos de cron ────────────────────────────────────────────────────────
 
-describe('OutboxProcessor (Pedidos) — metadatos de cron', () => {
+describe('OutboxProcessor — metadatos de cron', () => {
   it('processOutboxEvents corre cada segundo', () => {
-    const meta = (Reflect as any).getMetadata(
-      CRON_OPTIONS_METADATA,
-      OutboxProcessor.prototype.processOutboxEvents,
-    );
+    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.processOutboxEvents);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_SECOND });
   });
 
   it('refreshOutboxMetrics corre cada 10 segundos', () => {
-    const meta = (Reflect as any).getMetadata(
-      CRON_OPTIONS_METADATA,
-      OutboxProcessor.prototype.refreshOutboxMetrics,
-    );
+    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.refreshOutboxMetrics);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_10_SECONDS });
   });
 
   it('purgarOutbox corre cada hora', () => {
-    const meta = (Reflect as any).getMetadata(
-      CRON_OPTIONS_METADATA,
-      OutboxProcessor.prototype.purgarOutbox,
-    );
-    expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_HOUR });
-  });
-
-  it('purgarIdempotencyKeys corre cada hora', () => {
-    const meta = (Reflect as any).getMetadata(
-      CRON_OPTIONS_METADATA,
-      OutboxProcessor.prototype.purgarIdempotencyKeys,
-    );
+    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.purgarOutbox);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_HOUR });
   });
 });
 
 // ─── refreshOutboxMetrics ─────────────────────────────────────────────────────
 
-describe('OutboxProcessor (Pedidos) — refreshOutboxMetrics', () => {
+describe('OutboxProcessor — refreshOutboxMetrics', () => {
   it('consulta pending y failed counts sin lanzar', async () => {
     const { prisma, processor } = createProcessor();
-    prisma.outboxEvent.count
-      .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(1);
+    prisma.outboxEvent.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1);
 
     await expect(processor.refreshOutboxMetrics()).resolves.toBeUndefined();
 
@@ -105,7 +90,7 @@ describe('OutboxProcessor (Pedidos) — refreshOutboxMetrics', () => {
 
 // ─── processOutboxEvents ──────────────────────────────────────────────────────
 
-describe('OutboxProcessor (Pedidos) — processOutboxEvents', () => {
+describe('OutboxProcessor — processOutboxEvents', () => {
   beforeEach(() => {
     vi.mocked(notifyOutboxFailed).mockClear();
   });
@@ -120,43 +105,67 @@ describe('OutboxProcessor (Pedidos) — processOutboxEvents', () => {
     expect(prisma.outboxEvent.update).not.toHaveBeenCalled();
   });
 
+  it('respeta batchSize en el take de findMany (default 50)', async () => {
+    const { prisma, processor } = createProcessor();
+    await processor.processOutboxEvents();
+    expect(prisma.outboxEvent.findMany).toHaveBeenCalledWith({
+      where: { status: 'PENDING' },
+      take: 50,
+      orderBy: { createdAt: 'asc' },
+    });
+  });
+
   it('publica el evento y lo marca PROCESSED', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    const event = makeEvent();
-    prisma.outboxEvent.findMany.mockResolvedValue([event]);
+    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent()]);
 
     await processor.processOutboxEvents();
 
-    expect(rabbitmq.publish).toHaveBeenCalledWith(
-      'pedido.creado',
-      { pedidoId: 'p1' },
-      'servicio-pedidos',
-    );
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
     expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
       where: { id: 'evt-1' },
       data: { status: 'PROCESSED' },
     });
   });
 
+  it('con injectEventId enriquece el payload antes de publicar', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor({ producer: 'servicio-inventario', injectEventId: true });
+    prisma.outboxEvent.findMany.mockResolvedValue([
+      makeEvent({ routingKey: 'stock.descontado', payload: JSON.stringify({ productoId: 'pr1' }) }),
+    ]);
+
+    await processor.processOutboxEvents();
+
+    expect(rabbitmq.publish).toHaveBeenCalledWith(
+      'stock.descontado',
+      { productoId: 'pr1', eventId: 'evt-1' },
+      'servicio-inventario',
+    );
+  });
+
+  it('sin injectEventId no toca el payload', async () => {
+    const { rabbitmq, prisma, processor } = createProcessor();
+    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent()]);
+
+    await processor.processOutboxEvents();
+
+    expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
+  });
+
   it('fallo antes de MAX_ATTEMPTS incrementa attempts sin marcar FAILED', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    const event = makeEvent({ attempts: 3 }); // intento 4 < 5
-    prisma.outboxEvent.findMany.mockResolvedValue([event]);
+    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 3 })]); // intento 4 < 5
     rabbitmq.publish.mockRejectedValue(new Error('timeout'));
 
     await processor.processOutboxEvents();
 
-    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
-      where: { id: 'evt-1' },
-      data: { attempts: 4 },
-    });
+    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({ where: { id: 'evt-1' }, data: { attempts: 4 } });
     expect(notifyOutboxFailed).not.toHaveBeenCalled();
   });
 
   it('fallo en MAX_ATTEMPTS marca FAILED y dispara notifyOutboxFailed', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    const event = makeEvent({ attempts: 4 }); // intento 5 = MAX
-    prisma.outboxEvent.findMany.mockResolvedValue([event]);
+    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 4 })]); // intento 5 = MAX
     rabbitmq.publish.mockRejectedValue(new Error('timeout'));
 
     await processor.processOutboxEvents();
@@ -165,12 +174,20 @@ describe('OutboxProcessor (Pedidos) — processOutboxEvents', () => {
       where: { id: 'evt-1' },
       data: { status: 'FAILED', attempts: 5 },
     });
-    expect(notifyOutboxFailed).toHaveBeenCalledWith(
-      'servicio-pedidos',
-      'evt-1',
-      'pedido.creado',
-      5,
-    );
+    expect(notifyOutboxFailed).toHaveBeenCalledWith(PRODUCER, 'evt-1', 'pedido.creado', 5);
+  });
+
+  it('maxAttempts configurable adelanta el FAILED', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor({ maxAttempts: 2 });
+    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 1 })]); // intento 2 = MAX
+    rabbitmq.publish.mockRejectedValue(new Error('timeout'));
+
+    await processor.processOutboxEvents();
+
+    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
+      where: { id: 'evt-1' },
+      data: { status: 'FAILED', attempts: 2 },
+    });
   });
 
   it('bloqueo concurrente: segunda llamada vuelve sin procesar', async () => {
@@ -201,7 +218,7 @@ describe('OutboxProcessor (Pedidos) — processOutboxEvents', () => {
 
 // ─── purgarOutbox ─────────────────────────────────────────────────────────────
 
-describe('OutboxProcessor (Pedidos) — purgarOutbox', () => {
+describe('OutboxProcessor — purgarOutbox', () => {
   it('elimina PROCESSED (24h) y FAILED (168h) con cutoffs correctos', async () => {
     const { prisma, processor } = createProcessor();
     prisma.outboxEvent.deleteMany.mockResolvedValue({ count: 2 });
@@ -218,20 +235,5 @@ describe('OutboxProcessor (Pedidos) — purgarOutbox', () => {
     const cutoffProcessed: Date = calls[0][0].where.createdAt.lt;
     const cutoffFailed: Date = calls[1][0].where.createdAt.lt;
     expect(cutoffFailed.getTime()).toBeLessThan(cutoffProcessed.getTime());
-  });
-});
-
-// ─── purgarIdempotencyKeys ────────────────────────────────────────────────────
-
-describe('OutboxProcessor (Pedidos) — purgarIdempotencyKeys', () => {
-  it('purga claves con cutoff de 7 días sin tocar outboxEvent', async () => {
-    const { prisma, processor } = createProcessor();
-
-    await processor.purgarIdempotencyKeys();
-
-    expect(prisma.idempotencyKey.deleteMany).toHaveBeenCalledWith({
-      where: { createdAt: { lt: expect.any(Date) } },
-    });
-    expect(prisma.outboxEvent.findMany).not.toHaveBeenCalled();
   });
 });

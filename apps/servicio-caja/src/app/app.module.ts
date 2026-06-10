@@ -3,9 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
-import { OutboxProcessor } from './outbox.processor';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OutboxAdminModule } from '@org/resiliencia';
+import { OutboxAdminModule, OutboxModule } from '@org/resiliencia';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
@@ -20,6 +19,7 @@ import { RoutingKeys } from '@org/contracts';
     SharedAuthModule,
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),
+    OutboxModule.forService(PrismaService, { producer: 'servicio-caja' }),
     ScheduleModule.forRoot(),
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],
@@ -30,7 +30,6 @@ import { RoutingKeys } from '@org/contracts';
   controllers: [AppController, EventsController],
   providers: [
     AppService,
-    OutboxProcessor,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     IdempotencyInterceptor,
     { provide: IDEMPOTENCY_DB, useExisting: PrismaService },
