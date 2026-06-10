@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS builder
 WORKDIR /usr/src/app
 
 ARG APP_NAME
@@ -6,14 +6,14 @@ ENV APP_NAME=${APP_NAME}
 
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* nx.json tsconfig.base.json ./
 COPY apps/${APP_NAME}/package.json ./apps/${APP_NAME}/package.json
-COPY libs/ ./libs/
 COPY apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
 
-# Optimización: Usa la caché nativa de Docker BuildKit para no descargar el internet 9 veces
-RUN apk add --no-cache python3 make g++
-RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts
-RUN npm rebuild bcrypt --build-from-source
+RUN --mount=type=cache,target=/root/.npm \
+    apk add --no-cache python3 make g++ && \
+    npm install --ignore-scripts && \
+    npm rebuild bcrypt --build-from-source
 
+COPY libs/ ./libs/
 COPY apps/${APP_NAME} ./apps/${APP_NAME}
 
 RUN npx prisma generate --schema=./apps/${APP_NAME}/prisma/schema.prisma
@@ -22,7 +22,7 @@ RUN if [ -f libs/shared-auth/tsconfig.json ]; then npx tsc -p libs/shared-auth/t
 
 RUN npx nx build ${APP_NAME} --configuration=production
 
-FROM node:22-alpine AS production
+FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b4479711397108be0966920 AS production
 WORKDIR /usr/src/app
 
 ARG APP_NAME

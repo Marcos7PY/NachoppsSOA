@@ -7,3 +7,8 @@ dist
 .opencode
 coverage
 tmp
+stress-tests
+scripts
+logs
+*.log
+apps/*-e2e
