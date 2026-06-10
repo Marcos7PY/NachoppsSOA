@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger, ServiceUnavailableException, InternalServerErrorException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ServiceTokenService } from '@org/shared-auth';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   PedidoDto,
@@ -64,8 +64,13 @@ export class AppService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
+    private readonly serviceTokenService: ServiceTokenService,
   ) {}
+
+  private getServiceToken(audience: string): string {
+    // Pedidos llama a mesas e inventario → audiencia según destino (T-17).
+    return this.serviceTokenService.generateServiceToken('servicio-pedidos', audience);
+  }
 
   async crearPedido(command: CrearPedidoCommand, mesero?: MeseroPedido | null): Promise<{ message: string; pedido: PedidoDto }> {
     const mesaLocal = await this.validarMesa(command.mesaId);
@@ -104,10 +109,7 @@ export class AppService {
   private async sincronizarMesaLocal(mesaId: string): Promise<MesaLocalEntity> {
     let token: string;
     try {
-      token = this.jwtService.sign(
-        { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
-        { expiresIn: '1h' },
-      );
+      token = this.getServiceToken('servicio-mesas');
     } catch {
       throw new ServiceUnavailableException('No se pudo generar token para consultar mesas. Reintente.');
     }
@@ -155,10 +157,7 @@ export class AppService {
       this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
       let token: string;
       try {
-        token = this.jwtService.sign(
-          { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
-          { expiresIn: '1h' },
-        );
+        token = this.getServiceToken('servicio-inventario');
       } catch {
         throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');
       }

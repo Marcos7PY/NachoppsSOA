@@ -15,7 +15,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
 function createMockPublisher() {
   return {
     publish: vi.fn().mockResolvedValue(undefined),
-    sign: vi.fn().mockReturnValue('service-token'),
+    generateServiceToken: vi.fn().mockReturnValue('service-token'),
   };
 }
 
