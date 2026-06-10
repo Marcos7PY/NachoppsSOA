@@ -20,7 +20,7 @@ export function mapMesa(dto: MesaDto): MesaVM {
     numero: String(dto.numero).padStart(2, '0'),
     numeroRaw: dto.numero,
     capacidad: dto.capacidad,
-    zona: dto.ubicacion,
+    ubicacion: dto.ubicacion,
     estado: dto.estado,
     cuentaAsociada: dto.cuentaAsociada ?? null,
     estadoClass: ESTADO_CSS[dto.estado] ?? '',

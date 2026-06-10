@@ -11,8 +11,8 @@ interface ContextoProps {
   canal: Canal;
   mesaLock: boolean;
   mesaNumero?: string;
-  mesaZona?: string;
-  mesasFisicas: { id: string; numero: string; zona: string }[];
+  mesaUbicacion?: string;
+  mesasFisicas: { id: string; numero: string; ubicacion: string }[];
   selMesaId: string;
   setSelMesaId: (id: string) => void;
   comensales: number;
@@ -41,7 +41,7 @@ export function ContextoCanal(p: ContextoProps) {
       <div className="ctx-row">
         <div className="ctx-stat">
           <span className="ctx-stat-ic" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}><Icons.Mesas s={16} /></span>
-          <div><b>Mesa {p.mesaNumero}</b><small>{p.mesaZona ?? 'Salón'}</small></div>
+          <div><b>Mesa {p.mesaNumero}</b><small>{p.mesaUbicacion ?? 'Salón'}</small></div>
         </div>
         <div className="ctx-field">
           <label>Comensales</label>
@@ -59,7 +59,7 @@ export function ContextoCanal(p: ContextoProps) {
           <label>Mesa</label>
           <div className="ctx-mesas">
             {p.mesasFisicas.map((m) => (
-              <button key={m.id} className={`ctx-mesa ${p.selMesaId === m.id ? 'on' : ''}`} onClick={() => p.setSelMesaId(m.id)} title={`Mesa ${m.numero} · ${m.zona}`}>{m.numero}</button>
+              <button key={m.id} className={`ctx-mesa ${p.selMesaId === m.id ? 'on' : ''}`} onClick={() => p.setSelMesaId(m.id)} title={`Mesa ${m.numero} · ${m.ubicacion}`}>{m.numero}</button>
             ))}
           </div>
         </div>

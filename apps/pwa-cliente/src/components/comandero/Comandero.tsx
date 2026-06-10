@@ -33,7 +33,7 @@ export interface ComanderoProps {
   /** mesa física fijada (modo desde plano de mesas) */
   mesaId?: string;
   mesaNumero?: string;
-  mesaZona?: string;
+  mesaUbicacion?: string;
   /** modo "agregar a cuenta abierta" */
   modoAgregar?: boolean;
 }
@@ -44,7 +44,7 @@ export function Comandero({
   initialCanal = 'SALON',
   mesaId,
   mesaNumero,
-  mesaZona,
+  mesaUbicacion,
   modoAgregar = false,
 }: ComanderoProps) {
   const { toast } = useToast();
@@ -113,7 +113,7 @@ export function Comandero({
           <button className="icon-btn" onClick={onClose} title="Cerrar"><Icons.Close s={18} /></button>
           <h2>{titulo}</h2>
           {mesaLock ? (
-            <span className="pill-soft" style={{ marginLeft: 2 }}>{mesaZona ?? 'Salón'}{modoAgregar ? ' · cuenta abierta' : ''}</span>
+            <span className="pill-soft" style={{ marginLeft: 2 }}>{mesaUbicacion ?? 'Salón'}{modoAgregar ? ' · cuenta abierta' : ''}</span>
           ) : (
             <div className="cmd-canal seg">
               {CANALES.map((c) => {
@@ -135,7 +135,7 @@ export function Comandero({
             canal={cmd.canal}
             mesaLock={mesaLock}
             mesaNumero={mesaNumero}
-            mesaZona={mesaZona}
+            mesaUbicacion={mesaUbicacion}
             mesasFisicas={mesasFisicas}
             selMesaId={cmd.effectiveMesaId}
             setSelMesaId={cmd.setSelMesaId}

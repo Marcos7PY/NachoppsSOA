@@ -21,24 +21,24 @@ const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }
 };
 
 type ComanderoState =
-  | { open: true; mesaId?: string; mesaNumero?: string; mesaZona?: string; modoAgregar: boolean }
+  | { open: true; mesaId?: string; mesaNumero?: string; mesaUbicacion?: string; modoAgregar: boolean }
   | { open: false };
 
 export function MesasScreen() {
   const navigate = useNavigate();
   const { mesas, loading, error, fetch } = useMesasQuery();
-  const [zona, setZona] = useState('TODAS');
+  const [ubicacion, setUbicacion] = useState('TODAS');
   const [sel, setSel] = useState<MesaVM | null>(null);
   const [comandero, setComandero] = useState<ComanderoState>({ open: false });
 
   // Sólo mesas físicas (excluir virtuales 98/99 de delivery/llevar)
   const fisicas = useMemo(() => mesas.filter((m) => m.numeroRaw < 90), [mesas]);
 
-  const zonas = useMemo(
-    () => ['TODAS', ...Array.from(new Set(fisicas.map((m) => m.zona)))],
+  const ubicaciones = useMemo(
+    () => ['TODAS', ...Array.from(new Set(fisicas.map((m) => m.ubicacion)))],
     [fisicas],
   );
-  const visibles = fisicas.filter((m) => zona === 'TODAS' || m.zona === zona);
+  const visibles = fisicas.filter((m) => ubicacion === 'TODAS' || m.ubicacion === ubicacion);
 
   const resumen = useMemo(() => {
     const r: Record<EstadoMesa, number> = { LIBRE: 0, OCUPADA: 0, RESERVADA: 0 };
@@ -87,7 +87,7 @@ export function MesasScreen() {
         <button className="btn btn-primary" onClick={() => setComandero({ open: true, modoAgregar: false })}><Icons.Plus s={16} /> Nuevo pedido</button>
       </div>
 
-      {/* Resumen de estados + filtro de zona */}
+      {/* Resumen de estados + filtro de ubicación (la UI la llama "zona") */}
       <div className="mesa-summary">
         {(Object.keys(EST_META) as EstadoMesa[]).map((k) => (
           <div className="ms-chip" key={k}>
@@ -97,8 +97,8 @@ export function MesasScreen() {
         ))}
         <span className="spacer" />
         <div className="seg sm">
-          {zonas.map((z) => (
-            <button key={z} className={zona === z ? 'on' : ''} onClick={() => setZona(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
+          {ubicaciones.map((z) => (
+            <button key={z} className={ubicacion === z ? 'on' : ''} onClick={() => setUbicacion(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
           ))}
         </div>
       </div>
@@ -114,8 +114,8 @@ export function MesasScreen() {
           mesa={sel}
           onClose={() => setSel(null)}
           onCobrar={() => { const id = sel.id; setSel(null); navigate(`/app/caja?mesaId=${id}`); }}
-          onTomar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaZona: sel.zona, modoAgregar: false }); setSel(null); }}
-          onAgregar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaZona: sel.zona, modoAgregar: true }); setSel(null); }}
+          onTomar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaUbicacion: sel.ubicacion, modoAgregar: false }); setSel(null); }}
+          onAgregar={() => { setComandero({ open: true, mesaId: sel.id, mesaNumero: sel.numero, mesaUbicacion: sel.ubicacion, modoAgregar: true }); setSel(null); }}
         />
       )}
 
@@ -126,7 +126,7 @@ export function MesasScreen() {
           initialCanal="SALON"
           mesaId={comandero.mesaId}
           mesaNumero={comandero.mesaNumero}
-          mesaZona={comandero.mesaZona}
+          mesaUbicacion={comandero.mesaUbicacion}
           modoAgregar={comandero.modoAgregar}
         />
       )}
@@ -167,7 +167,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className={`badge dot ${badgeCls}`}>{meta.label}</span>
           <h3 style={{ fontSize: 18, marginLeft: 4 }}>Mesa {m.numero}</h3>
-          <span className="muted" style={{ fontSize: 13 }}>· {m.zona} · {m.capacidad} pers</span>
+          <span className="muted" style={{ fontSize: 13 }}>· {m.ubicacion} · {m.capacidad} pers</span>
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
@@ -259,7 +259,7 @@ function MesaTile({ mesa: m, onSelect }: MesaTileProps) {
         <span className="mt-num">{m.numero}</span>
         <span className="mt-cap"><Icons.Users2 s={12} /> {m.capacidad}</span>
       </div>
-      <div className="mt-zone">{m.zona}</div>
+      <div className="mt-zone">{m.ubicacion}</div>
       {ocupada && cuentaActiva ? (
         <div className="mt-live">
           <span title={atencion?.title}>{atencion?.label ?? 'Sin asignar'}</span>

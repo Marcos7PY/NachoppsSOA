@@ -25,7 +25,7 @@ export interface MesaVM {
   numero: string;       // "01", "02" (padStart 2)
   numeroRaw: number;    // número original para ordenamiento
   capacidad: number;
-  zona: string;         // ubicacion → zona
+  ubicacion: string;    // homologado con el backend (antes "zona" en la PWA)
   estado: EstadoMesa;
   cuentaAsociada: string | null;
   /** Clase CSS para el color del estado */

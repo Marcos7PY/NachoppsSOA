@@ -14,11 +14,11 @@ function dto(overrides = {}): any {
 }
 
 describe('mapMesa', () => {
-  it('mapea id, capacidad y zona correctamente', () => {
+  it('mapea id, capacidad y ubicacion correctamente', () => {
     const vm = mapMesa(dto());
     expect(vm.id).toBe('mesa-1');
     expect(vm.capacidad).toBe(4);
-    expect(vm.zona).toBe('Salón A');
+    expect(vm.ubicacion).toBe('Salón A');
   });
 
   it('padea número con ceros a 2 dígitos', () => {

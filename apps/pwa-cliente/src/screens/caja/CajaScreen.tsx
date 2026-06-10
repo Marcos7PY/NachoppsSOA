@@ -204,7 +204,7 @@ export function CajaScreen() {
               ) : ocupadas.map((m) => (
                 <button key={m.id} className="rep-opt" onClick={() => { setCobro({ mesaId: m.id, mesaNumero: m.numero }); setCobroPicker(false); }}>
                   <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{m.numero}</span>
-                  <div style={{ flex: 1, textAlign: 'left' }}><b style={{ fontSize: 14 }}>Mesa {m.numero}</b><div className="muted" style={{ fontSize: 12 }}>{m.zona} · {m.capacidad} pers</div></div>
+                  <div style={{ flex: 1, textAlign: 'left' }}><b style={{ fontSize: 14 }}>Mesa {m.numero}</b><div className="muted" style={{ fontSize: 12 }}>{m.ubicacion} · {m.capacidad} pers</div></div>
                   <Icons.ArrowDown s={14} style={{ transform: 'rotate(-90deg)' }} />
                 </button>
               ))}
