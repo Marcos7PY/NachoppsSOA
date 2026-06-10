@@ -9,16 +9,22 @@ out-tsc
 infra/secrets/*
 !infra/secrets/README.md
 
-# Limpieza de repo (plan 6.4)
+# Limpieza de repo (plan 6.4 / T-20)
 logs/
 new-front/
-# docs-deprecated quedó trackeado; para sacarlo del control de versiones
-# (conservando los archivos en disco) ejecuta una vez:
-#   git rm -r --cached docs-deprecated
+# Artefactos deprecados sacados del control de versiones en T-20 (siguen en disco
+# y en el historial de git; `git ls-files` ya no los lista).
 docs-deprecated/
+design_handoff_nachopps/
 
-# Evidencia local de corridas y CI, no versionar
-stress-tests/reports/
+# Cache incremental de TypeScript: regenerable, nunca versionar (T-20)
+*.tsbuildinfo
+
+# Evidencia local de corridas y CI, no versionar (salvo el baseline consolidado).
+# Se ignora el *contenido* del dir (no el dir en si) para que la excepcion del
+# baseline funcione: git no re-incluye archivos bajo un dir excluido con `/`.
+stress-tests/reports/*
+!stress-tests/reports/BASELINE.md
 .ci-logs/
 
 # dependencies

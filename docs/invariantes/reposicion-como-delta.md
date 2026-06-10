@@ -2,7 +2,7 @@
 tipo: invariante
 slug: reposicion-como-delta
 estado: verificada
-fuente: [apps/servicio-pedidos/src/app/app.service.ts:411, apps/servicio-pedidos/src/app/app.service.ts:457, apps/servicio-pedidos/src/app/app.service.ts:462, apps/servicio-pedidos/src/app/app.service.ts:464, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:50, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:58]
+fuente: [apps/servicio-pedidos/src/app/app.service.ts:411, apps/servicio-pedidos/src/app/app.service.ts:457, apps/servicio-pedidos/src/app/app.service.ts:462, apps/servicio-pedidos/src/app/app.service.ts:464, stress-tests/reports/BASELINE.md]
 revisado: 2026-06-02
 commit: 53877c8
 ---
@@ -15,5 +15,5 @@ commit: 53877c8
 
 **Mecanismo que la garantiza.** El consumidor de pedidos calcula `allowStockIncrease` solo para `stockSyncMode === 'REPOSICION' && stockDelta > 0`; al actualizar la proyeccion, cuando esa condicion se cumple suma `stockDelta` al `existente.stockActual` en lugar de copiar `stockActual` absoluto del payload. [apps/servicio-pedidos/src/app/app.service.ts:411, apps/servicio-pedidos/src/app/app.service.ts:457, apps/servicio-pedidos/src/app/app.service.ts:462, apps/servicio-pedidos/src/app/app.service.ts:464]
 
-**Prueba que la verifica.** R2 reporta OK para reposicion como delta durante ventana stale; el detalle muestra payload absoluto 99 y stock final 10 cuando el delta malicioso era -4, sin inflar la proyeccion. [stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:50, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:58]
+**Prueba que la verifica.** R2 reporta OK para reposicion como delta durante ventana stale; el detalle muestra payload absoluto 99 y stock final 10 cuando el delta malicioso era -4, sin inflar la proyeccion. [stress-tests/reports/BASELINE.md]
 

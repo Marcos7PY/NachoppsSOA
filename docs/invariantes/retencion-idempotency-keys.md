@@ -2,7 +2,7 @@
 tipo: invariante
 slug: retencion-idempotency-keys
 estado: verificada
-fuente: [libs/resiliencia/src/lib/idempotency-purge.service.ts:48, libs/resiliencia/src/lib/idempotency-purge.service.ts:50, libs/resiliencia/src/lib/idempotency-purge.service.ts:51, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:75]
+fuente: [libs/resiliencia/src/lib/idempotency-purge.service.ts:48, libs/resiliencia/src/lib/idempotency-purge.service.ts:50, libs/resiliencia/src/lib/idempotency-purge.service.ts:51, stress-tests/reports/BASELINE.md]
 revisado: 2026-06-09
 commit: 9adf05d
 ---
@@ -15,4 +15,4 @@ commit: 9adf05d
 
 **Mecanismo que la garantiza.** `IdempotencyPurgeService` (en `libs/resiliencia`) expone un `purgarIdempotencyKeys` con su propio `@Cron(CronExpression.EVERY_HOUR)`; calcula `Date.now() - retencionDias * 24 * 3600_000` (retencion 7 dias por defecto) y borra claves con `createdAt < cutoff`. Cada servicio lo registra con `IdempotencyPurgeModule.forService(PrismaService)` mas `ScheduleModule.forRoot()`, de modo que corre aunque no haya eventos PENDING que publicar mientras el proceso este levantado. [libs/resiliencia/src/lib/idempotency-purge.service.ts:48, libs/resiliencia/src/lib/idempotency-purge.service.ts:50, libs/resiliencia/src/lib/idempotency-purge.service.ts:51]
 
-**Prueba que la verifica.** El spec `idempotency-purge.service.spec.ts` cubre el cutoff de 7 dias, la retencion configurable y el metadato de cron horario; el reporte T9 deja constancia operacional de la retencion de 7 dias. [libs/resiliencia/src/lib/idempotency-purge.service.spec.ts, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:75]
+**Prueba que la verifica.** El spec `idempotency-purge.service.spec.ts` cubre el cutoff de 7 dias, la retencion configurable y el metadato de cron horario; el reporte T9 deja constancia operacional de la retencion de 7 dias. [libs/resiliencia/src/lib/idempotency-purge.service.spec.ts, stress-tests/reports/BASELINE.md]
