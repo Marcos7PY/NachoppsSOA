@@ -18,6 +18,7 @@
     "probar:stock": "node stress-tests/run-stock-idempotency-dlq.js",
     "probar:alta-contencion": "node stress-tests/run-high-contention.js",
     "probar:caos": "node stress-tests/run-rabbitmq-chaos.js",
+    "probar:replicas": "node stress-tests/run-outbox-replicas.js",
     "drift": "bash scripts/check-migration-drift.sh"
   },
   "private": true,
