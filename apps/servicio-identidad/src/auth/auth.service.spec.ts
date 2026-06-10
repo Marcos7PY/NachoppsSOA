@@ -204,7 +204,9 @@ describe('AuthService — Identidad', () => {
 
       await service.login({ email: 'admin@nachopps.com', password: 'ok' });
 
-      expect(bcrypt.hash).toHaveBeenCalledWith(usuarioBase.password, 12);
+      // Debe re-hashear el texto plano recibido, NO el hash almacenado: hashear
+      // el hash dejaría una credencial que ya no coincide con la contraseña.
+      expect(bcrypt.hash).toHaveBeenCalledWith('ok', 12);
       const rehashCall = mockPrisma.usuario.update.mock.calls.find(
         (c: any) => c[0].data.password === 'hash-costo-12',
       );

@@ -84,9 +84,11 @@ export class AuthService {
 
     const access_token = this.jwt.sign(payload);
 
-    // T-05: re-hash perezoso si el costo almacenado es menor al actual
+    // T-05: re-hash perezoso si el costo almacenado es menor al actual.
+    // Debe re-hashear el texto plano recién verificado, NO el hash almacenado
+    // (hashear el hash deja una credencial que ya no coincide con la contraseña).
     const rehashPromise = bcrypt.getRounds(usuario.password) < SALT_ROUNDS
-      ? bcrypt.hash(usuario.password, SALT_ROUNDS).then((nuevoHash) =>
+      ? bcrypt.hash(command.password, SALT_ROUNDS).then((nuevoHash) =>
           this.prisma.usuario.update({ where: { id: usuario.id }, data: { password: nuevoHash } }),
         )
       : Promise.resolve();
