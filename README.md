@@ -86,8 +86,8 @@ pnpm nx run-many --target=test --all   # vitest raíz: recoge *.spec de servicio
 docker compose -f infra/docker-compose.prod.yml up -d
 ```
 
-### ⚠️ Restricción de escalado
-El `OutboxProcessor` hace polling sin `SELECT ... FOR UPDATE SKIP LOCKED`. **Desplegar 1 réplica por microservicio**; con más de una se publicarían eventos duplicados (mitigado, pero no eliminado, por la idempotencia del consumidor). Configurar además `terminationGracePeriodSeconds` ≥ 30s para el apagado graceful.
+### Escalado horizontal del outbox
+El `OutboxProcessor` (en `libs/resiliencia`) reclama cada lote con un `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` que marca los eventos como `PUBLISHING`: **varias réplicas por microservicio son seguras** — cada una salta las filas bloqueadas por las demás, sin publicar duplicados en el happy path (T-08). Un cron de rescate devuelve a `PENDING` los `PUBLISHING` huérfanos (réplica caída a mitad de lote) tras 60s, preservando la entrega at-least-once. Configurar `terminationGracePeriodSeconds` ≥ 30s para el apagado graceful.
 
 ## Observabilidad
 Jaeger (trazas OTEL), Prometheus (métricas en `/api/telemetry/metrics`) y Grafana. Todos los servicios exportan a `OTEL_EXPORTER_OTLP_ENDPOINT`.

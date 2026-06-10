@@ -47,11 +47,15 @@ interface OutboxEventRow {
 export interface OutboxProcessorDb {
   outboxEvent: {
     count(args: unknown): Promise<number>;
-    findMany(args: unknown): Promise<OutboxEventRow[]>;
     update(args: unknown): Promise<unknown>;
     deleteMany(args: unknown): Promise<{ count: number }>;
   };
+  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
 }
+
+/** Tabla mapeada (idéntica en los 7 schemas: `@@map("outbox_events")`). */
+const OUTBOX_TABLE = '"outbox_events"';
 
 @Injectable()
 export class OutboxProcessor {
@@ -120,13 +124,19 @@ export class OutboxProcessor {
     if (this.isProcessing) return;
     this.isProcessing = true;
     try {
-      const pendingEvents = await this.prisma.outboxEvent.findMany({
-        where: { status: 'PENDING' },
-        take: this.batchSize,
-        orderBy: { createdAt: 'asc' },
-      });
+      // T-08: claim atómico del lote. El UPDATE...FOR UPDATE SKIP LOCKED marca
+      // los eventos como PUBLISHING y los devuelve, de modo que dos réplicas del
+      // processor sobre el mismo store nunca tomen el mismo evento (cada una
+      // salta las filas bloqueadas por la otra). batchSize es un entero interno.
+      const claimedEvents = await this.prisma.$queryRawUnsafe<OutboxEventRow[]>(
+        `UPDATE ${OUTBOX_TABLE} SET status = 'PUBLISHING', "claimedAt" = now()
+         WHERE id IN (
+           SELECT id FROM ${OUTBOX_TABLE} WHERE status = 'PENDING'
+           ORDER BY "createdAt" ASC LIMIT ${Math.trunc(this.batchSize)} FOR UPDATE SKIP LOCKED
+         ) RETURNING *`,
+      );
 
-      for (const event of pendingEvents) {
+      for (const event of claimedEvents) {
         try {
           const payload = JSON.parse(event.payload);
           if (this.injectEventId && payload && typeof payload === 'object' && !Array.isArray(payload)) {
@@ -146,7 +156,7 @@ export class OutboxProcessor {
           if (attempts >= this.maxAttempts) {
             await this.prisma.outboxEvent.update({
               where: { id: event.id },
-              data: { status: 'FAILED', attempts },
+              data: { status: 'FAILED', attempts, claimedAt: null },
             });
             this.logger.error(
               `[ALERTA][OUTBOX_FAILED] ${this.producer} evento ${event.id} (${event.routingKey}) marcado FAILED tras ${attempts} intentos`,
@@ -154,9 +164,10 @@ export class OutboxProcessor {
             );
             void notifyOutboxFailed(this.producer, event.id, event.routingKey, attempts);
           } else {
+            // Devuelve el evento a PENDING (sale de PUBLISHING) para reintentar.
             await this.prisma.outboxEvent.update({
               where: { id: event.id },
-              data: { attempts },
+              data: { status: 'PENDING', attempts, claimedAt: null },
             });
             this.logger.warn(`Evento ${event.id} falló (intento ${attempts}/${this.maxAttempts}) — se reintentará`);
           }
@@ -166,6 +177,27 @@ export class OutboxProcessor {
       this.logger.error('Error procesando Outbox:', error as Error);
     } finally {
       this.isProcessing = false;
+    }
+  }
+
+  /**
+   * Rescate de eventos PUBLISHING huérfanos (T-08): si una réplica murió a mitad
+   * de lote, sus eventos quedan en PUBLISHING. Tras 60s sin progresar vuelven a
+   * PENDING para que otra réplica los retome (at-least-once; el duplicado lo
+   * absorbe la idempotencia del consumidor).
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async rescatarPublishing() {
+    try {
+      const n = await this.prisma.$executeRawUnsafe(
+        `UPDATE ${OUTBOX_TABLE} SET status = 'PENDING', "claimedAt" = NULL
+         WHERE status = 'PUBLISHING' AND "claimedAt" < now() - interval '60 seconds'`,
+      );
+      if (n > 0) {
+        this.logger.warn(`Rescate outbox: ${n} evento(s) PUBLISHING huérfano(s) devuelto(s) a PENDING`);
+      }
+    } catch (error) {
+      this.logger.warn(`No se pudo ejecutar el rescate de outbox: ${(error as Error).message}`);
     }
   }
 

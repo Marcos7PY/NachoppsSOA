@@ -34,10 +34,12 @@ function createProcessor(config: Partial<OutboxProcessorConfig> = {}) {
   const prisma = {
     outboxEvent: {
       count: vi.fn().mockResolvedValue(0),
-      findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
+    // T-08: el claim del lote y el rescate van por SQL crudo.
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(0),
   };
   const rabbitmq = { publish: vi.fn().mockResolvedValue(undefined) };
   return {
@@ -63,6 +65,11 @@ describe('OutboxProcessor — metadatos de cron', () => {
   it('purgarOutbox corre cada hora', () => {
     const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.purgarOutbox);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_HOUR });
+  });
+
+  it('rescatarPublishing corre cada minuto', () => {
+    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.rescatarPublishing);
+    expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_MINUTE });
   });
 });
 
@@ -97,7 +104,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
   it('sin eventos pendientes no llama publish ni update', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockResolvedValue([]);
+    prisma.$queryRawUnsafe.mockResolvedValue([]);
 
     await processor.processOutboxEvents();
 
@@ -105,19 +112,27 @@ describe('OutboxProcessor — processOutboxEvents', () => {
     expect(prisma.outboxEvent.update).not.toHaveBeenCalled();
   });
 
-  it('respeta batchSize en el take de findMany (default 50)', async () => {
+  it('reclama el lote con FOR UPDATE SKIP LOCKED y el batchSize por defecto (50)', async () => {
     const { prisma, processor } = createProcessor();
     await processor.processOutboxEvents();
-    expect(prisma.outboxEvent.findMany).toHaveBeenCalledWith({
-      where: { status: 'PENDING' },
-      take: 50,
-      orderBy: { createdAt: 'asc' },
-    });
+
+    expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+    const sql: string = prisma.$queryRawUnsafe.mock.calls[0][0];
+    expect(sql).toContain('FOR UPDATE SKIP LOCKED');
+    expect(sql).toContain("SET status = 'PUBLISHING'");
+    expect(sql).toContain('LIMIT 50');
+    expect(sql).toContain('RETURNING *');
   });
 
-  it('publica el evento y lo marca PROCESSED', async () => {
+  it('batchSize configurable cambia el LIMIT del claim', async () => {
+    const { prisma, processor } = createProcessor({ batchSize: 10 });
+    await processor.processOutboxEvents();
+    expect(prisma.$queryRawUnsafe.mock.calls[0][0]).toContain('LIMIT 10');
+  });
+
+  it('publica el evento reclamado y lo marca PROCESSED', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent()]);
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent()]);
 
     await processor.processOutboxEvents();
 
@@ -130,7 +145,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
   it('con injectEventId enriquece el payload antes de publicar', async () => {
     const { prisma, rabbitmq, processor } = createProcessor({ producer: 'servicio-inventario', injectEventId: true });
-    prisma.outboxEvent.findMany.mockResolvedValue([
+    prisma.$queryRawUnsafe.mockResolvedValue([
       makeEvent({ routingKey: 'stock.descontado', payload: JSON.stringify({ productoId: 'pr1' }) }),
     ]);
 
@@ -145,74 +160,101 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
   it('sin injectEventId no toca el payload', async () => {
     const { rabbitmq, prisma, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent()]);
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent()]);
 
     await processor.processOutboxEvents();
 
     expect(rabbitmq.publish).toHaveBeenCalledWith('pedido.creado', { pedidoId: 'p1' }, PRODUCER);
   });
 
-  it('fallo antes de MAX_ATTEMPTS incrementa attempts sin marcar FAILED', async () => {
+  it('fallo antes de MAX_ATTEMPTS devuelve a PENDING e incrementa attempts', async () => {
     const { prisma, rabbitmq, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 3 })]); // intento 4 < 5
-    rabbitmq.publish.mockRejectedValue(new Error('timeout'));
-
-    await processor.processOutboxEvents();
-
-    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({ where: { id: 'evt-1' }, data: { attempts: 4 } });
-    expect(notifyOutboxFailed).not.toHaveBeenCalled();
-  });
-
-  it('fallo en MAX_ATTEMPTS marca FAILED y dispara notifyOutboxFailed', async () => {
-    const { prisma, rabbitmq, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 4 })]); // intento 5 = MAX
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent({ attempts: 3 })]); // intento 4 < 5
     rabbitmq.publish.mockRejectedValue(new Error('timeout'));
 
     await processor.processOutboxEvents();
 
     expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
       where: { id: 'evt-1' },
-      data: { status: 'FAILED', attempts: 5 },
+      data: { status: 'PENDING', attempts: 4, claimedAt: null },
+    });
+    expect(notifyOutboxFailed).not.toHaveBeenCalled();
+  });
+
+  it('fallo en MAX_ATTEMPTS marca FAILED y dispara notifyOutboxFailed', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor();
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent({ attempts: 4 })]); // intento 5 = MAX
+    rabbitmq.publish.mockRejectedValue(new Error('timeout'));
+
+    await processor.processOutboxEvents();
+
+    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
+      where: { id: 'evt-1' },
+      data: { status: 'FAILED', attempts: 5, claimedAt: null },
     });
     expect(notifyOutboxFailed).toHaveBeenCalledWith(PRODUCER, 'evt-1', 'pedido.creado', 5);
   });
 
   it('maxAttempts configurable adelanta el FAILED', async () => {
     const { prisma, rabbitmq, processor } = createProcessor({ maxAttempts: 2 });
-    prisma.outboxEvent.findMany.mockResolvedValue([makeEvent({ attempts: 1 })]); // intento 2 = MAX
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent({ attempts: 1 })]); // intento 2 = MAX
     rabbitmq.publish.mockRejectedValue(new Error('timeout'));
 
     await processor.processOutboxEvents();
 
     expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
       where: { id: 'evt-1' },
-      data: { status: 'FAILED', attempts: 2 },
+      data: { status: 'FAILED', attempts: 2, claimedAt: null },
     });
   });
 
-  it('bloqueo concurrente: segunda llamada vuelve sin procesar', async () => {
+  it('bloqueo concurrente: segunda llamada vuelve sin reclamar', async () => {
     const { prisma, processor } = createProcessor();
     (processor as any).isProcessing = true;
 
     await processor.processOutboxEvents();
 
-    expect(prisma.outboxEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
   });
 
-  it('error de findMany no lanza (capturado por bloque outer)', async () => {
+  it('error en el claim no lanza (capturado por bloque outer)', async () => {
     const { prisma, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockRejectedValue(new Error('conn error'));
+    prisma.$queryRawUnsafe.mockRejectedValue(new Error('conn error'));
 
     await expect(processor.processOutboxEvents()).resolves.toBeUndefined();
   });
 
   it('libera el bloqueo isProcessing aunque haya un fallo interno', async () => {
     const { prisma, processor } = createProcessor();
-    prisma.outboxEvent.findMany.mockRejectedValue(new Error('boom'));
+    prisma.$queryRawUnsafe.mockRejectedValue(new Error('boom'));
 
     await processor.processOutboxEvents();
 
     expect((processor as any).isProcessing).toBe(false);
+  });
+});
+
+// ─── rescatarPublishing (T-08) ────────────────────────────────────────────────
+
+describe('OutboxProcessor — rescatarPublishing', () => {
+  it('devuelve a PENDING los PUBLISHING huérfanos (>60s)', async () => {
+    const { prisma, processor } = createProcessor();
+    prisma.$executeRawUnsafe.mockResolvedValue(2);
+
+    await processor.rescatarPublishing();
+
+    expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+    const sql: string = prisma.$executeRawUnsafe.mock.calls[0][0];
+    expect(sql).toContain("status = 'PUBLISHING'");
+    expect(sql).toContain("SET status = 'PENDING'");
+    expect(sql).toContain("interval '60 seconds'");
+  });
+
+  it('absorbe errores de BD sin lanzar', async () => {
+    const { prisma, processor } = createProcessor();
+    prisma.$executeRawUnsafe.mockRejectedValue(new Error('db down'));
+
+    await expect(processor.rescatarPublishing()).resolves.toBeUndefined();
   });
 });
 
