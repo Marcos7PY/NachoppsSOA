@@ -5,7 +5,9 @@ import {
   Inject,
   Injectable,
   NestInterceptor,
+  UnprocessableEntityException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { Observable, from, lastValueFrom } from 'rxjs';
 
 /**
@@ -25,18 +27,21 @@ export interface IdempotencyRecord {
   statusCode?: number | null;
   body?: string | null;
   completedAt?: Date | null;
+  requestHash?: string | null;
 }
 
 export interface IdempotencyDb {
   idempotencyKey: {
     findUnique(args: { where: { key: string } }): Promise<IdempotencyRecord | null>;
-    create(args: { data: { key: string; method?: string; path?: string } }): Promise<unknown>;
+    create(args: { data: { key: string; method?: string; path?: string; requestHash?: string } }): Promise<unknown>;
     update(args: { where: { key: string }; data: Record<string, unknown> }): Promise<unknown>;
     delete(args: { where: { key: string } }): Promise<unknown>;
   };
 }
 
 const IN_PROGRESS_MSG = 'Ya hay una solicitud en curso con esta Idempotency-Key';
+// T-14: misma clave + payload distinto = uso indebido del cliente (comportamiento tipo Stripe).
+const BODY_MISMATCH_MSG = 'La Idempotency-Key ya se usó con un cuerpo de petición distinto';
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -53,8 +58,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const res = context.switchToHttp().getResponse();
     const routePath = req.route?.path ?? req.url;
     const key = `http:${req.method}:${routePath}:${headerKey}`;
+    const requestHash = createHash('sha256')
+      .update(req.body != null ? JSON.stringify(req.body) : '')
+      .digest('hex');
 
-    return from(this.handle(next, key, req.method, String(routePath), res));
+    return from(this.handle(next, key, req.method, String(routePath), requestHash, res));
   }
 
   private async handle(
@@ -62,10 +70,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
     key: string,
     method: string,
     path: string,
+    requestHash: string,
     res: { statusCode?: number; status: (code: number) => unknown },
   ): Promise<unknown> {
     const existing = await this.db.idempotencyKey.findUnique({ where: { key } });
     if (existing) {
+      // T-14: misma clave con un body distinto al original → 422 (no replay silencioso).
+      if (existing.requestHash != null && existing.requestHash !== requestHash) {
+        throw new UnprocessableEntityException(BODY_MISMATCH_MSG);
+      }
       if (existing.completedAt && existing.statusCode != null) {
         res.status(existing.statusCode);
         return existing.body != null ? JSON.parse(existing.body) : undefined;
@@ -76,7 +89,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     // Reclama la clave de forma atómica (el índice único resuelve la carrera).
     try {
-      await this.db.idempotencyKey.create({ data: { key, method, path } });
+      await this.db.idempotencyKey.create({ data: { key, method, path, requestHash } });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {
         throw new ConflictException(IN_PROGRESS_MSG);

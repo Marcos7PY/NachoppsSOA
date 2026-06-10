@@ -1,11 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { of, lastValueFrom, throwError } from 'rxjs';
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { IdempotencyInterceptor } from './idempotency.interceptor';
 
-function makeContext(method = 'POST', headers: Record<string, string> = {}, routePath = '/pedidos') {
+function hashOf(body: unknown) {
+  return createHash('sha256').update(body != null ? JSON.stringify(body) : '').digest('hex');
+}
+
+function makeContext(method = 'POST', headers: Record<string, string> = {}, routePath = '/pedidos', body: unknown = undefined) {
   const res: any = { statusCode: 200, status: vi.fn(function (this: any, c: number) { this.statusCode = c; }) };
-  const req = { method, headers, route: { path: routePath }, url: routePath };
+  const req = { method, headers, route: { path: routePath }, url: routePath, body };
   const ctx: any = {
     getType: () => 'http',
     switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
@@ -51,7 +56,7 @@ describe('IdempotencyInterceptor (plan 1.3)', () => {
     const out = await lastValueFrom(itc.intercept(ctx, { handle: () => of({ pedidoId: 'p1' }) } as any));
     expect(out).toEqual({ pedidoId: 'p1' });
     expect(db.idempotencyKey.create).toHaveBeenCalledWith({
-      data: { key: 'http:POST:/pedidos:k1', method: 'POST', path: '/pedidos' },
+      data: { key: 'http:POST:/pedidos:k1', method: 'POST', path: '/pedidos', requestHash: hashOf(undefined) },
     });
     const upd = db.idempotencyKey.update.mock.calls[0][0];
     expect(upd.where).toEqual({ key: 'http:POST:/pedidos:k1' });
@@ -90,6 +95,32 @@ describe('IdempotencyInterceptor (plan 1.3)', () => {
     const itc = new IdempotencyInterceptor(db as any);
     const { ctx } = makeContext('POST', { 'idempotency-key': 'k1' });
     await expect(lastValueFrom(itc.intercept(ctx, { handle: () => of({}) } as any))).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('T-14: misma clave + mismo body → replay (no 422)', async () => {
+    const body = { cuentaId: 'c1', monto: 50 };
+    const db = makeDb({
+      findUnique: vi.fn().mockResolvedValue({
+        key: 'x', statusCode: 201, body: JSON.stringify({ ok: 1 }), completedAt: new Date(), requestHash: hashOf(body),
+      }),
+    });
+    const itc = new IdempotencyInterceptor(db as any);
+    const { ctx } = makeContext('POST', { 'idempotency-key': 'k1' }, '/pedidos', body);
+    const out = await lastValueFrom(itc.intercept(ctx, { handle: () => of({ ok: 'NO' }) } as any));
+    expect(out).toEqual({ ok: 1 });
+  });
+
+  it('T-14: misma clave + body distinto → 422', async () => {
+    const db = makeDb({
+      findUnique: vi.fn().mockResolvedValue({
+        key: 'x', statusCode: 201, body: JSON.stringify({ ok: 1 }), completedAt: new Date(), requestHash: hashOf({ monto: 50 }),
+      }),
+    });
+    const itc = new IdempotencyInterceptor(db as any);
+    const { ctx } = makeContext('POST', { 'idempotency-key': 'k1' }, '/pedidos', { monto: 999 });
+    await expect(
+      lastValueFrom(itc.intercept(ctx, { handle: () => of({}) } as any)),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
   it('si el handler falla, libera la clave y propaga el error', async () => {

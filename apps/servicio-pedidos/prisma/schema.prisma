@@ -116,6 +116,8 @@ model IdempotencyKey {
   statusCode  Int?
   body        String?
   completedAt DateTime?
+  // T-14: huella SHA-256 del cuerpo de la petición; misma clave + body distinto → 422.
+  requestHash String?
 
   @@index([createdAt])
   @@map("idempotency_keys")

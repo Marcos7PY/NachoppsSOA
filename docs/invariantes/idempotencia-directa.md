@@ -17,3 +17,11 @@ commit: 53877c8
 
 **Prueba que la verifica.** D1c reporta 12 redeliveries concurrentes, stock inicial 20, cantidad 5 y stock final 15, sin residuo de DLQ. [stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:40, stress-tests/reports/stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md:43]
 
+**Adenda T-14 (idempotencia HTTP, pedidos y caja).** El `IdempotencyInterceptor`
+(`libs/resiliencia/src/lib/idempotency.interceptor.ts`) persiste `requestHash =
+sha256(JSON.stringify(body))` al reclamar la `Idempotency-Key`. Un replay con la misma
+clave y el mismo body devuelve la respuesta cacheada; con un body distinto responde 422
+(`UnprocessableEntityException`, comportamiento tipo Stripe) en vez de un replay silencioso
+que devolveria la respuesta del primer payload. Requiere la columna `requestHash` (migracion
+`20260609030000_idempotency_request_hash` en pedidos y caja). [libs/resiliencia/src/lib/idempotency.interceptor.ts:67]
+
