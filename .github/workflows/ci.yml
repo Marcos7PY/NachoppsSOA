@@ -111,3 +111,17 @@ jobs:
         env:
           SHADOW_DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/drift_shadow'
         run: bash scripts/check-migration-drift.sh
+
+  agent-skills-drift:
+    # Falla el build si alguna copia de skills de agentes IA quedó desincronizada
+    # de la fuente canónica .agents/skills (plan T-21).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check agent skills sync
+        run: node scripts/sync-agent-skills.mjs --check

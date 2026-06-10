@@ -44,8 +44,22 @@ Toda entrada relevante se registra en `CHANGELOG.md` bajo `[Unreleased]`, agrupa
 en `Added` / `Changed` / `Fixed` / `Security` / `Tests`. Al publicar una versión,
 se mueve el bloque `[Unreleased]` a su número de versión con fecha.
 
+## Skills de agentes IA
+
+Las skills de los agentes (`.cursor`, `.gemini`, `.opencode`, `.github`) son
+**copias generadas**: la fuente única es **`.agents/skills/`**. No edites las
+copias a mano. Tras cambiar una skill canónica, regenera las copias con:
+
+```sh
+node scripts/sync-agent-skills.mjs
+```
+
+(`.gemini` usa `skill.md` en minúsculas; el resto `SKILL.md`.) El job
+`agent-skills-drift` de CI corre `--check` y falla si alguna copia divergió.
+
 ## Antes de abrir un PR
 
 - `pnpm nx affected -t typecheck build test` (o `npm exec nx ...`) en verde.
 - Sin drift de migraciones: `npm run drift` (requiere un Postgres shadow).
 - Si tocas un `schema.prisma`, incluye su migración.
+- Si tocas una skill de agente, regenera las copias: `node scripts/sync-agent-skills.mjs`.
