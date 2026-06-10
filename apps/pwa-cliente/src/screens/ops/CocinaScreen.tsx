@@ -14,6 +14,7 @@ import {
   ETAPAS_PRODUCCION as COLS,
   ESTADOS_PRODUCCION,
   NEXT_ITEM,
+  PREV_ITEM,
   SLA_MIN,
   slaRatio as ratioOf,
   urgClass,
