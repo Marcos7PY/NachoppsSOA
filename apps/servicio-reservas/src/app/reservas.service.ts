@@ -2,7 +2,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  OnModuleInit,
 } from '@nestjs/common';
 import {
   CrearReservaCommand,
@@ -18,14 +17,10 @@ import { toReservaDto } from './reservas.mapper';
 import { Reserva } from '../generated/prisma';
 
 @Injectable()
-export class ReservasService implements OnModuleInit {
+export class ReservasService {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
-
-  async onModuleInit() {
-    await this.ensureActiveSlotUniqueness();
-  }
 
   async listar(query: ListarReservasQuery = {}): Promise<ReservaListResponse> {
     const limit = this.normalizeLimit(query.limit);
@@ -165,35 +160,6 @@ export class ReservasService implements OnModuleInit {
 
   private isUniqueConstraintViolation(error: unknown): boolean {
     return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
-  }
-
-  private async ensureActiveSlotUniqueness() {
-    await this.prisma.$executeRawUnsafe(`
-      WITH ranked_active_reservations AS (
-        SELECT
-          id,
-          ROW_NUMBER() OVER (
-            PARTITION BY fecha, hora
-            ORDER BY "createdAt", id
-          ) AS rn
-        FROM "Reserva"
-        WHERE estado IN ('PENDIENTE', 'CONFIRMADA')
-      )
-      UPDATE "Reserva"
-      SET estado = 'CANCELADA',
-          "updatedAt" = CURRENT_TIMESTAMP
-      WHERE id IN (
-        SELECT id
-        FROM ranked_active_reservations
-        WHERE rn > 1
-      )
-    `);
-
-    await this.prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "Reserva_fecha_hora_active_unique"
-      ON "Reserva"("fecha", "hora")
-      WHERE estado IN ('PENDIENTE', 'CONFIRMADA')
-    `);
   }
 
   private async findOrThrow(id: string) {
