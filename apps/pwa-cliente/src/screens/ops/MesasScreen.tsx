@@ -5,12 +5,14 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
-import { fmt } from '../../utils/format';
+import { fmt, elapsedLabel } from '../../utils/format';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { Comandero } from '../../components/comandero/Comandero';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useNow } from '../../hooks/useNow';
 import type { MesaVM, EstadoMesa } from '../../types/mesa.types';
+import type { CuentaVM } from '../../types/cuenta.types';
 
 const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }> = {
   LIBRE: { label: 'Libre', cls: 'libre', color: 'var(--ok)' },
@@ -102,24 +104,9 @@ export function MesasScreen() {
       </div>
 
       <div className="mesa-floor">
-        {visibles.map((m) => {
-          const meta = EST_META[m.estado];
-          const ocupada = m.estado === 'OCUPADA';
-          return (
-            <button key={m.id} className={`mesa-tile ${meta.cls}`} onClick={() => setSel(m)}>
-              <div className="mt-top">
-                <span className="mt-num">{m.numero}</span>
-                <span className="mt-cap"><Icons.Users2 s={12} /> {m.capacidad}</span>
-              </div>
-              <div className="mt-zone">{m.zona}</div>
-              <div className="mt-foot">
-                {ocupada
-                  ? <span className="mt-state" style={{ color: 'var(--accent-text)' }}>Cuenta abierta</span>
-                  : <span className="mt-state">{meta.label}</span>}
-              </div>
-            </button>
-          );
-        })}
+        {visibles.map((m) => (
+          <MesaTile key={m.id} mesa={m} onSelect={() => setSel(m)} />
+        ))}
       </div>
 
       {sel && (
@@ -158,11 +145,13 @@ interface MesaDrawerProps {
 function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDrawerProps) {
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
+  const now = useNow();
   const meta = EST_META[m.estado];
   const drawerRef = useRef<HTMLElement>(null);
   useFocusTrap(drawerRef, { active: true, onClose });
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
+  const atencion = cuentaActiva ? atencionDeCuenta(cuentaActiva) : null;
   const badgeCls = m.estado === 'OCUPADA' ? 'badge-accent' : m.estado === 'RESERVADA' ? 'badge-info' : 'badge-muted';
 
   return (
@@ -188,6 +177,16 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
               <div className="muted" style={{ padding: 16, textAlign: 'center' }}>Cargando cuenta…</div>
             ) : cuentaActiva ? (
               <>
+                <div className="mesa-open-meta">
+                  <div>
+                    <span className="k">Atiende</span>
+                    <b>{atencion?.label ?? 'Sin asignar'}</b>
+                  </div>
+                  <div>
+                    <span className="k">Abierta</span>
+                    <b>{elapsedLabel(cuentaActiva.createdAt, now)}</b>
+                  </div>
+                </div>
                 <div className="hint" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', margin: '4px 0 8px' }}>Cuenta actual · {cuentaActiva.cantidadItems} ítems</div>
                 <div className="panel" style={{ padding: '4px 14px' }}>
                   {items.length === 0 ? (
@@ -240,4 +239,54 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
       </aside>
     </div>
   );
+}
+
+interface MesaTileProps {
+  mesa: MesaVM;
+  onSelect: () => void;
+}
+
+function MesaTile({ mesa: m, onSelect }: MesaTileProps) {
+  const ocupada = m.estado === 'OCUPADA';
+  const meta = EST_META[m.estado];
+  const now = useNow();
+  const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
+  const atencion = cuentaActiva ? atencionDeCuenta(cuentaActiva) : null;
+
+  return (
+    <button className={`mesa-tile ${meta.cls}`} onClick={onSelect}>
+      <div className="mt-top">
+        <span className="mt-num">{m.numero}</span>
+        <span className="mt-cap"><Icons.Users2 s={12} /> {m.capacidad}</span>
+      </div>
+      <div className="mt-zone">{m.zona}</div>
+      {ocupada && cuentaActiva ? (
+        <div className="mt-live">
+          <span title={atencion?.title}>{atencion?.label ?? 'Sin asignar'}</span>
+          <b><Icons.Clock s={12} /> {elapsedLabel(cuentaActiva.createdAt, now)}</b>
+        </div>
+      ) : null}
+      <div className="mt-foot">
+        {ocupada
+          ? <span className="mt-state" style={{ color: 'var(--accent-text)' }}>{loading ? 'Cargando cuenta...' : 'Cuenta abierta'}</span>
+          : <span className="mt-state">{meta.label}</span>}
+      </div>
+    </button>
+  );
+}
+
+function atencionDeCuenta(cuenta: CuentaVM): { label: string; title: string } {
+  const nombres = Array.from(
+    new Set(cuenta.pedidos.map((pedido) => pedido.meseroNombre?.trim()).filter(Boolean) as string[]),
+  );
+
+  if (nombres.length === 0) {
+    return { label: 'Sin asignar', title: 'Sin mesero registrado en los pedidos' };
+  }
+
+  if (nombres.length === 1) {
+    return { label: nombres[0], title: nombres[0] };
+  }
+
+  return { label: `${nombres[0]} +${nombres.length - 1}`, title: nombres.join(', ') };
 }

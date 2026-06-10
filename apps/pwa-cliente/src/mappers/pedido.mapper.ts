@@ -71,6 +71,8 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
     estadoClass: ESTADO_CSS[dto.estado] ?? 'badge-muted',
     estadoLabel: ESTADO_LABEL[dto.estado] ?? dto.estado,
     createdAt: dto.createdAt,
+    meseroId: dto.meseroId ?? undefined,
+    meseroNombre: dto.meseroNombre ?? undefined,
     cliente: dto.cliente ?? undefined,
     telefono: dto.telefono ?? undefined,
     direccion: dto.direccion ?? undefined,

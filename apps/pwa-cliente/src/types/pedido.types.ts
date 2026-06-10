@@ -80,6 +80,8 @@ export interface PedidoVM {
   estadoClass: string;
   estadoLabel: string;
   createdAt: string;
+  meseroId?: string;
+  meseroNombre?: string;
   cliente?: string;
   telefono?: string;
   direccion?: string;
