@@ -8,6 +8,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getJwtPublicKey, getServiceJwtSecret } from '@org/shared-auth';
+import { wsRoomForRole, wsRoomsForPattern } from '@org/contracts';
 
 export interface NotificacionEvento {
   pattern: string;
@@ -16,8 +17,8 @@ export interface NotificacionEvento {
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGINS
-      ? process.env.ALLOWED_ORIGINS.split(',')
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
       : [
           'http://localhost:3000',
           'http://localhost:4200',
@@ -47,8 +48,13 @@ export class NotificationsGateway
       const token = this.extractToken(client);
       if (!token) throw new Error('missing token');
 
-      client.data.user = await this.verifyToken(token);
-      this.logger.log(`Cliente KDS conectado: ${client.id}`);
+      const user = (await this.verifyToken(token)) as { rol?: string };
+      client.data.user = user;
+      // T-19: unir al room por rol para emisión dirigida en vez de broadcast global.
+      if (user?.rol) {
+        client.join(wsRoomForRole(user.rol));
+      }
+      this.logger.log(`Cliente KDS conectado: ${client.id} (rol:${user?.rol ?? '?'})`);
     } catch {
       this.logger.warn(`Conexión WebSocket no autorizada: ${client.id}`);
       client.emit('auth:error', { message: 'unauthorized' });
@@ -60,10 +66,16 @@ export class NotificationsGateway
     this.logger.log(`Cliente KDS desconectado: ${client.id}`);
   }
 
-  // Método público para emitir eventos de pedidos a todos los clientes (cocina)
+  // T-19: emite el evento solo a los roles autorizados a verlo (matriz en @org/contracts),
+  // en vez de un broadcast global que filtraba pagos/arqueos a cualquier autenticado.
   emitPedidoUpdate(evento: NotificacionEvento) {
-    this.logger.log('Emitiendo evento pedidoUpdate por WebSocket...');
-    this.server.emit('pedidoUpdate', evento);
+    const rooms = wsRoomsForPattern(evento.pattern);
+    if (rooms.length === 0) {
+      this.logger.warn(`Evento "${evento.pattern}" sin roles en la matriz WS; no se emite`);
+      return;
+    }
+    this.logger.log(`Emitiendo "${evento.pattern}" por WebSocket a ${rooms.join(', ')}`);
+    this.server.to(rooms).emit('pedidoUpdate', evento);
   }
 
   /**

@@ -46,6 +46,7 @@ function createClient({
     },
     emit: vi.fn(),
     disconnect: vi.fn(),
+    join: vi.fn(),
   } as any;
 }
 
@@ -73,6 +74,45 @@ describe('NotificationsGateway', () => {
     expect(client.data.user).toMatchObject({ sub: 'user-1', rol: 'COCINA' });
     expect(client.emit).not.toHaveBeenCalled();
     expect(client.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('T-19: une al cliente al room de su rol', async () => {
+    const client = createClient({ authToken: userToken({ sub: 'u2', rol: 'CAJERO' }) });
+
+    await gateway.handleConnection(client);
+
+    expect(client.join).toHaveBeenCalledWith('rol:CAJERO');
+  });
+
+  describe('T-19: emisión dirigida por rol', () => {
+    function gatewayWithServerSpy() {
+      const emit = vi.fn();
+      const to = vi.fn().mockReturnValue({ emit });
+      const gw = new NotificationsGateway(new JwtService({}));
+      (gw as any).server = { to, emit };
+      return { gw, to, emit };
+    }
+
+    it('pago.registrado va a ADMIN/CAJERO/GERENCIA, no a MESERO/COCINA', () => {
+      const { gw, to } = gatewayWithServerSpy();
+      gw.emitPedidoUpdate({ pattern: 'pago.registrado', data: {} });
+      const rooms = to.mock.calls[0][0];
+      expect(rooms).toEqual(expect.arrayContaining(['rol:ADMIN', 'rol:CAJERO', 'rol:GERENCIA']));
+      expect(rooms).not.toContain('rol:MESERO');
+      expect(rooms).not.toContain('rol:COCINA');
+    });
+
+    it('pedido.creado incluye COCINA (KDS)', () => {
+      const { gw, to } = gatewayWithServerSpy();
+      gw.emitPedidoUpdate({ pattern: 'pedido.creado', data: {} });
+      expect(to.mock.calls[0][0]).toContain('rol:COCINA');
+    });
+
+    it('un patrón fuera de la matriz no se emite', () => {
+      const { gw, to } = gatewayWithServerSpy();
+      gw.emitPedidoUpdate({ pattern: 'desconocido.evento', data: {} });
+      expect(to).not.toHaveBeenCalled();
+    });
   });
 
   it('acepta un token de SERVICIO HS256 válido por handshake.auth', async () => {
