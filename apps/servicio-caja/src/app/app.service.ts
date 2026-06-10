@@ -57,7 +57,8 @@ export class AppService {
   ) {}
 
   private getServiceToken(): string {
-    return this.serviceTokenService.generateServiceToken('servicio-caja');
+    // Caja solo llama a cuentas → audiencia fija (T-17).
+    return this.serviceTokenService.generateServiceToken('servicio-caja', 'servicio-cuentas');
   }
 
   private usuario(usuarioId?: string | null) {
@@ -102,33 +103,52 @@ export class AppService {
     if (abierto) return this.mapTurno(abierto);
 
     const fondoInicial = this.money(command.fondoInicial ?? 0);
-    const turno = await this.prisma.$transaction(async (prisma) => {
-      const creado = await prisma.turnoCaja.create({
-        data: {
-          cajaId: command.cajaId ?? 'T01',
-          cajaNombre: command.cajaNombre ?? 'Terminal 01',
-          usuarioId: this.usuario(usuarioId),
-          cajeroNombre: command.cajeroNombre,
-          fondoInicial,
-          estado: 'ABIERTA',
-        },
-      });
+    let turno;
+    try {
+      turno = await this.prisma.$transaction(async (prisma) => {
+        const creado = await prisma.turnoCaja.create({
+          data: {
+            cajaId: command.cajaId ?? 'T01',
+            cajaNombre: command.cajaNombre ?? 'Terminal 01',
+            usuarioId: this.usuario(usuarioId),
+            cajeroNombre: command.cajeroNombre,
+            fondoInicial,
+            estado: 'ABIERTA',
+          },
+        });
 
-      await prisma.movimientoCaja.create({
-        data: {
-          turnoId: creado.id,
-          tipo: 'APERTURA',
-          donde: 'Fondo inicial',
-          metodo: 'EFECTIVO',
-          monto: fondoInicial,
-        },
-      });
+        await prisma.movimientoCaja.create({
+          data: {
+            turnoId: creado.id,
+            tipo: 'APERTURA',
+            donde: 'Fondo inicial',
+            metodo: 'EFECTIVO',
+            monto: fondoInicial,
+          },
+        });
 
-      return creado;
-    });
+        return creado;
+      });
+    } catch (error) {
+      // T-25: carrera con otra apertura concurrente — el índice único parcial
+      // `turnos_caja_un_abierto` rechaza el segundo INSERT con P2002. Devolver el
+      // turno ya abierto (misma semántica que "si ya hay uno, devolverlo").
+      if (this.isUniqueConstraintViolation(error)) {
+        const existente = await this.prisma.turnoCaja.findFirst({
+          where: { estado: 'ABIERTA' },
+          orderBy: { abiertoAt: 'desc' },
+        });
+        if (existente) return this.mapTurno(existente);
+      }
+      throw error;
+    }
 
     this.logger.log(`Turno de caja ${turno.id} abierto`);
     return this.mapTurno(turno);
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
   }
 
   async obtenerTurnoActivo(_usuarioId?: string | null) {

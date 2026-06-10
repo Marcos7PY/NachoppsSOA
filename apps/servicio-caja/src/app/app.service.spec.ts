@@ -52,6 +52,7 @@ describe('AppService — Caja', () => {
       },
       turnoCaja: {
         findFirst: vi.fn(),
+        create: vi.fn(),
       },
       movimientoCaja: {
         create: vi.fn(),
@@ -172,6 +173,55 @@ describe('AppService — Caja', () => {
       await expect(
         service.registrarPago({ cuentaId: 'c-001', montoRecibido: 60, metodo: 'EFECTIVO' })
       ).rejects.toThrow('total exacto');
+    });
+  });
+
+  describe('abrirTurno — T-25 carrera', () => {
+    const turnoAbierto = {
+      id: 'turno-001',
+      cajaId: 'T01',
+      cajaNombre: 'Terminal 01',
+      usuarioId: 'u-001',
+      cajeroNombre: 'Caja',
+      fondoInicial: 300,
+      estado: 'ABIERTA',
+      abiertoAt: new Date(),
+      cerradoAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('devuelve el turno existente si ya hay uno ABIERTA (sin crear)', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValue(turnoAbierto);
+
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001');
+
+      expect(result.id).toBe('turno-001');
+      expect(mockPrisma.turnoCaja.create).not.toHaveBeenCalled();
+    });
+
+    it('crea un turno nuevo cuando no hay ninguno abierto', async () => {
+      mockPrisma.turnoCaja.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.turnoCaja.create.mockResolvedValue(turnoAbierto);
+      mockPrisma.movimientoCaja.create.mockResolvedValue({});
+
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-001');
+
+      expect(result.id).toBe('turno-001');
+      expect(mockPrisma.turnoCaja.create).toHaveBeenCalled();
+    });
+
+    it('ante carrera (P2002 del índice único) devuelve el turno ganador', async () => {
+      // 1ª lectura: no hay turno → intenta crear; el índice rechaza con P2002;
+      // 2ª lectura: el turno del ganador ya está ABIERTA.
+      mockPrisma.turnoCaja.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(turnoAbierto);
+      mockPrisma.turnoCaja.create.mockRejectedValue({ code: 'P2002' });
+
+      const result = await service.abrirTurno({ fondoInicial: 300 } as any, 'u-002');
+
+      expect(result.id).toBe('turno-001');
     });
   });
 
