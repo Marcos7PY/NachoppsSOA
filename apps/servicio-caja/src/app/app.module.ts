@@ -4,7 +4,7 @@ import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OutboxAdminModule, OutboxModule } from '@org/resiliencia';
+import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule } from '@org/resiliencia';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
@@ -20,6 +20,7 @@ import { RoutingKeys } from '@org/contracts';
     PrismaModule,
     OutboxAdminModule.forRoot(PrismaService),
     OutboxModule.forService(PrismaService, { producer: 'servicio-caja' }),
+    IdempotencyPurgeModule.forService(PrismaService),
     ScheduleModule.forRoot(),
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],

@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaService } from '../prisma/prisma.service';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
+import { IdempotencyPurgeModule } from '@org/resiliencia';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
 import { RoutingKeys } from '@org/contracts';
 
@@ -14,6 +17,8 @@ import { RoutingKeys } from '@org/contracts';
     PrismaModule,
     ObservabilidadModule,
     SharedAuthModule,
+    ScheduleModule.forRoot(),
+    IdempotencyPurgeModule.forService(PrismaService),
     RabbitMQModule.forRoot({
       uri: process.env['RABBITMQ_URI'],
       queue: 'notificaciones_queue',
