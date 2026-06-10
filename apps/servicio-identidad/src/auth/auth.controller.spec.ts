@@ -104,7 +104,6 @@ describe('AuthController', () => {
 
   it('delega endpoints protegidos y publicos al servicio', async () => {
     const authService = {
-      validarToken: vi.fn().mockReturnValue({ valid: true }),
       obtenerPerfil: vi.fn().mockResolvedValue({ id: 'user-1' }),
       crearUsuario: vi.fn().mockResolvedValue({ id: 'new-user' }),
       listarUsuarios: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -112,7 +111,6 @@ describe('AuthController', () => {
     };
     const controller = new AuthController(authService as any);
 
-    expect(await controller.validate({ token: 'token' })).toEqual({ valid: true });
     expect(await controller.me({ user: { sub: 'user-1' } })).toEqual({ id: 'user-1' });
     expect(await controller.crearUsuario({ email: 'a@test.com' } as any)).toEqual({
       id: 'new-user',
@@ -121,7 +119,9 @@ describe('AuthController', () => {
       items: [],
       total: 0,
     });
-    expect(await controller.cambiarRol('user-1', { rol: 'ADMIN' } as any)).toEqual({
+    expect(
+      await controller.cambiarRol('user-1', { rol: 'ADMIN' } as any, { user: { sub: 'admin-1' } }),
+    ).toEqual({
       id: 'user-1',
       rol: 'ADMIN',
     });

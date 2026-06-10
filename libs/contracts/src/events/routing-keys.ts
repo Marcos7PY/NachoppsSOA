@@ -34,9 +34,6 @@ export const RoutingKeys = {
   StockInsuficiente: 'stock.insuficiente',
   ProductoCreado: 'producto.creado',
   ProductoActualizado: 'producto.actualizado',
-
-  // Identidad
-  UsuarioAutenticado: 'usuario.autenticado',
 } as const;
 
 export type RoutingKey = (typeof RoutingKeys)[keyof typeof RoutingKeys];

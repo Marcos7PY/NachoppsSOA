@@ -23,9 +23,7 @@ import {
   ListarUsuariosQuery,
   UsuarioListResponse,
 } from '@org/contracts';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { RolesGuard } from './roles.guard';
-import { Roles } from './roles.decorator';
+import { JwtAuthGuard, RolesGuard, Roles } from '@org/shared-auth';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 const COOKIE_SAME_SITE = (process.env.COOKIE_SAMESITE ?? 'strict') as
@@ -134,12 +132,6 @@ export class AuthController {
     };
   }
 
-  @HttpCode(200)
-  @Post('auth/validate')
-  async validate(@Body() body: { token: string }) {
-    return this.authService.validarToken(body.token);
-  }
-
   /* ── Protegidos (requieren JWT) ────────────────────── */
 
   @UseGuards(JwtAuthGuard)
@@ -172,7 +164,8 @@ export class AuthController {
   async cambiarRol(
     @Param('id') id: string,
     @Body() command: CambiarRolCommand,
+    @Request() req: any,
   ) {
-    return this.authService.cambiarRol(id, command);
+    return this.authService.cambiarRol(id, command, req.user.sub);
   }
 }

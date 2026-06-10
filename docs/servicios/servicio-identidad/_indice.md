@@ -12,9 +12,8 @@ commit: 53877c8
 
 - [GET /](endpoints/GET--raiz.md) [apps/servicio-identidad/src/auth/auth.controller.ts:39]
 - [POST /auth/login](endpoints/POST--auth-login.md) [apps/servicio-identidad/src/auth/auth.controller.ts:47]
-- [POST /auth/logout](endpoints/POST--auth-logout.md) [apps/servicio-identidad/src/auth/auth.controller.ts:75]
-- [POST /auth/validate](endpoints/POST--auth-validate.md) [apps/servicio-identidad/src/auth/auth.controller.ts:96]
-- [GET /auth/me](endpoints/GET--auth-me.md) [apps/servicio-identidad/src/auth/auth.controller.ts:104]
+- [POST /auth/logout](endpoints/POST--auth-logout.md) [apps/servicio-identidad/src/auth/auth.controller.ts:101]
+- [GET /auth/me](endpoints/GET--auth-me.md) [apps/servicio-identidad/src/auth/auth.controller.ts:139]
 - [POST /usuarios](endpoints/POST--usuarios.md) [apps/servicio-identidad/src/auth/auth.controller.ts:113]
 - [GET /usuarios](endpoints/GET--usuarios.md) [apps/servicio-identidad/src/auth/auth.controller.ts:120]
 - [PATCH /usuarios/:id/rol](endpoints/PATCH--usuarios-id-rol.md) [apps/servicio-identidad/src/auth/auth.controller.ts:127]

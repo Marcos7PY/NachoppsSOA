@@ -19,7 +19,7 @@ commit: 53877c8
 
 **Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:46]
 
-**Efectos.** llama `login`; Prisma: `usuario.findUnique`, `auditoriaLog.create`, `outboxEvent.create`; eventos: `RoutingKeys.UsuarioAutenticado`; cookies: `cookie:access_token`, `cookie:nachopps.csrf_token`. [apps/servicio-identidad/src/auth/auth.service.ts:38]
+**Efectos.** llama `login`; Prisma: `usuario.findUnique`, `usuario.update` (reset lockout / re-hash perezoso), `auditoriaLog.create`; cookies: `cookie:access_token`, `cookie:refresh_token`, `cookie:nachopps.csrf_token`. (T-15: ya no emite `RoutingKeys.UsuarioAutenticado`.) [apps/servicio-identidad/src/auth/auth.service.ts:38]
 
 **Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 

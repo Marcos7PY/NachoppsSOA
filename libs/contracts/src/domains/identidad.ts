@@ -113,16 +113,3 @@ export class UsuarioListResponse {
   @IsString()
   nextCursor: string | null;
 }
-
-/* ── Event payloads ──────────────────────────────────── */
-
-export class UsuarioAutenticadoPayload {
-  @IsString()
-  userId: string;
-
-  @IsEnum(RolUsuario)
-  rol: RolUsuario;
-
-  @IsEmail()
-  email: string;
-}

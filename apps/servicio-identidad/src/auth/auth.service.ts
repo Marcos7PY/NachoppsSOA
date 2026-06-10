@@ -12,8 +12,6 @@ import {
   CrearUsuarioCommand,
   LoginCommand,
   LoginResponseDto,
-  UsuarioAutenticadoPayload,
-  RoutingKeys,
   CambiarRolCommand,
   RolUsuario,
   ListarUsuariosQuery,
@@ -23,8 +21,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../generated/prisma';
 import { toUsuarioDto } from './usuarios.mapper';
 
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7');
+
+const MAX_FAILED_ATTEMPTS = 5;
+// Backoff exponencial: intento 5→1min, 6→5min, 7+→15min (tope)
+const LOCKOUT_DURATIONS_MS = [60_000, 300_000, 900_000];
 
 @Injectable()
 export class AuthService {
@@ -46,8 +48,30 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
+    // T-03: verificar bloqueo temporal
+    if (usuario.lockedUntil && usuario.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
     const passwordValido = await bcrypt.compare(command.password, usuario.password);
     if (!passwordValido) {
+      // Incremento atómico de fallos y cálculo de bloqueo si se alcanza el tope
+      const nuevosFallos = usuario.failedLoginAttempts + 1;
+      let lockedUntil: Date | null = null;
+      if (nuevosFallos >= MAX_FAILED_ATTEMPTS) {
+        const lockoutIndex = Math.min(
+          nuevosFallos - MAX_FAILED_ATTEMPTS,
+          LOCKOUT_DURATIONS_MS.length - 1,
+        );
+        lockedUntil = new Date(Date.now() + LOCKOUT_DURATIONS_MS[lockoutIndex]);
+      }
+      await this.prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { failedLoginAttempts: { increment: 1 }, lockedUntil },
+      });
+      if (lockedUntil) {
+        await this.registrarAuditoria('CUENTA_BLOQUEADA', usuario.id, 'servicio-identidad');
+      }
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -60,19 +84,28 @@ export class AuthService {
 
     const access_token = this.jwt.sign(payload);
 
-    // M2.B: auditoría + outbox en la misma transacción (atomicidad garantizada)
-    await this.prisma.$transaction(async (prisma) => {
-      await prisma.auditoriaLog.create({ data: { accion: 'LOGIN', usuarioId: usuario.id, servicio: 'servicio-identidad' } });
-      await prisma.outboxEvent.create({
-        data: {
-          routingKey: RoutingKeys.UsuarioAutenticado,
-          payload: JSON.stringify({ userId: usuario.id, rol: usuario.rol as RolUsuario, email: usuario.email } satisfies UsuarioAutenticadoPayload),
-          status: 'PENDING',
-        },
-      });
-    });
+    // T-05: re-hash perezoso si el costo almacenado es menor al actual
+    const rehashPromise = bcrypt.getRounds(usuario.password) < SALT_ROUNDS
+      ? bcrypt.hash(usuario.password, SALT_ROUNDS).then((nuevoHash) =>
+          this.prisma.usuario.update({ where: { id: usuario.id }, data: { password: nuevoHash } }),
+        )
+      : Promise.resolve();
 
-    this.logger.log(`✅ Login exitoso: ${usuario.email} (${usuario.rol})`);
+    // T-15: el evento UsuarioAutenticado (sin consumidores, con email en el payload)
+    // fue retirado. Login exitoso = resetear contadores de lockout + auditoría, en una
+    // transacción para que ambas escrituras sean atómicas.
+    await Promise.all([
+      rehashPromise,
+      this.prisma.$transaction(async (prisma) => {
+        await prisma.usuario.update({
+          where: { id: usuario.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null },
+        });
+        await prisma.auditoriaLog.create({ data: { accion: 'LOGIN', usuarioId: usuario.id, servicio: 'servicio-identidad' } });
+      }),
+    ]);
+
+    this.logger.log(`✅ Login exitoso: ${usuario.id} (${usuario.rol})`);
 
     return {
       access_token,
@@ -157,17 +190,6 @@ export class AuthService {
     });
   }
 
-  /* ── Validar token ─────────────────────────────────── */
-
-  async validarToken(token: string) {
-    try {
-      const payload = this.jwt.verify(token);
-      return { valid: true, payload };
-    } catch {
-      throw new UnauthorizedException('Token inválido o expirado');
-    }
-  }
-
   /* ── Perfil del usuario autenticado ────────────────── */
 
   async obtenerPerfil(usuarioId: string) {
@@ -249,10 +271,28 @@ export class AuthService {
     return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
-  async cambiarRol(id: string, command: CambiarRolCommand) {
+  async cambiarRol(id: string, command: CambiarRolCommand, ejecutadoPor: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) {
       throw new NotFoundException('Usuario no encontrado');
+    }
+
+    // Rechazar siempre la auto-degradación (decisión T-04)
+    if (id === ejecutadoPor && command.rol !== 'ADMIN') {
+      throw new ConflictException('No se puede auto-degradar: use otro administrador para cambiar su propio rol');
+    }
+
+    // Si el objetivo es ADMIN y se degrada, verificar que quede al menos un ADMIN activo
+    if (usuario.rol === 'ADMIN' && command.rol !== 'ADMIN') {
+      const resultado = await this.prisma.$queryRaw<[{ count: bigint }]>`
+        SELECT COUNT(*) AS count FROM "Usuario"
+        WHERE rol = 'ADMIN' AND activo = true
+        FOR UPDATE
+      `;
+      const totalAdmins = Number(resultado[0].count);
+      if (totalAdmins <= 1) {
+        throw new ConflictException('No se puede degradar al último administrador activo');
+      }
     }
 
     const actualizado = await this.prisma.usuario.update({
@@ -260,7 +300,7 @@ export class AuthService {
       data: { rol: command.rol },
     });
 
-    await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}`, id, 'servicio-identidad');
+    await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`, id, 'servicio-identidad');
 
     this.logger.log(`✅ Rol actualizado: ${actualizado.email} → ${command.rol}`);
     return toUsuarioDto(actualizado);

@@ -55,7 +55,7 @@ describe('cobertura de guards HTTP mutantes', () => {
     );
   });
 
-  it('mantiene auth/validate público solo para validación explícita de token', () => {
+  it('ya no expone auth/validate (T-02: oráculo de tokens eliminado)', () => {
     const controllerSource = readWorkspaceFile(
       'apps',
       'servicio-identidad',
@@ -64,9 +64,8 @@ describe('cobertura de guards HTTP mutantes', () => {
       'auth.controller.ts',
     );
 
-    expect(controllerSource).toMatch(
-      /@Post\('auth\/validate'\)\s+async validate\(@Body\(\) body: \{ token: string \}\)/,
-    );
+    expect(controllerSource).not.toContain("auth/validate");
+    expect(controllerSource).not.toMatch(/async validate\(/);
   });
 });
 

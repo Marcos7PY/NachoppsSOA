@@ -9,14 +9,16 @@ datasource db {
 }
 
 model Usuario {
-  id        String   @id @default(uuid())
-  nombre    String
-  email     String   @unique
-  password  String
-  rol       String   @default("MESERO")
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  nombre              String
+  email               String    @unique
+  password            String
+  rol                 String    @default("MESERO")
+  activo              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 // Refresh tokens (plan 1.4): tokens opacos guardados HASHEADOS. Rotación con
