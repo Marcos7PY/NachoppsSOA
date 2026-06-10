@@ -33,6 +33,9 @@
       "@org/observabilidad": [
         "libs/observabilidad/src/index.ts"
       ],
+      "@org/observabilidad/bootstrap": [
+        "libs/observabilidad/src/bootstrap.ts"
+      ],
       "@org/resiliencia": [
         "libs/resiliencia/src/index.ts"
       ],
