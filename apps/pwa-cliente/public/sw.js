@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nachopps-pos-v3';
+const CACHE_NAME = 'nachopps-pos-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -31,8 +31,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Ignorar peticiones de API (Kong puerto 8000) o de socket
-  if (event.request.url.includes('/api') || event.request.url.includes('socket.io')) {
+  // T-27: solo gestionamos GET del MISMO origen del SW. Las llamadas a la API van
+  // por /v1/{servicio}/... (y antes /api): no deben cachearse nunca, ni siquiera si
+  // PWA y gateway comparten dominio detrás de un reverse proxy.
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const url = new URL(event.request.url);
+  const esApi =
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/v1/') ||
+    url.pathname.startsWith('/api') ||
+    url.pathname.includes('socket.io');
+  if (esApi) {
     return;
   }
 
