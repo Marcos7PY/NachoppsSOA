@@ -73,21 +73,81 @@ consumers:
 # ── Servicios ────────────────────────────────────────────────────
 
 services:
-  # ── Identidad (ruta pública para login, protegida para el resto) ──
-  - name: servicio-identidad-public
-    url: http://servicio-identidad:3000/api/auth
+  # ── T-16: bloquear /telemetry/metrics para todos los servicios ──
+  - name: bloqueo-metrics
+    url: http://localhost:1  # nunca alcanzado; request-termination responde antes
+    routes:
+      - name: block-telemetry-metrics
+        paths:
+          - ~/.*\/telemetry\/metrics$
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 404
+              message: "Not found"
+
+  # ── Identidad (rutas separadas por función — T-01) ──
+  - name: servicio-identidad-login
+    url: http://servicio-identidad:3000/api/auth/login
     routes:
       - name: identidad-login
         paths:
-          - /identidad/auth
-          - /v1/identidad/auth
+          - /identidad/auth/login
+          - /v1/identidad/auth/login
         strip_path: true
         methods:
           - POST
         plugins:
           - name: rate-limiting
             config:
-              minute: 5          # 5 intentos/min por IP en login
+              minute: 5          # 5 intentos/min por IP
+              policy: local
+              limit_by: ip
+              fault_tolerant: true
+              hide_client_headers: false
+
+  - name: servicio-identidad-refresh
+    url: http://servicio-identidad:3000/api/auth/refresh
+    routes:
+      - name: identidad-refresh
+        paths:
+          - /identidad/auth/refresh
+          - /v1/identidad/auth/refresh
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60         # 20 dispositivos × refresh cada 15min ≈ 2/min + margen
+              policy: local
+              limit_by: ip
+              fault_tolerant: true
+              hide_client_headers: false
+
+  - name: servicio-identidad-logout
+    url: http://servicio-identidad:3000/api/auth/logout
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+          cookie_names:
+            - access_token
+    routes:
+      - name: identidad-logout
+        paths:
+          - /identidad/auth/logout
+          - /v1/identidad/auth/logout
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
               policy: local
               limit_by: ip
               fault_tolerant: true
