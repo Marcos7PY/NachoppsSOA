@@ -59,14 +59,13 @@ La matriz se ejecuto en niveles `50`, `100` y `200`, con `100` iteraciones por r
 - Stock D1c/R1: 300/300 invariantes OK por nivel.
 - Concurrencia C5/C6/C7: 300/300 invariantes OK por nivel.
 
-Reportes finales relevantes:
+Reportes finales relevantes (cifras canónicas consolidadas en
+[`stress-tests/reports/BASELINE.md`](../stress-tests/reports/BASELINE.md); los reportes por
+corrida con _timestamp_ salieron del control de versiones en T-20 y quedan en el historial de git):
 
-- `stress-tests/reports/stock-idempotency-dlq-2026-06-06T23-54-47-728Z.md` - nivel 50 stock, 300/300.
-- `stress-tests/reports/concurrency-limits-2026-06-07T00-37-22-125Z.md` - nivel 50 concurrencia, 300/300.
-- `stress-tests/reports/stock-idempotency-dlq-2026-06-07T00-55-23-505Z.md` - nivel 100 stock, 300/300.
-- `stress-tests/reports/concurrency-limits-2026-06-07T01-50-17-347Z.md` - nivel 100 concurrencia, 300/300.
-- `stress-tests/reports/stock-idempotency-dlq-2026-06-07T02-37-45-859Z.md` - nivel 200 stock, 300/300.
-- `stress-tests/reports/concurrency-limits-2026-06-07T04-16-03-768Z.md` - nivel 200 concurrencia, 300/300.
+- nivel 50 stock + concurrencia, 300/300.
+- nivel 100 stock + concurrencia, 300/300.
+- nivel 200 stock + concurrencia, 300/300.
 
 Notas de ejecucion:
 
@@ -127,11 +126,9 @@ Archivos modificados por esta continuacion:
 - `stress-tests/run-concurrency-limits.js`
 - `stress-tests/run-stock-idempotency-dlq.js`
 
-Nuevos reportes generados:
-
-- `stress-tests/reports/stock-idempotency-dlq-2026-06-07T02-37-45-859Z.md`
-- `stress-tests/reports/concurrency-limits-2026-06-07T04-16-03-768Z.md`
-- otros reportes intermedios de la misma corrida en `stress-tests/reports/`.
+Nuevos reportes generados: corridas de stock y concurrencia (nivel 200) y sus intermedios.
+Cifras canónicas en [`stress-tests/reports/BASELINE.md`](../stress-tests/reports/BASELINE.md);
+los `*.md` por corrida ya no se versionan (T-20), quedan en el historial de git.
 
 ## Pendientes
 

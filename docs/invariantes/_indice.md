@@ -1,6 +1,6 @@
 ﻿---
 tipo: indice-invariantes
-fuente: [E:1]
+fuente: [stress-tests/reports/BASELINE.md]
 revisado: 2026-06-02
 commit: 53877c8
 ---

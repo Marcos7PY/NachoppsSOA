@@ -1,729 +1,285 @@
-# Plan de Remediación Atómico — NachoPps (v3)
+# Plan de Remediación Atómico — NachoPps (v4)
 
-> **Convención (alineada con `docs/invariantes/` y `docs/handoff_atomico.md`):**
-> cada tarea es una unidad independiente — **1 tarea = 1 PR** — con:
-> `Evidencia` (referencias `archivo:línea` **verificadas contra el código**),
-> `Cambio`, `Archivos`, `Verificación` (comando o test concreto) y `Depende de`.
+> **v4 — consolidación post-ejecución.** Integra los resultados del
+> [informe de pruebas](informe-pruebas-remediacion.md) (commit `03e359f`, 2026-06-10)
+> sobre el plan v3, y formaliza el trabajo restante. **Reemplaza al v3**: las tareas
+> **cerradas** quedan archivadas en el tablero con su evidencia de cierre (el detalle de
+> implementación ya vive en el código y sus PRs); las tareas **abiertas, reabiertas o
+> nuevas** conservan la ficha atómica completa (1 tarea = 1 PR, con Evidencia, Cambio,
+> Archivos, Verificación, Depende de).
 >
-> **v3:** incorpora (a) las 5 decisiones del equipo (T-04, T-15, T-16, T-19, T-20) y
-> (b) cinco hallazgos nuevos de la pasada granular sobre lógica de negocio, mensajería,
-> infra y PWA: **T-23 a T-27**. Excluido por decisión del equipo: el seed de contraseñas.
+> Excluido por decisión del equipo (sin cambios): el seed de contraseñas.
 
-## Índice
+## Leyenda de estados
 
-| ID | Tarea | Tipo | Severidad | Depende de |
-|----|-------|------|-----------|------------|
-| T-01 | Kong: rutas separadas para login / refresh / logout | seguridad-ops | alta | — |
-| T-02 | Eliminar `POST /auth/validate` (cero consumidores) | seguridad | media | T-01 |
-| T-03 | Lockout por cuenta en login | seguridad | alta | — |
-| T-04 | Proteger al último ADMIN en `cambiarRol` *(decisión: rechazar siempre la auto-degradación)* | seguridad | alta | — |
-| T-05 | bcrypt costo 12 + re-hash perezoso | seguridad | baja | — |
-| T-06 | Purga de `IdempotencyKey` faltante en 4 servicios | bug | media | T-07 (parcial) |
-| T-07 | Extraer `OutboxProcessor` a `libs/resiliencia` | dedupe | media | — |
-| T-08 | Claim de lote con `FOR UPDATE SKIP LOCKED` | resiliencia | media | T-07 |
-| T-09 | Stress test con 2 réplicas | validación | media | T-08 |
-| T-10 | Bootstrap compartido para `main.ts` | dedupe | baja | — |
-| T-11 | `GlobalExceptionFilter` único | dedupe | baja | T-10 |
-| T-12 | Consolidar guards de identidad → `shared-auth` | dedupe | media | T-16 |
-| T-13 | Pedidos: usar `ServiceTokenService` (token inline duplicado) | dedupe | media | — |
-| T-14 | `Idempotency-Key` con hash del body (pedidos y caja) | seguridad | media | — |
-| T-15 | Retirar el evento `UsuarioAutenticado` del catálogo *(decisión: retirarlo, no minimizarlo)* | privacidad | media | — |
-| T-16 | Cerrar `/telemetry/metrics` en Kong *(decisión: en Kong)* | seguridad | media | — |
-| T-17 | Tokens S2S con claim `aud` | seguridad | media | T-13 |
-| T-18 | Tipar routing keys del outbox y frenar `any` | calidad | baja | T-07 |
-| T-19 | WebSocket: rooms por rol *(matriz aprobada)* | seguridad | media | T-24 |
-| T-20 | Higiene de repo *(decisión: eliminar, sin rama archive)* | higiene | baja | — |
-| T-21 | Skills de agentes IA: fuente única + sync en CI | higiene | baja | — |
-| T-22 | Backlog frontend: descomponer pantallas grandes | calidad | baja | — |
-| **T-23** | **[nuevo] Publicar eventos RMQ como persistentes** | resiliencia | **alta** | — |
-| **T-24** | **[nuevo] WS roto en prod: `ALLOWED_ORIGINS` nunca se define** | bug | **alta** | — |
-| **T-25** | **[nuevo] Carrera en `abrirTurno`: dos turnos de caja abiertos** | bug | media | — |
-| **T-26** | **[nuevo] Índice anti-doble-booking fuera de migraciones** | bug | media | — |
-| **T-27** | **[nuevo] Service worker intercepta las rutas `/v1/` de API** | bug | media | — |
-
-Orden sugerido por olas (paralelizables dentro de cada ola):
-**Ola 1:** T-01, T-03, T-04, T-23, T-24 · **Ola 2:** T-02, T-05, T-07, T-13, T-16, T-20, T-25, T-26, T-27 ·
-**Ola 3:** T-06, T-08, T-10, T-14, T-15, T-21 · **Ola 4:** T-09, T-11, T-12, T-17, T-18, T-19 ·
-**Continuo:** T-22.
+- ✅ **Cerrada** — implementada y verificada por las pruebas P-NN indicadas.
+- 🔄 **Reabierta y cerrada en sesión** — la ejecución encontró un defecto, se corrigió y re-verificó.
+- ⏳ **Parcial / pendiente de runtime** — código mergeado y gates estáticos en verde, pero faltan pruebas de ejecución.
+- ❌ **Reabierta** — requiere acción o decisión.
+- 🆕 **Nueva** — surgida de la ejecución de pruebas.
 
 ---
 
-## T-01 — Kong: rutas separadas para login / refresh / logout
+## Tablero de estado (T-01 … T-30)
 
-**Evidencia.** `infra/kong/kong.yml.template`: la ruta `identidad-login` declara
-`paths: [/identidad/auth, /v1/identidad/auth]` con `methods: [POST]` y rate-limit
-`minute: 5, limit_by: ip`. Por prefijo, ese límite de 5/min cubre **también**
-`/auth/refresh`, `/auth/logout` y `/auth/validate`. Con access token de 15 min
-(`ACCESS_TOKEN_TTL_SECONDS=900`, `apps/servicio-identidad/src/auth/auth.controller.ts:40`),
-varios dispositivos detrás de un mismo NAT agotan el presupuesto solo con refresh.
+| ID | Tarea | Estado | Evidencia / pendiente |
+|----|-------|--------|------------------------|
+| T-01 | Kong: rutas login/refresh/logout separadas | ⏳ | Login verificado (P-10: 5×401 + 429 exacto). **Falta** la 2.ª mitad: presupuesto independiente de `/auth/refresh` (10 refresh sin 429, con sesión + CSRF). |
+| T-02 | Eliminar `POST /auth/validate` | ✅ | P-06 (0 referencias reales; las 2 restantes son un spec que *asserta* la eliminación) + P-11 (404 directo; 401 en perímetro). |
+| T-03 | Lockout por cuenta | ⏳ | P-12 pasó **incidentalmente** (bloqueo real sobre `admin`, 401 genérico). **Falta**: reset tras backoff, incrementos concurrentes y `AuditoriaLog` sin email — re-ejecutar P-12 completo **con cuenta dedicada**, no con el admin. |
+| T-04 | Último ADMIN protegido | ✅ | P-13: auto-degradación del único ADMIN → 409 con mensaje correcto. |
+| T-05 | bcrypt 12 + re-hash perezoso | 🔄 | **Bug crítico hallado**: se re-hasheaba el hash, no el texto plano → credencial corrupta tras el 1.er login; el spec codificaba el bug. Corregido (`auth.service.ts` + spec) y verificado E2E (P-14: `$2b$10$`→`$2b$12$`, logins sucesivos OK). Ver §Lecciones. |
+| T-06 | Purga IdempotencyKey ×6 | ⏳ | Greps ✅ (P-06). **Falta** P-24: purga viva verificada en BD de los 4 servicios que antes no purgaban. |
+| T-07 | OutboxProcessor en lib | ✅ | P-06 (0 copias) + `probar:stock` completo OK (idempotencia, DLQ, reinyección, parking, no-oversell). |
+| T-08 | SKIP LOCKED + claimedAt | ⏳ | Drift ✅ (P-04), README/ADR ✅ (P-70/71). **Falta** P-21: `probar:replicas` con 2 instancias. |
+| T-09 | Stress 2 réplicas | ⏳ | No ejecutada (depende del entorno de P-21). |
+| T-10 | Bootstrap compartido | ✅ | P-02 (build ×todos) + stack 9/9 healthy con health checks. |
+| T-11 | Filter único | ✅ | P-06 (0 copias en apps). |
+| T-12 | Guards de identidad → lib | ✅ | P-06 (archivos eliminados); suites de identidad y shared-auth pasan (el ❌ de P-03 es umbral global, no fallos de suite). |
+| T-13 | Pedidos usa ServiceTokenService | ⏳ | Grep ✅ (0 `jwtService.sign` en pedidos). **Falta** confirmación funcional vía P-50 (flujo de cobro end-to-end). |
+| T-14 | Idempotency-Key + requestHash | ⏳ | Migración ✅ (drift). **Falta** P-23: trío 201/201-mismo-id/**422** contra pedidos y caja. |
+| T-15 | Retirar `UsuarioAutenticado` | ✅ | P-06 (0 artefactos; solo comentarios e informes) + P-72 (catálogo limpio). |
+| T-16 | Métricas bloqueadas en Kong | ✅ | P-30: 404/404 vía gateway con JWT válido; 200 desde la red interna. |
+| T-17 | S2S con claim `aud` | ⏳ | No verificada en runtime. **Falta** P-31 (token con `aud` ajeno → 401, firma manual HS256) + P-50 (positivo caja→cuentas). |
+| T-18 | Tipar routing keys / frenar `any` | ✅ (gate) | P-01: lint verde; 2 `warn` registrados (`servicio-pedidos-e2e`). La reducción de `any` sigue como esfuerzo continuo hasta subir la regla a `error`. |
+| T-19 | WS rooms por rol | ⏳ | **Falta** P-32 (spec + manual con 2 navegadores: MESERO no recibe `pago.registrado`, CAJERO sí). |
+| T-20 | Higiene de repo | ✅ **Ratificada y completa** | Opción (a) ejecutada, no destructiva (`git rm --cached`: todo sigue en disco + historial). **142/142** artefactos fuera del control de versiones: `design_handoff_nachopps/` (14), `docs-deprecated/` (75, incl. 2 `.zip`), 2 `*.tsbuildinfo`, **51 `reports/*Z.md`**. `BASELINE.md` creado (versionado vía excepción en `.gitignore`) con las cifras canónicas; las **9 invariantes** repuntadas a él (sin timestamps). `git ls-files \| grep -E "tsbuildinfo\|reports/.*Z\.md\|\.zip$\|docs-deprecated\|design_handoff"` → **0**. **P-06/T-20 y P-74 en verde.** |
+| T-21 | Skills: fuente única + CI | ✅ | P-05 (incluida la prueba negativa: alterar copia → exit 1) + P-75 (CONTRIBUTING). |
+| T-22 | Backlog frontend | ⏳ continuo | **Falta** P-46 (e2e Playwright) en esta corrida. |
+| T-23 | Mensajes RMQ persistentes | ⏳ | Código ✅ (grep `persistent` ≥1) + ADR ✅ (P-71). **Falta** la prueba que da sentido a la tarea: **P-22** — mensajes encolados sobreviven a `docker restart rabbitmq`. *Nota:* P-60 probó resiliencia de **servicios** ante broker caído, no persistencia de **mensajes**; no la sustituye. |
+| T-24 | WS CORS: `CORS_ORIGIN` unificado | ⏳ | Grep ✅ (0 `ALLOWED_ORIGINS`). **Falta** P-33 en stack prod-like (handshake aceptado/rechazado por Origin + PWA real recibiendo eventos). |
+| T-25 | Turno de caja único | ✅ | P-40: índice `turnos_caja_un_abierto` existe; carrera → 1 ABIERTA, respuestas idempotentes. **Decisión implícita registrada**: turno único **global** (índice sobre `estado`, no por `cajaId`) — ver §Decisiones. |
+| T-26 | Slot único en migración | ✅ | P-41: índice presente vía `migrate deploy`; C7 confirma 1×201 / 9×409 al mismo slot. |
+| T-27 | SW no intercepta `/v1/` | ⏳ | **Falta** Suite 6 completa (P-45: Cache Storage sin `/v1/`, caché v4, offline shell; P-46). |
+| **T-28** | **Fixtures de stress obsoletos** | ✅ **verificada en runtime** | Los 4 falsos negativos corregidos y **re-corridos contra el stack 9/9**: `probar:concurrencia` **5/5** (C5 ahora 1×201 + duplicados rechazados), `probar:caos` **8/8** (mesa con `ubicacion`), `run-all` presupuesto login `{401:5,429:3}` sin `/auth/validate`. (Bonus: 2 flecos de fixture aflorados al desbloquear C5/caos — poll de cuenta cerrada y `mesa.data.mesa.id` — también corregidos.) |
+| **T-29** | **Cobertura bajo el piso (gate P-03)** | ✅ | **P-03 en verde**: `nx run-many --target=test --all` exit 0; stmts **52.92%** ≥52, lines **53.72%** ≥53 (branches 50%, funcs 47.5%), **pisos intactos**. +specs de caja (service turnos/arqueo/cierre + controller) y `format.ts` PWA. 473/473 tests. |
+| **T-30** | **Homologar `zona` → `ubicacion` en la PWA** | ✅ (código) / ⏳ smoke | Renombrados los identificadores en los 7 archivos PWA + nota en doc del endpoint. `typecheck`+`lint`+`mesa.mapper.spec` (10/10) en verde. e2e Playwright (P-46) y smoke visual pendientes de stack. |
 
-**Cambio.**
-1. `identidad-login`: paths exactos `/identidad/auth/login`, `/v1/identidad/auth/login`; mantiene 5/min por IP.
-2. Nueva ruta `identidad-refresh`: paths exactos de `/auth/refresh`; rate-limit propio
-   (sugerido 60/min por IP: 20 dispositivos × refresh cada 15 min ≈ 2/min en régimen, el resto es margen de ráfaga post-reconexión).
-3. Nueva ruta `identidad-logout`: paths exactos de `/auth/logout`; sugerido 30/min por IP.
-4. `/auth/validate` deja de estar cubierto por ninguna ruta pública (T-02 lo elimina).
-
-**Archivos.** `infra/kong/kong.yml.template` · `README.md` · `docs/operacion/levantar-sistema.md`.
-
-**Verificación.** Extender `scripts/probar-gateway.ps1` o spec e2e:
-`POST /v1/identidad/auth/refresh` ×10 → ningún 429; `POST .../login` con credenciales malas ×6 → 429 en el 6.º;
-`POST .../validate` → 404 (tras T-02).
-
-**Depende de.** Nada.
-
----
-
-## T-02 — Eliminar `POST /auth/validate`
-
-**Evidencia.** El endpoint existe en `apps/servicio-identidad/src/auth/auth.controller.ts:138`
-y su lógica (`validarToken`) en `auth.service.ts`. Verificado: **cero call-sites** —
-`grep -rn "auth/validate" apps/pwa-cliente/src` → vacío; en el resto de apps/libs solo
-aparece la propia declaración. La verificación de tokens en los demás servicios es local
-vía `JwtStrategy` (`libs/shared-auth/src/lib/jwt.strategy.ts`), no remota. Es código muerto
-expuesto públicamente que funciona como oráculo de validez de tokens.
-
-**Cambio.** Borrar el handler `validate`, el método `validarToken`, sus casos de spec
-(`auth.controller.spec.ts` / `security-coverage.spec.ts` si aplica) y la doc
-`docs/servicios/servicio-identidad/endpoints/POST--auth-validate.md` (+ entrada en `_indice.md`).
-
-**Archivos.** `apps/servicio-identidad/src/auth/{auth.controller.ts,auth.service.ts}` ·
-specs asociados · docs del endpoint.
-
-**Verificación.** `grep -rn "validarToken\|auth/validate" apps libs` → 0;
-`POST /v1/identidad/auth/validate` vía gateway → 404; suite de identidad en verde.
-
-**Depende de.** T-01.
+**Correcciones incidentales aplicadas durante la ejecución** (cerradas, con trazabilidad en el informe):
+fix del re-hash de T-05 (+ spec), dependencias faltantes de `servicio-reportes`
+(`@nestjs/jwt`, `@nestjs/passport`, `passport-jwt` — eran deps reales: usa `JwtAuthGuard`),
+y 4 referencias `fuente:` repuntadas a migraciones reales (P-73 → 57 refs, 0 rotas).
 
 ---
 
-## T-03 — Lockout por cuenta en login
-
-**Evidencia.** `AuthService.login` (`apps/servicio-identidad/src/auth/auth.service.ts:41`)
-no tiene contador de fallos ni bloqueo; `grep -rn "Throttler" apps/servicio-identidad/src` → 0.
-El único freno es el rate-limit por IP de Kong (T-01), inoperante ante ataque distribuido
-o tráfico interno que no pase por el gateway.
-
-**Cambio.**
-1. Migración Prisma en identidad: `failedLoginAttempts Int @default(0)`, `lockedUntil DateTime?` en `model Usuario`.
-2. En `login`: si `lockedUntil > now()` → `UnauthorizedException('Credenciales inválidas')`
-   (mensaje genérico). Password incorrecta → `update { failedLoginAttempts: { increment: 1 } }`
-   (atómico); al alcanzar 5 fallos, `lockedUntil` con backoff 1 min → 5 min → 15 min (tope).
-   Login exitoso → reset de ambos campos.
-3. `AuditoriaLog` con `accion: 'CUENTA_BLOQUEADA'` (sin email en el mensaje — coherente con T-15).
-
-**Archivos.** `apps/servicio-identidad/prisma/schema.prisma` + migración ·
-`auth.service.ts` · `auth.service.spec.ts`.
-
-**Verificación.** Specs: 5 fallos → 6.º intento rechazado aun con password correcta;
-`lockedUntil` expirado → login válido resetea; fallos concurrentes no pierden incrementos.
-`scripts/check-migration-drift.sh` en verde.
-
-**Depende de.** Nada.
-
----
-
-## T-04 — Proteger al último ADMIN en `cambiarRol` — **decisión: rechazar siempre la auto-degradación**
-
-**Evidencia.** `AuthService.cambiarRol` hace `findUnique` + `update` sin validar cuántos
-ADMIN activos quedan ni quién ejecuta; el controller (`PATCH usuarios/:id/rol`,
-`auth.controller.ts`) no pasa el `sub` del ejecutante al service. Un ADMIN puede degradar
-al último ADMIN (incluido él mismo) y dejar el sistema sin administración.
-
-**Cambio.**
-1. El controller pasa `req.user.sub` a `cambiarRol(id, command, ejecutadoPor)`.
-2. En transacción: si el objetivo es ADMIN y el rol nuevo no lo es, contar ADMIN activos
-   con bloqueo (`$queryRaw ... FOR UPDATE`); si ≤ 1 → `ConflictException('No se puede
-   degradar al último administrador activo')`.
-3. **Rechazar siempre** la auto-degradación (`id === ejecutadoPor` con rol nuevo ≠ ADMIN) → 409.
-4. Registrar `ejecutadoPor` en la auditoría.
-
-**Archivos.** `apps/servicio-identidad/src/auth/{auth.controller.ts,auth.service.ts}` ·
-`auth.service.spec.ts` · `docs/servicios/servicio-identidad/endpoints/PATCH--usuarios-id-rol.md`.
-
-**Verificación.** Specs: degradar al único ADMIN → 409; con 2 ADMIN activos → OK;
-auto-degradación → 409 siempre; degradaciones concurrentes del penúltimo y último ADMIN
-no dejan 0 admins.
-
-**Depende de.** Nada.
-
----
-
-## T-05 — bcrypt costo 12 + re-hash perezoso
-
-**Evidencia.** `SALT_ROUNDS = 10` en `apps/servicio-identidad/src/auth/auth.service.ts:26`.
-
-**Cambio.** `SALT_ROUNDS = 12`. En login exitoso, si `bcrypt.getRounds(usuario.password) < 12`,
-re-hashear y persistir.
-
-**Archivos.** `auth.service.ts` · `auth.service.spec.ts`.
-
-**Verificación.** Spec: hash de costo 10 migra a 12 tras login válido; hashes nuevos nacen con 12.
-
-**Depende de.** Nada. *(Mergeable junto con T-03: misma función.)*
-
----
-
-## T-06 — Purga de `IdempotencyKey` faltante en 4 servicios
-
-**Evidencia.** El modelo `IdempotencyKey` existe en **6** schemas
-(`apps/servicio-{caja,inventario,mesas,notificaciones,pedidos,reportes}/prisma/schema.prisma`,
-verificado con `grep -l`), pero el cron `purgarIdempotencyKeys` existe **solo** en los
-processors de pedidos e inventario (verificado). En caja, mesas, notificaciones y reportes
-la tabla **crece sin límite** — el riesgo que la propia invariante
-`docs/invariantes/retencion-idempotency-keys.md` describe, cuya garantía cubre 2 de 6.
-Notificaciones y reportes no tienen `outbox.processor.ts` (consumidores puros), así que la
-purga no puede colgarse del processor.
-
-**Cambio.** `IdempotencyPurgeService` en `libs/resiliencia` (cron horario, retención 7 días,
-cliente inyectado por el token `IDEMPOTENCY_DB` ya existente,
-`libs/resiliencia/src/lib/idempotency.interceptor.ts:22`). Registrar en los 6 servicios;
-eliminar los crons locales de pedidos e inventario. Actualizar la invariante con 6 fuentes.
-
-**Archivos.** `libs/resiliencia/src/lib/idempotency-purge.service.ts` (+ spec) · `index.ts` ·
-`app.module.ts` ×6 · processors de pedidos/inventario (quitar cron local) ·
-`docs/invariantes/retencion-idempotency-keys.md`.
-
-**Verificación.** Spec: claves > 7 días se borran, recientes no.
-`grep -rn "purgarIdempotencyKeys" apps/` → 0.
-
-**Depende de.** Idealmente tras T-07 (no tocar dos veces los processors); ejecutable antes si se prioriza el bug.
-
----
-
-## T-07 — Extraer `OutboxProcessor` a `libs/resiliencia`
-
-**Evidencia.** **7** copias del processor (todos salvo notificaciones y reportes). Diff
-verificado entre pedidos y caja: solo la constante `PRODUCER` (línea 8) y el cron extra
-`purgarIdempotencyKeys` de pedidos/inventario (que T-06 extrae aparte). Métricas, reintentos
-(`MAX_ATTEMPTS=5` → `FAILED`), `notifyOutboxFailed` y purga (24 h / 168 h) son idénticos.
-
-**Cambio.** Processor genérico con tokens `OUTBOX_DB` y `OUTBOX_CONFIG`
-(`{ producer, maxAttempts?, batchSize?, retencionProcessedHoras?, retencionFailedHoras? }`),
-dynamic module `OutboxModule.forService(config)`. Migrar los 7 servicios (un commit por
-servicio), borrar copias, consolidar los 7 specs en uno en la lib portando todos los casos.
-**Sin cambio de semántica** (el `SKIP LOCKED` es T-08, separado a propósito).
-
-**Archivos.** `libs/resiliencia/src/lib/outbox.processor.ts` (+ spec) · `index.ts` ·
-`apps/servicio-{caja,cuentas,identidad,inventario,mesas,pedidos,reservas}/src/app/outbox.processor.ts`
-(borrar) + sus `app.module.ts` y specs.
-
-**Verificación.** `find apps -name "outbox.processor.ts"` → 0; suite completa en verde con
-pisos de cobertura intactos; `pnpm probar:stock` sin regresión.
-
-**Depende de.** Nada.
-
----
-
-## T-08 — Claim de lote con `FOR UPDATE SKIP LOCKED`
-
-**Evidencia.** El processor hace `findMany({ where: { status: 'PENDING' }, take: 50 })` sin
-lock → 1 réplica por servicio (README, "⚠️ Restricción de escalado"). `OutboxEvent.status`
-es `String @default("PENDING")` (verificado en schemas), **no** enum: agregar `PUBLISHING`
-no requiere migración de enum; solo la columna `claimedAt`.
-
-**Cambio.** En la lib (post T-07):
-1. Migración ×7 (SQL idéntico): `ALTER TABLE "OutboxEvent" ADD COLUMN "claimedAt" TIMESTAMP NULL;`
-   *(nota: la tabla está mapeada como `outbox_events` en al menos caja — usar el `@@map` de cada schema).*
-2. Claim atómico vía `$queryRaw`:
-   ```sql
-   UPDATE "OutboxEvent" SET status = 'PUBLISHING', "claimedAt" = now()
-   WHERE id IN (
-     SELECT id FROM "OutboxEvent" WHERE status = 'PENDING'
-     ORDER BY "createdAt" ASC LIMIT 50 FOR UPDATE SKIP LOCKED
-   ) RETURNING *;
-   ```
-3. OK → `PROCESSED`; fallo → `PENDING` con `attempts+1` (o `FAILED` en el tope).
-4. Cron de rescate (1 min): `PUBLISHING` con `claimedAt < now() - 60s` → `PENDING`
-   (at-least-once preservado; el duplicado lo absorbe la idempotencia de consumidores).
-5. README: quitar la restricción. Adenda en `docs/decisiones/ADR-002-transactional-outbox.md`.
-
-**Archivos.** lib · 7 migraciones + schemas · `README.md` · ADR-002.
-
-**Verificación.** Spec con dos instancias del processor sobre el mismo store: ningún evento
-publicado dos veces en happy path. Drift de migraciones en verde.
-
-**Depende de.** T-07.
-
----
-
-## T-09 — Stress test con 2 réplicas
-
-**Evidencia.** Los escenarios actuales (`stress-tests/run-*.js`) asumen 1 réplica; la
-invariante `docs/invariantes/colas-limpias-happy-path.md` debe sostenerse con N réplicas tras T-08.
-
-**Cambio.** Nuevo escenario: 2 instancias de un servicio contra la misma BD; verificar
-(a) exactamente una publicación por evento en happy path, (b) cero eventos perdidos al matar
-una réplica a mitad de lote.
-
-**Archivos.** `stress-tests/run-outbox-replicas.js` · `package.json` (script `probar:replicas`) ·
-`docs/invariantes/colas-limpias-happy-path.md`.
-
-**Verificación.** Estable en 3 ejecuciones consecutivas.
-
-**Depende de.** T-08.
-
----
-
-## T-10 — Bootstrap compartido para `main.ts`
-
-**Evidencia.** Diff verificado entre `main.ts` de pedidos y caja: difieren **solo** en
-nombre de servicio (`initTracing`), cola/DLQ, metadatos de Swagger, puerto por defecto y el
-orden de un import. El resto (fail-fast `RABBITMQ_URI`, Winston, prefijo `api`, `cookieParser`,
-`helmet(buildHelmetOptions())`, CORS, `ValidationPipe` whitelist+forbid+transform, filter,
-RMQ con DLX, Swagger solo fuera de prod) es idéntico ×9.
-
-**Cambio.** `bootstrapNachoppsService({ serviceName, module, queue?, swagger?, defaultPort? })`
-en `libs/observabilidad` (donde vive `initTracing`, que **debe ejecutarse antes de importar
-Nest** — respetar ese orden o documentar el import en dos pasos). Replicar exactamente lo que
-cada `main.ts` hace hoy, sin "mejorar" de paso. Migración servicio por servicio.
-
-**Archivos.** `libs/observabilidad/src/lib/bootstrap.ts` (+ spec) · `apps/servicio-*/src/main.ts` ×9 ·
-`libs/observabilidad/README.md`.
-
-**Verificación.** `wc -l apps/servicio-*/src/main.ts` ≤ 15; los 9 levantan en compose dev y
-responden health; Swagger ausente con `NODE_ENV=production`.
-
-**Depende de.** Nada.
-
----
-
-## T-11 — `GlobalExceptionFilter` único
-
-**Evidencia.** Diff verificado entre las copias de pedidos y caja: **solo formato**, cero
-diferencia funcional. 9 copias en `apps/servicio-*/src/filters/`.
-
-**Cambio.** Mover a la lib del bootstrap (T-10), referenciar desde `bootstrapNachoppsService`,
-borrar las 9 copias.
-
-**Verificación.** `find apps -name "global-exception.filter.ts"` → 0; spec en la lib.
-
-**Depende de.** T-10.
-
----
-
-## T-12 — Consolidar los guards de identidad en `shared-auth`
-
-**Evidencia.** El fork **diverge funcionalmente** (verificado con `diff`): la copia de
-identidad no exime `/telemetry/metrics` y no tiene el override `handleRequest`;
-`roles.guard.ts` difiere solo en comentarios.
-
-**Cambio.** Identidad importa `JwtAuthGuard`/`RolesGuard` desde `@org/shared-auth`; borrar
-copias locales **después** de T-16 (que elimina la relevancia de la exención de métricas en
-el perímetro). Portar a la lib los casos de spec que no cubra; `security-coverage.spec.ts`
-debe pasar sin cambios de comportamiento observable.
-
-**Archivos.** `apps/servicio-identidad/src/auth/{jwt-auth.guard.ts,roles.guard.ts}` (borrar) ·
-imports en controller/module · specs · `libs/shared-auth/src/lib/*.spec.ts`.
-
-**Verificación.** `grep -rn "from './jwt-auth.guard'" apps/servicio-identidad` → 0;
-suites de identidad y shared-auth en verde.
-
-**Depende de.** T-16.
-
----
-
-## T-13 — Pedidos: eliminar la firma inline de tokens S2S
-
-**Evidencia.** `ServiceTokenService` (`libs/shared-auth/src/lib/service-token.service.ts`) lo
-usa solo caja (`apps/servicio-caja/src/app/app.service.ts:60`). Pedidos duplica la lógica
-inline en `apps/servicio-pedidos/src/app/app.service.ts:107` y `:158`
-(`this.jwtService.sign({ sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' }, ...)`).
-
-**Cambio.** Inyectar `ServiceTokenService` (exportado por el `SharedAuthModule` global,
-`shared-auth.module.ts:23`) y reemplazar ambas firmas, conservando el `try/catch` →
-`ServiceUnavailableException` actual.
-
-**Verificación.** `grep -n "jwtService.sign" apps/servicio-pedidos/src` → 0; specs de los
-dos call-sites en verde.
-
-**Depende de.** Nada. Prerrequisito de T-17.
-
----
-
-## T-14 — `Idempotency-Key` con hash del body (pedidos y caja)
-
-**Evidencia.** El interceptor (`libs/resiliencia/src/lib/idempotency.interceptor.ts`) cachea
-por `key` sin huella del cuerpo: misma clave + payload distinto devuelve en silencio la
-respuesta del primero. La idempotencia HTTP aplica solo donde existe la migración
-`idempotency_http` — pedidos y caja (`.../migrations/20260605020000_idempotency_http/`) — y
-donde el interceptor está registrado (`apps/servicio-pedidos/src/app/app.controller.ts:19`;
-verificar el equivalente de caja en `POST /pagos` al implementar). El `IdempotencyKey` de los
-otros 4 servicios es para claims de eventos y no necesita hash.
-
-**Cambio.**
-1. Migración en pedidos y caja: `requestHash String?` en `model IdempotencyKey`.
-2. Interceptor: al reclamar, persistir `sha256(JSON.stringify(req.body) ?? '')`; en replay
-   con hash distinto → 422 (`UnprocessableEntityException`, comportamiento tipo Stripe).
-3. Actualizar `docs/invariantes/idempotencia-directa.md`.
-
-**Verificación.** Specs: misma clave + mismo body → replay; misma clave + body distinto → 422;
-`pnpm probar:stock` sin regresión.
-
-**Depende de.** Nada.
-
----
-
-## T-15 — Retirar el evento `UsuarioAutenticado` del catálogo — **decisión: retirarlo**
-
-**Evidencia.** El emisor crea el evento en el outbox dentro del login
-(`apps/servicio-identidad/src/auth/auth.service.ts:63-73`) con email en el payload, y
-loguea el email en claro (`auth.service.ts:76`; los logs viajan a Loki vía promtail).
-Verificado: **cero consumidores** — fuera de identidad solo existe la routing key
-(`libs/contracts/src/events/routing-keys.ts:39`); `servicio-notificaciones` no se suscribe
-(`apps/servicio-notificaciones/src/app/app.controller.ts`, patrones verificados).
-
-**Cambio.**
-1. Eliminar la emisión: la transacción del login queda solo con el `auditoriaLog.create`
-   (evaluar si la transacción sigue siendo necesaria con una sola escritura).
-2. Eliminar `RoutingKeys.UsuarioAutenticado` y `UsuarioAutenticadoPayload` de
-   `libs/contracts` (`events/routing-keys.ts:39`, `domains/identidad.ts`); ajustar
-   `contract-tests.spec.ts` si valida el shape.
-3. Eliminar `docs/eventos/usuario.autenticado.md` y su entrada en `docs/eventos/_catalogo.md`.
-4. Logs: `Login exitoso: ${usuario.id}` en lugar del email. Barrido:
-   `grep -rn "logger" apps/*/src --include=*.ts | grep -i email` y limpiar coincidencias.
-
-**Archivos.** `auth.service.ts` (+ spec) · `libs/contracts/src/{events/routing-keys.ts,domains/identidad.ts}` ·
-`contract-tests.spec.ts` · `docs/eventos/usuario.autenticado.md` · `docs/eventos/_catalogo.md`.
-
-**Verificación.** `grep -rn "UsuarioAutenticado\|usuario.autenticado" apps libs docs` → 0;
-suites de identidad y contracts en verde; login funcional end-to-end.
-
-**Depende de.** Nada.
-
----
-
-## T-16 — Cerrar `/telemetry/metrics` en Kong — **decisión: bloqueo en el gateway**
-
-**Evidencia.** `libs/shared-auth/src/lib/jwt-auth.guard.ts:15-20` exime
-`/api/telemetry/metrics` de autenticación. Con el `strip_path` de Kong,
-`GET /v1/pedidos/telemetry/metrics` llega al servicio: el plugin `jwt` exige *un* token
-válido, pero cualquier empleado autenticado pasa y el guard lo deja entrar sin roles.
-El guard local de identidad no tiene la exención (divergencia, ver T-12), o sea que el
-comportamiento ya es inconsistente entre servicios.
-
-**Cambio.** Ruta de bloqueo en Kong con plugin `request-termination` (404) para
-`~/.+/telemetry/metrics$`, cubriendo ambas variantes de path (`/{servicio}/...` y
-`/v1/{servicio}/...`). Prometheus no se afecta: scrapea por la red interna de Docker
-(`infra/prometheus/prometheus.yml`), sin pasar por Kong.
-
-**Archivos.** `infra/kong/kong.yml.template` · `docs/operacion/levantar-sistema.md` ·
-`docs/libs/observabilidad.md`.
-
-**Verificación.** Con JWT válido de MESERO: `GET /v1/pedidos/telemetry/metrics` vía gateway → 404;
-`curl http://servicio-pedidos:3000/api/telemetry/metrics` desde la red interna → 200;
-targets de Prometheus en `up`.
-
-**Depende de.** Nada. Prerrequisito de T-12.
-
----
-
-## T-17 — Tokens S2S con claim `aud`
-
-**Evidencia.** El token S2S (`rol: 'SISTEMA'`, HS256 con `SERVICE_JWT_SECRET`) pasa todos los
-`@Roles` de todos los servicios: pase maestro plano. Tras T-13 quedan dos consumidores del
-service compartido: caja→cuentas y pedidos→mesas/inventario.
-
-**Cambio.**
-1. `generateServiceToken(serviceName, audience)`: claim `aud` (mantener `iss: 'nachopps-service'`
-   que ya fija `SharedAuthModule`).
-2. Verificación en `JwtStrategy.validate`: si `rol === 'SISTEMA'`, exigir
-   `payload.aud === process.env.SERVICE_NAME`. **No** usar la opción `audience` de passport-jwt
-   (aplicaría a los RS256 de usuario, que no llevan `aud`).
-3. `SERVICE_NAME` en los 9 servicios en ambos compose.
-4. Call-sites con audiencia destino correcta.
-5. Rollout en dos pasos: primero emitir `aud` con verificación tolerante (warn), luego rechazo estricto.
-
-**Archivos.** `libs/shared-auth/src/lib/{service-token.service.ts,jwt.strategy.ts}` (+ specs) ·
-`apps/servicio-{caja,pedidos}/src/app/app.service.ts` · `infra/docker-compose{,.prod}.yml` ·
-`.env.example` · `docs/operacion/jwt-rs256.md`.
-
-**Verificación.** Spec: token con `aud: 'servicio-inventario'` rechazado con
-`SERVICE_NAME=servicio-cuentas`, aceptado con el correcto; RS256 de usuario sin `aud` pasa.
-E2e del flujo caja→cuentas.
-
-**Depende de.** T-13.
-
----
-
-## T-18 — Tipar routing keys del outbox y frenar `any`
-
-**Evidencia.** `rabbitmq.publish(event.routingKey as any, ...)` en los processors. Conteo
-verificado: **107** usos de `: any` / `as any` en backend no-test.
-
-**Cambio.**
-1. En el processor compartido (T-07): validar la key leída del outbox contra el union type
-   de `libs/contracts/src/events/routing-keys.ts`; key no reconocida → `FAILED` con log.
-2. Barrido de `any` priorizando cruces de contrato; irreductibles anotados
-   `// any justificado: <motivo>`.
-3. `eslint.config.cjs`: `@typescript-eslint/no-explicit-any` en `warn` (a `error` cuando
-   el conteo tienda a 0).
-
-**Verificación.** `grep -rn "as any" libs/resiliencia libs/shared-rabbitmq` → 0; lint global
-en verde; conteo decreciente registrado en el PR.
-
-**Depende de.** T-07.
-
----
-
-## T-19 — WebSocket: rooms por rol — **matriz aprobada**
-
-**Evidencia.** `NotificationsGateway.emitPedidoUpdate` hace `this.server.emit(...)` global
-(`apps/servicio-notificaciones/src/app/notifications.gateway.ts:66-68`): cualquier empleado
-autenticado recibe eventos de caja/pagos ajenos a su rol. El handshake ya verifica el JWT y
-guarda `client.data.user` (líneas 45-57).
-
-**Cambio.**
-1. `handleConnection`: `client.join('rol:' + user.rol)`.
-2. **Matriz evento→roles aprobada**, exportada desde `libs/contracts` (fuente única,
-   alineada con los `@Roles` HTTP):
-   `pago.*` / `arqueo.*` / `ticket.*` → ADMIN, CAJERO, GERENCIA;
-   `pedido.*` / `mesa.*` / `cuenta.*` → ADMIN, SISTEMA, CAJERO, MESERO, COCINA;
-   `stock.*` / `producto.*` → ADMIN, GERENCIA, COCINA;
-   `reserva.*` → ADMIN, RECEPCION, GERENCIA, MESERO.
-3. Emitir con `this.server.to(rooms).emit(...)` según el patrón.
-4. Frontend: `storesForPattern` (`apps/pwa-cliente/src/services/socket.service.ts:28`) ya
-   filtra por patrón — cambio transparente; smoke test por rol en cada pantalla.
-
-**Archivos.** `notifications.gateway.ts` (+ spec) · `libs/contracts/src/events/` (matriz) ·
-`docs/servicios/servicio-notificaciones/_indice.md`.
-
-**Verificación.** Spec: MESERO no recibe `pago.registrado`; CAJERO sí. E2e manual por rol.
-
-**Depende de.** T-24 (corrige primero el CORS del gateway para poder probar en condiciones de prod).
-
----
-
-## T-20 — Higiene de repo — **decisión: eliminar del repo (sin rama archive)**
-
-**Evidencia (verificada por listado).** Versionados:
-`libs/resiliencia/tsconfig.tsbuildinfo`, `libs/shared-prisma/tsconfig.lib.tsbuildinfo`;
-~60 reportes con timestamp en `stress-tests/reports/`;
-`docs-deprecated/codebase-report/codebase-report.zip` y `docs-deprecated/doc-actualizada.zip`;
-`docs/servicio_pedidos_backend.js`; `docs-deprecated/` (~70 archivos) y `design_handoff_nachopps/`.
-
-**Cambio.**
-1. `.gitignore`: `**/*.tsbuildinfo` y `stress-tests/reports/*`.
-2. `git rm` de: tsbuildinfo, reportes con timestamp, los dos `.zip`,
-   `docs/servicio_pedidos_backend.js`, **`docs-deprecated/` completa** y
-   **`design_handoff_nachopps/`** (decisión: eliminar; el historial de git conserva todo
-   si alguna vez hace falta recuperar algo).
-3. Crear `stress-tests/reports/BASELINE.md` consolidado **antes** de borrar los reportes:
-   varias invariantes los citan como `fuente:`
-   (p. ej. `retencion-idempotency-keys.md` cita `stock-idempotency-dlq-2026-05-30T23-48-15-031Z.md`);
-   actualizar esas referencias al baseline en el mismo PR.
-
-**Archivos.** `.gitignore` · borrados listados · `docs/invariantes/*.md` afectadas ·
-`stress-tests/reports/BASELINE.md` (nuevo).
+## Fichas de trabajo abierto
+
+### T-20 — Higiene de repo — **REABIERTA: requiere re-decisión**
+
+**Situación.** La decisión del equipo registrada en v3 fue "eliminar del repo, sin rama
+archive" (el historial de git conserva todo; la eliminación nunca fue destructiva en
+sentido real). El ejecutor de las pruebas la excluyó por considerarla destructiva. Estado
+medido: 142 artefactos versionados — `design_handoff_nachopps/` (14), `docs-deprecated/`
+(75), `stress-tests/reports/*Z.md` (51), `*.tsbuildinfo` (2), `.zip` (2) — y sin
+`BASELINE.md`, lo que mantiene P-74 en ❌ y a las invariantes citando reportes con timestamp.
+
+**Opciones.** (a) Ratificar la decisión original y ejecutarla tal como estaba especificada;
+(b) formalizar la conservación, en cuyo caso hay que **reescribir el criterio de P-06/T-20 y
+P-74** para que el gate sea alcanzable (un plan cuyo criterio es imposible por diseño no es
+un plan). No hay opción (c) de dejarlo en limbo: hoy el sign-off es inalcanzable por
+definición.
+
+**Recomendación.** (a). Los 51 reportes se consolidan primero en `BASELINE.md` (las cifras
+que las invariantes citan no se pierden, se reubican), y `git log` conserva todo lo demás.
+
+**Secuencia si se ratifica (a):** T-28 primero (fixtures limpios) → re-correr la batería de
+stress → consolidar `BASELINE.md` con esas cifras nuevas → `git rm` del resto → repuntar
+invariantes → P-06/T-20 y P-74 en verde.
 
 **Verificación.** `git ls-files | grep -E "tsbuildinfo|reports/.*Z\.md|\.zip$|docs-deprecated|design_handoff"` → 0;
-ninguna invariante con `fuente:` rota.
+`BASELINE.md` existe y ninguna invariante cita reportes con timestamp.
 
-**Depende de.** Nada.
-
----
-
-## T-21 — Skills de agentes IA: fuente única + verificación en CI
-
-**Evidencia.** Las mismas skills viven en `.agents/`, `.cursor/`, `.gemini/`, `.github/`,
-`.opencode/` (más configs en `.claude/`, `.codex/`). Drift real verificado: `monitor-ci`
-pesa 18 258 bytes en `.agents/skills/` y 32 210 en `.cursor/skills/` y `.gemini/skills/`.
-
-**Cambio.** `.agents/` como fuente canónica; `scripts/sync-agent-skills.mjs` con los renombres
-por herramienta (`skill.md` minúsculas en `.gemini`); reconciliar manualmente el drift de
-`monitor-ci` antes del primer sync; job `--check` en `.github/workflows/ci.yml` (mismo patrón
-que `check-migration-drift.sh`); regla en `CONTRIBUTING.md`.
-
-**Verificación.** `node scripts/sync-agent-skills.mjs --check` → exit 0; modificar una copia
-no canónica → CI en rojo.
-
-**Depende de.** Nada.
+**Estado (2026-06-10) — COMPLETA.** Ratificada (a) y ejecutada entera, **no destructiva**
+(`git rm --cached`: todo queda en disco y en el historial). Sacados del control de versiones:
+`design_handoff_nachopps/`, `docs-deprecated/` (con sus 2 `.zip`), los 2 `*.tsbuildinfo` y los
+**51 `reports/*Z.md`** (142/142). Se creó `stress-tests/reports/BASELINE.md` (versionado vía
+`!stress-tests/reports/BASELINE.md` en `.gitignore`) con las cifras canónicas de stock/concurrencia/
+caos y la re-confirmación del 2026-06-10; las 9 invariantes que citaban reportes con timestamp
+(`idempotencia-{directa,inversa}`, `reposicion-como-delta`, `no-oversell`, `slot-reserva-activo-unico`,
+`exactamente-un-exito-bajo-carrera`, `retencion-idempotency-keys`, `trust-boundary-stock-sync-mode`,
+`colas-limpias-happy-path`) ahora apuntan a `BASELINE.md`. **Verificación cumplida:**
+`git ls-files | grep -E "tsbuildinfo|reports/.*Z\.md|\.zip$|docs-deprecated|design_handoff"` → **0**;
+`BASELINE.md` existe; ninguna invariante cita reportes con timestamp. → **P-06/T-20 y P-74 en verde.**
 
 ---
 
-## T-22 — Backlog frontend (continuo)
+### T-28 — 🆕 Actualizar fixtures de los harnesses de stress
 
-**Evidencia.** `Comandero.tsx` 445 líneas, `InventarioScreen.tsx` 425, `PedidosScreen.tsx` 388,
-`InicioScreen.tsx` 350, `CajaScreen.tsx` 337.
-
-**Cambio.** Pantallas ≤ ~250 líneas; lógica en hooks o `domain/` (patrón ya presente en
-`apps/pwa-cliente/src/domain/pedido.flow.ts`). Orden: Comandero → Inventario → Pedidos.
-
-**Verificación.** Pisos de cobertura intactos; e2e Playwright en verde.
-
-**Depende de.** Nada.
-
----
-
-## T-23 — **[nuevo · alta]** Publicar eventos RMQ como persistentes
-
-**Evidencia.** `RabbitMQPublisherService.publish`
-(`libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts:58-77`) llama
-`channelWrapper.publish(NACHOPPS_EXCHANGE, routingKey, {...}, { headers: carrier })` **sin
-`persistent: true`** — verificado: `grep -rn "persistent" libs apps` → 0. Las colas y
-exchanges son durables, pero los mensajes viajan con `deliveryMode: 1` (transient): un
-reinicio del broker **pierde los eventos encolados aún no consumidos**, aunque el outbox ya
-los marcó `PROCESSED`. Esto socava la garantía del patrón outbox (ADR-002) y las invariantes
-de colas limpias: el productor cree haber entregado, el consumidor nunca recibe, y no hay
-reintento posible porque el evento ya salió de `PENDING`.
-
-**Cambio.** Agregar `persistent: true` a las opciones de `channelWrapper.publish`
-(el canal ya es `ConfirmChannel`, así que el `await` sigue resolviendo en el confirm del broker).
-
-**Archivos.** `libs/shared-rabbitmq/src/lib/rabbitmq-publisher.service.ts` (+ spec que
-verifique las opciones pasadas al wrapper) · adenda en `docs/decisiones/ADR-002-transactional-outbox.md`
-y `docs/operacion/rabbitmq.md`.
-
-**Verificación.** Spec unitario de opciones. Prueba de caos (extender
-`stress-tests/run-rabbitmq-chaos.js`): publicar N eventos con consumidores detenidos →
-`docker restart rabbitmq` → los N mensajes siguen en cola (hoy se pierden).
-
-**Depende de.** Nada. **Es un cambio de 1 línea con el mayor impacto en confiabilidad de todo el plan.**
-
----
-
-## T-24 — **[nuevo · alta]** WebSocket roto en producción: `ALLOWED_ORIGINS` nunca se define
-
-**Evidencia.** `NotificationsGateway` configura el CORS del WebSocket con
-`process.env.ALLOWED_ORIGINS` y, si falta, cae a una lista de **localhost**
-(`apps/servicio-notificaciones/src/app/notifications.gateway.ts:17-29`). Verificado:
-`grep -n "ALLOWED_ORIGINS" infra/docker-compose.yml infra/docker-compose.prod.yml` → **0
-resultados en ambos**; los compose solo definen `CORS_ORIGIN`. En producción, el handshake
-de Socket.IO desde `https://app.tudominio.com` se rechaza por CORS → **todo el tiempo real
-de la PWA (KDS, mesas, caja) está roto en prod**, silenciosamente.
-
-**Cambio.** Unificar a la variable que ya existe: el gateway lee `CORS_ORIGIN`
-(split por coma, mismo formato que los `main.ts`) y se elimina `ALLOWED_ORIGINS`.
-Mantener los defaults localhost solo como fallback de desarrollo.
-
-**Archivos.** `notifications.gateway.ts` (+ spec) · `.env.example` (si menciona la variable) ·
-`docs/servicios/servicio-notificaciones/_indice.md` · `docs/operacion/levantar-sistema.md`.
-
-**Verificación.** `grep -rn "ALLOWED_ORIGINS" apps infra` → 0. Test de integración: con
-`CORS_ORIGIN=https://app.ejemplo.com`, un handshake con ese `Origin` conecta y uno con otro
-origen se rechaza. Smoke en compose prod-like con la PWA real.
-
-**Depende de.** Nada. Prerrequisito de T-19.
-
----
-
-## T-25 — **[nuevo · media]** Carrera en `abrirTurno`: dos turnos de caja abiertos
-
-**Evidencia.** `abrirTurno` hace check-then-create: `findFirst({ estado: 'ABIERTA' })` y, si
-no hay, crea (`apps/servicio-caja/src/app/app.service.ts:96-115`). No existe índice único
-que lo respalde — verificado en `apps/servicio-caja/prisma/schema.prisma` (modelo `TurnoCaja`,
-solo `@@index` no únicos) y en `migrations/20260605000000_init/migration.sql` (el único
-UNIQUE es `cierres_caja_turnoId_key`). Dos aperturas concurrentes (doble click sin
-Idempotency-Key, o dos terminales) crean **dos turnos ABIERTA**; `registrarPago` y
-`obtenerTurnoActivo` toman `findFirst(...orderBy abiertoAt desc)` (`app.service.ts:305-312`),
-así que los pagos se reparten entre turnos y el arqueo/cierre Z queda inconsistente.
-Contraste: reservas sí resuelve su carrera equivalente con índice único parcial (ADR-005).
+**Evidencia (del informe).** Cuatro falsos negativos reproducibles, ninguno regresión de producto:
+1. `run-rabbitmq-chaos.js` crea mesas con `zona`, campo que el `CrearMesaCommand` no acepta
+   (`forbidNonWhitelisted` → `property zona should not exist`). Verificado en código: el
+   backend siempre usó `ubicacion` (`libs/contracts/src/domains/mesas.ts:54`); "zona" es
+   vocabulario del frontend (`apps/pwa-cliente/src/mappers/mesa.mapper.ts:23`).
+2. `run-concurrency-limits.js` C5 ("pago duplicado") paga sin abrir turno de caja → 400×10;
+   el rechazo es correcto (T-25), el script no monta la precondición.
+3. `run-all-stress-tests.js` Test 2 hace burst contra `/auth/validate`, eliminado en T-02 → 100 % "fallo" esperado.
+4. Encadenar scripts agota el presupuesto 5/min de `/auth/login` y contamina los asserts de
+   rate-limit de las suites siguientes.
 
 **Cambio.**
-1. Migración raw (Prisma no expresa índices parciales en el schema):
-   `CREATE UNIQUE INDEX "turnos_caja_un_abierto" ON "turnos_caja"(("estado")) WHERE "estado" = 'ABIERTA';`
-   *(si el modelo de negocio contempla varias cajas físicas simultáneas, indexar `("cajaId") WHERE estado='ABIERTA'` — confirmar con el equipo; hoy `cajaId` por defecto es `'T01'`.)*
-2. En `abrirTurno`, capturar `P2002` y devolver el turno abierto existente (semántica
-   actual de "si ya hay uno, devolverlo").
-3. Documentar la invariante nueva en `docs/invariantes/` (patrón de `slot-reserva-activo-unico.md`).
+1. `zona: label` → `ubicacion: label` en `run-rabbitmq-chaos.js` (renombre, no eliminación:
+   preserva la intención de etiquetar las mesas de caos y ejercita el campo opcional del DTO).
+   Coordinar con T-30 en el mismo PR.
+2. C5: precondición `POST /caja/turnos` (y cierre del turno al terminar el escenario, para
+   no dejar estado que contamine corridas siguientes).
+3. Retirar el burst de `/auth/validate` de `run-all-stress-tests.js`; si se quiere conservar
+   una prueba de presupuesto de auth, apuntarla a `/auth/login` con criterio de éxito
+   "429 a partir del 6.º" (convierte el límite en assert, no en ruido).
+4. Higiene de rate-limit entre scripts encadenados: paso de reset (reinicio del contenedor
+   Kong o espera de ventana) en `run-all-stress-tests.js`, documentado en el propio script.
 
-**Archivos.** migración nueva en caja · `app.service.ts` (+ spec) ·
-`docs/invariantes/turno-caja-abierto-unico.md` (nuevo, con `fuente:`).
+**Archivos.** `stress-tests/run-rabbitmq-chaos.js` · `run-concurrency-limits.js` ·
+`run-all-stress-tests.js` · `stress-tests/README` o cabeceras de los scripts.
 
-**Verificación.** Spec: dos `abrirTurno` concurrentes → un solo turno ABIERTA y ambas
-llamadas devuelven el mismo id. Drift de migraciones en verde.
+**Verificación.** `npm run probar:caos` y `npm run probar:concurrencia` sin los 4 falsos
+negativos; `run-all-stress-tests.js` termina con señal limpia (solo fallos que sean fallos).
+→ ✅ **Código hecho** (2026-06-10), `node --check` OK en los 3 scripts:
+(1) `zona`→`ubicacion` en `run-rabbitmq-chaos.js`; (2) C5 abre/cierra turno de caja como
+precondición (`ensureTurnoCajaActivo`/`cerrarTurnoCaja`); (3) retirado el burst de
+`/auth/validate`, reemplazado por un assert de presupuesto de login (429 desde el 6.º);
+(4) `resetRateLimit()` documentado al arranque del suite y antes de medir el presupuesto.
+**Pendiente:** la re-corrida real contra el stack levantado.
 
-**Depende de.** Nada.
-
----
-
-## T-26 — **[nuevo · media]** Índice anti-doble-booking creado en runtime, fuera de migraciones
-
-**Evidencia.** El índice único parcial que garantiza el slot único de reservas se crea **al
-arrancar el servicio** con `$executeRawUnsafe('CREATE UNIQUE INDEX IF NOT EXISTS
-"Reserva_fecha_hora_active_unique" ... WHERE estado IN (\'PENDIENTE\', \'CONFIRMADA\')')`
-(`apps/servicio-reservas/src/app/reservas.service.ts:192-196`), precedido de una limpieza de
-duplicados. No existe en `apps/servicio-reservas/prisma/migrations/` (verificado:
-`grep -in unique .../migration.sql` → 0). Consecuencias: (a) una BD recién migrada con
-`prisma migrate deploy` (el flujo de `infra/entrypoint.sh`) **no tiene la garantía hasta que
-el servicio bootea** y ejecuta ese código; (b) el índice es invisible para
-`scripts/check-migration-drift.sh`, exactamente la clase de deriva que ese script existe
-para impedir; (c) la invariante `slot-reserva-activo-unico.md` apoya su `fuente:` en código
-de runtime, no en el esquema versionado.
-
-**Cambio.** Mover el `CREATE UNIQUE INDEX` (y la limpieza previa de duplicados, como paso
-del mismo SQL) a una migración versionada en reservas; eliminar el bloque de
-`$executeRawUnsafe` del service. Actualizar la invariante y el ADR-005 con la fuente nueva.
-
-**Archivos.** `apps/servicio-reservas/prisma/migrations/<ts>_slot_unico_index/migration.sql` ·
-`reservas.service.ts` (+ spec) · `docs/invariantes/slot-reserva-activo-unico.md` ·
-`docs/decisiones/ADR-005-reserva-slot-unico.md`.
-
-**Verificación.** BD limpia + `migrate deploy` (sin arrancar el servicio) → el índice existe
-(`\di` o query a `pg_indexes`); dos reservas concurrentes al mismo slot → una 409;
-drift en verde.
-
-**Depende de.** Nada.
+**Depende de.** Nada. **Prerrequisito de** la regeneración de `BASELINE.md` (T-20): un
+baseline tomado con fixtures rotos nace contaminado.
 
 ---
 
-## T-27 — **[nuevo · media]** Service worker intercepta las rutas `/v1/` de la API
+### T-29 — 🆕 Cobertura bajo el piso (bloqueante del gate de entrada)
 
-**Evidencia.** El filtro del SW ignora API con `event.request.url.includes('/api')`
-(`apps/pwa-cliente/public/sw.js:34-37`, comentario: "Ignorar peticiones de API"), pero las
-URLs reales del front van por `/v1/{servicio}/...` desde que `client.ts` antepone
-`API_VERSION_PREFIX = '/v1'` (`apps/pwa-cliente/src/api/client.ts:7`) — **no contienen
-`/api`**, así que el SW sí las intercepta con su handler cache-first. Hoy no llegan a
-cachearse solo por un accidente: son cross-origin y el guard `response.type === 'basic'`
-(`sw.js:52`) las excluye. Si la PWA y el gateway se sirvieran bajo el mismo dominio
-(escenario plausible detrás de un reverse proxy), **respuestas autenticadas (cuentas, pagos,
-usuarios) quedarían en Cache Storage** del dispositivo compartido y se servirían stale.
+**Evidencia (P-03 ❌).** `nx run-many --target=test --all` exit 1 por umbral global de
+`vitest.config.mts`: líneas **48.53 % < 53 %**, statements **47.62 % < 52 %** (branches
+46.83 %, functions 40.2 %). Las suites pasan; falla el piso. Los pisos no fueron alterados.
+**Diagnóstico probable:** la remediación *eliminó* código muy testeado (7 copias del outbox
+processor con sus 7 specs, `validate` con sus casos) y *añadió* código nuevo con cobertura
+corta (lockout T-03, guard del último ADMIN T-04, purge T-06, claim SKIP LOCKED T-08,
+requestHash T-14, bootstrap T-10).
 
-**Cambio.** Corregir el filtro para que la intención coincida con el código:
-ignorar peticiones cuyo URL no sea del propio origen del SW **o** cuyo path empiece por
-`/v1/`, y de paso ignorar todo método ≠ GET. Subir `CACHE_NAME` a `nachopps-pos-v4` para
-invalidar el SW desplegado.
+**Cambio.**
+1. `vitest --coverage` y leer el reporte **por archivo** de los módulos tocados por
+   T-03/T-04/T-06/T-08/T-10/T-14 — ahí está casi seguro el déficit, y cubrirlos es cubrir
+   justamente lo más nuevo y delicado.
+2. Escribir los specs faltantes hasta superar el piso. **Decisión ya tomada: los pisos no
+   se bajan** — bajar el umbral para pasar el gate invalida el criterio del plan.
+3. Al cerrar, registrar la cobertura alcanzada en el informe de pruebas.
 
-**Archivos.** `apps/pwa-cliente/public/sw.js` · (opcional) test e2e en
-`apps/pwa-cliente/e2e/` que verifique que respuestas de API no aparecen en `caches`.
+**Archivos.** Specs nuevos junto a los módulos deficitarios (identidad, libs/resiliencia,
+libs/observabilidad, caja/pedidos según el reporte).
 
-**Verificación.** Con la PWA servida y sesión activa: `caches.open('nachopps-pos-v4')` no
-contiene ninguna entrada con `/v1/`; assets estáticos sí se cachean; navegación offline
-sigue cayendo a `index.html`.
+**Verificación.** P-03: `nx run-many --target=test --all` exit 0 con pisos intactos (52/53).
+→ ✅ **Hecho** (2026-06-10): exit 0; **stmts 52.92% / lines 53.72%** (branches 50%, funcs 47.5%),
+umbrales sin tocar. Cobertura nueva en lo más delicado: `servicio-caja` 40%→**88.6%** lines
+(specs de apertura/cierre/arqueo/movimientos de turno + caminos de error de `registrarPago` +
+controller) y `format.ts` de la PWA. 473/473 specs en verde. *Nota de alcance:* el `include` de
+cobertura abarca los 9 servicios + `pwa-cliente` + `shared-auth`; `libs/resiliencia` y
+`libs/observabilidad` **no** cuentan, por lo que el déficit se cubrió en código de servicio/PWA.
 
-**Depende de.** Nada.
+**Depende de.** Nada. **Bloquea el sign-off** (gate de entrada de la Suite 1).
 
 ---
 
-## Definición de hecho (global)
+### T-30 — 🆕 Homologar vocabulario de mesa: `zona` → `ubicacion` en la PWA
 
-- CI completo en verde por PR: lint, build, tests con pisos de cobertura, drift de migraciones.
-- Tras T-08/T-09, T-14 y T-23: re-ejecutar `probar:stock`, `probar:concurrencia`,
-  `probar:seguridad` y `probar:caos`, comparando contra `BASELINE.md` (T-20).
-- Documentación en el mismo PR que el código: README, ADRs, `docs/eventos/`,
-  `docs/invariantes/` (con `fuente:` actualizado) y `docs/operacion/`.
-- Cada PR referencia el ID de tarea (T-NN) de este plan.
+**Evidencia.** El backend usa `ubicacion` en schema, DTO y eventos
+(`apps/servicio-mesas/prisma/schema.prisma`, `libs/contracts/src/domains/mesas.ts:19,54`);
+la PWA traduce silenciosamente en `mesa.mapper.ts:23` (`zona: dto.ubicacion`, comentario
+`// ubicacion → zona`) y propaga `zona`/`mesaZona` por 7 archivos (`mesa.types.ts`,
+`mesa.mapper.ts` + spec, `Comandero.tsx`, `MesasScreen.tsx`, `CajaScreen.tsx`,
+`cajaConstants.ts`). La dualidad ya produjo un defecto real: el fixture de T-28.1 usó el
+vocabulario del frontend contra la API del backend.
 
-## Decisiones del equipo (registradas)
+**Dirección elegida (asimetría de costo verificada):** el frontend adopta `ubicacion`.
+La inversa exigiría migración de columna, romper `MesaDto`/`CrearMesaCommand` en la API
+pública `/v1` y cambiar el contrato de eventos que consumen otros servicios — costo
+desproporcionado para una ganancia léxica.
 
-| Decisión | Resolución | Reflejada en |
-|----------|-----------|--------------|
-| Auto-degradación de ADMIN | Rechazar siempre | T-04 |
-| Evento `UsuarioAutenticado` sin consumidores | Retirarlo del catálogo | T-15 |
-| Bloqueo de `/telemetry/metrics` | En Kong (`request-termination`) | T-16 |
-| Matriz evento→roles del WebSocket | Aprobada la propuesta | T-19 |
-| `docs-deprecated/` y `design_handoff_nachopps/` | Eliminar del repo | T-20 |
-| **Pendiente (nueva, de T-25):** ¿un turno de caja abierto global o uno por `cajaId`? | — | T-25 |
+**Cambio.**
+1. Renombrar identificadores: `zona` → `ubicacion`, `mesaZona` → `mesaUbicacion` en los 7
+   archivos; el mapper queda passthrough (`ubicacion: dto.ubicacion`) — evaluar si el
+   view-model sigue justificándose o se consume el DTO directo.
+2. **El copy visible es decisión de producto, independiente del código**: la UI puede seguir
+   mostrando la palabra "Zona" (pills, filtro "TODAS", tooltips) — default recomendado:
+   mantenerla, los meseros la usan.
+3. Nota en `docs/servicios/servicio-mesas/endpoints/POST--raiz.md`: «en la UI este campo se
+   muestra como "Zona"».
 
-## Riesgos aceptados (documentados, sin tarea)
+**Archivos.** Los 7 de la PWA · doc del endpoint.
 
-- **`jwt-cache` en modo degradado** (`infra/kong/kong.yml.template`, `degraded_mode: true`):
-  en caída de identidad, tokens ya cacheados siguen válidos hasta su `exp` — incluso si
-  fueron revocados. Acotado por el access token de 15 min; trade-off documentado en
-  `infra/kong/plugins/jwt-cache/handler.lua:66-76`. El diseño del plugin es correcto:
-  solo cachea en fase `log` después de que el plugin `jwt` nativo validó la firma
-  (`handler.lua:145-166`), por lo que no es envenenable con tokens inválidos.
-- **Imagen de producción con fuentes TS de `libs/` + ts-node** (`Dockerfile:39`, shim
-  `index.js` generado con `transpileOnly`): arranque más pesado y `ts-node` en runtime.
-  Funcional y con `USER node` + imagen pineada por digest; optimizable a futuro
-  (compilar libs en build), sin urgencia.
+**Verificación.** `grep -rni "zona" apps/pwa-cliente/src --include='*.ts' --include='*.tsx'`
+→ solo strings de presentación; suite PWA + e2e Playwright en verde; smoke visual de Mesas,
+Comandero y Caja.
+→ ✅ **Código hecho** (2026-06-10): `MesaVM.zona`→`ubicacion`, `mesaZona`→`mesaUbicacion`,
+estado de filtro `zona`/`setZona`/`zonas`→`ubicacion`/`setUbicacion`/`ubicaciones` en los 7
+archivos (`mesa.types`, `mesa.mapper` + spec, `ContextoCanal`, `Comandero`, `MesasScreen`,
+`CajaScreen`). El grep solo deja: un comentario en `mesa.types.ts`, otro en `MesasScreen.tsx`,
+la clase CSS `mt-zone` y `RESTO_FISCAL.zona` (ubicación **fiscal** del local, dominio distinto —
+se deja). `typecheck`+`lint`+`mesa.mapper.spec` (10/10) en verde. **Pendiente:** e2e Playwright y
+smoke visual contra el stack. *Aclaración:* la lista original de la ficha omitía `ContextoCanal.tsx`
+(sí tenía `mesaZona`) e incluía `cajaConstants.ts` (su `zona` es fiscal, no de mesa).
+
+**Depende de.** Nada. Mergear junto con T-28 (mismo motivo raíz, misma justificación de PR).
+
+---
+
+## Runtime pendiente (sin cambio de código — solo ejecutar pruebas)
+
+En orden de menor a mayor fricción de entorno:
+
+1. **Local/dev:** 2.ª mitad de P-10 (refresh ×10 sin 429) · P-12 completo con cuenta dedicada
+   (reset post-backoff, concurrencia, auditoría sin email) · P-23 (trío idempotencia con 422)
+   · P-24 (purga viva en caja/mesas/notificaciones/reportes) · P-31 (S2S `aud`, firma manual).
+2. **Con 2 réplicas:** P-21 ×3 corridas + P-63 (kill a mitad de lote).
+3. **Caos:** P-22 (mensajes sobreviven a restart del broker — la prueba que cierra T-23) ·
+   P-61 (identidad caída + jwt-cache degradado) · P-62 (restart db-pedidos bajo carga).
+4. **Manuales:** P-32 (WS por rol, 2 navegadores) · P-45/P-46 (PWA: Cache Storage + Playwright)
+   · P-50–P-56 (smoke de los 7 flujos de negocio por rol).
+5. **Prod-like (staging con dominio/cert):** P-33 (CORS del WS) — el único que genuinamente
+   exige ese entorno.
+
+---
+
+## Ruta al sign-off (orden de dependencias)
+
+```
+1. T-29 (cobertura)  ──────────────► desbloquea el gate de entrada (Suite 1)
+2. Re-decisión T-20  ──┐
+3. T-28 + T-30 (1 PR) ─┴──► stress limpio ──► BASELINE.md ──► P-06/T-20 y P-74 en verde
+4. Runtime pendiente §anterior (bloques 1→5)
+5. Re-ejecución de Suite 1 completa sobre el commit final + informe v2 archivado
+```
+
+El sign-off se firma con los criterios de salida del plan de pruebas **sin enmiendas**:
+Suite 1 íntegra en verde, 100 % de P-NN automáticas en pasa, smoke de negocio completo,
+caos sin pérdida de eventos, documentación con `fuente:` íntegras, y resultados archivados
+con commit y ejecutor.
+
+---
+
+## Decisiones (registro actualizado)
+
+| Decisión | Resolución | Estado |
+|----------|-----------|--------|
+| Auto-degradación de ADMIN | Rechazar siempre | ✅ Implementada y verificada (P-13) |
+| Evento `UsuarioAutenticado` | Retirado del catálogo | ✅ Implementada y verificada (P-06/P-72) |
+| Bloqueo de `/telemetry/metrics` | En Kong | ✅ Implementada y verificada (P-30) |
+| Matriz evento→roles del WS | Aprobada | ⏳ Implementada; verificación P-32 pendiente |
+| Turno de caja único: ¿global o por `cajaId`? | **Resuelta por implementación: global** (índice sobre `estado`) | ✅ Verificada (P-40). Si el negocio incorpora varias cajas físicas simultáneas, reabrir con índice por `cajaId`. |
+| `docs-deprecated/` y `design_handoff/` | Era "eliminar, sin archive" | ✅ **Ratificada (a)** (2026-06-10) y **ejecutada completa** vía `git rm --cached` (142/142, no destructivo); `BASELINE.md` creado + invariantes repuntadas → P-06/T-20 y P-74 verdes |
+| Copy visible "Zona" en la UI (T-30) | Default: mantener la palabra en pantalla; solo se homologan identificadores | 🆕 A confirmar por producto (decisión menor) |
+| Pisos de cobertura | **No se bajan** para pasar P-03 | ✅ Ratificada (T-29) |
+
+---
+
+## Lecciones registradas (para el informe final de prácticas)
+
+1. **Los tests del mismo autor comparten los puntos ciegos del código** (T-05): el spec
+   unitario codificaba el bug que debía atrapar; lo detectó la capa E2E del plan (P-14)
+   porque verificaba el estado real en BD y *logins sucesivos*, independiente del código
+   bajo prueba. Acción permanente: caso e2e de "doble login" en la suite de identidad —
+   el patrón "funciona la 1.ª vez, rompe la 2.ª" escapa a casi cualquier test de un paso.
+2. **La matriz de trazabilidad funcionó**: cada ❌ mapeó a una T-NN concreta y ordenó la
+   sesión (T-05 reabierta y cerrada con evidencia; reportes y `fuente:` corregidos con rastro).
+3. **Un baseline solo vale tanto como sus fixtures** (T-28 antes que `BASELINE.md`).
+4. **Las decisiones de equipo no se revierten en ejecución** (T-20): si el ejecutor —humano
+   o agente— discrepa, se escala la decisión, no se omite la tarea; el limbo resultante dejó
+   dos criterios del plan inalcanzables por definición.
