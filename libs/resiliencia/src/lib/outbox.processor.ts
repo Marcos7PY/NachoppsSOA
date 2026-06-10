@@ -2,7 +2,7 @@ import { DynamicModule, Inject, Injectable, Logger, Module, Type } from '@nestjs
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RabbitMQPublisherService } from '@org/shared-rabbitmq';
 import { getOrCreateGauge, getOrCreateHistogram } from '@org/observabilidad';
-import type { RoutingKey } from '@org/contracts';
+import { isRoutingKey } from '@org/contracts';
 import { notifyOutboxFailed } from './outbox-alert';
 import { OUTBOX_DB } from './outbox-admin';
 
@@ -137,12 +137,26 @@ export class OutboxProcessor {
       );
 
       for (const event of claimedEvents) {
+        const routingKey = event.routingKey;
+        // T-18: routing key fuera del catálogo de contratos = dato corrupto;
+        // no se publica (fallaría el binding) y se marca FAILED de inmediato.
+        if (!isRoutingKey(routingKey)) {
+          await this.prisma.outboxEvent.update({
+            where: { id: event.id },
+            data: { status: 'FAILED', attempts: event.attempts + 1, claimedAt: null },
+          });
+          this.logger.error(
+            `[ALERTA][OUTBOX_FAILED] ${this.producer} evento ${event.id} con routingKey desconocida "${routingKey}" → FAILED (no está en el catálogo de contratos)`,
+          );
+          void notifyOutboxFailed(this.producer, event.id, routingKey, event.attempts + 1);
+          continue;
+        }
         try {
           const payload = JSON.parse(event.payload);
           if (this.injectEventId && payload && typeof payload === 'object' && !Array.isArray(payload)) {
             payload.eventId ??= event.id;
           }
-          await this.rabbitmq.publish(event.routingKey as RoutingKey, payload, this.producer);
+          await this.rabbitmq.publish(routingKey, payload, this.producer);
           await this.prisma.outboxEvent.update({
             where: { id: event.id },
             data: { status: 'PROCESSED' },

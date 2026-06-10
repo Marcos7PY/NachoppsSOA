@@ -8,7 +8,7 @@ import { context, propagation } from '@opentelemetry/api';
 export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RabbitMQRetryInterceptor.name);
 
-  intercept(executionContext: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(executionContext: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctxType = executionContext.getType();
 
     if (ctxType !== 'rpc' && (ctxType as string) !== 'rmq') {
@@ -17,7 +17,7 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
 
     const rmqContext = ctxType === 'rpc'
       ? executionContext.switchToRpc().getContext<RmqContext>()
-      : (executionContext as any).args?.[1] as RmqContext | undefined;
+      : executionContext.getArgByIndex<RmqContext | undefined>(1);
 
     const channel = rmqContext?.getChannelRef?.() || null;
     const originalMsg = rmqContext?.getMessage?.() || null;

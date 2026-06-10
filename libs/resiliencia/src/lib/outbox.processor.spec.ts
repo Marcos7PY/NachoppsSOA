@@ -143,6 +143,20 @@ describe('OutboxProcessor — processOutboxEvents', () => {
     });
   });
 
+  it('routingKey fuera del catálogo → FAILED sin publicar (T-18)', async () => {
+    const { prisma, rabbitmq, processor } = createProcessor();
+    prisma.$queryRawUnsafe.mockResolvedValue([makeEvent({ routingKey: 'evento.inexistente' })]);
+
+    await processor.processOutboxEvents();
+
+    expect(rabbitmq.publish).not.toHaveBeenCalled();
+    expect(prisma.outboxEvent.update).toHaveBeenCalledWith({
+      where: { id: 'evt-1' },
+      data: { status: 'FAILED', attempts: 1, claimedAt: null },
+    });
+    expect(notifyOutboxFailed).toHaveBeenCalledWith(PRODUCER, 'evt-1', 'evento.inexistente', 1);
+  });
+
   it('con injectEventId enriquece el payload antes de publicar', async () => {
     const { prisma, rabbitmq, processor } = createProcessor({ producer: 'servicio-inventario', injectEventId: true });
     prisma.$queryRawUnsafe.mockResolvedValue([

@@ -38,5 +38,15 @@ export const RoutingKeys = {
 
 export type RoutingKey = (typeof RoutingKeys)[keyof typeof RoutingKeys];
 
+/** Conjunto de todas las routing keys conocidas (para validación en runtime). */
+export const ROUTING_KEY_VALUES: ReadonlySet<RoutingKey> = new Set(
+  Object.values(RoutingKeys),
+);
+
+/** Type guard: ¿el string es una routing key del catálogo? (T-18) */
+export function isRoutingKey(value: string): value is RoutingKey {
+  return ROUTING_KEY_VALUES.has(value as RoutingKey);
+}
+
 /** Binding de cola consumidor amplio (desarrollo / notificaciones). */
 export const CONSUMER_BINDING_ALL_DOMAIN_EVENTS = '*.*' as const;
