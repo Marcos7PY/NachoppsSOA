@@ -8,6 +8,13 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+/**
+ * Filtro global de excepciones unificado (T-11).
+ *
+ * Antes existían 9 copias idénticas (una por servicio); ahora vive en
+ * `libs/observabilidad` y lo aplica por defecto `bootstrapNachoppsService`.
+ * Normaliza cualquier excepción a un JSON estable y registra el error.
+ */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
@@ -36,7 +43,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
-      message: typeof message === 'string' ? message : (message as any).message || 'Internal server error',
+      message:
+        typeof message === 'string'
+          ? message
+          : (message as { message?: string }).message ?? 'Internal server error',
     });
   }
 }

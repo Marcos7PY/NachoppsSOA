@@ -13,12 +13,13 @@
  * y se importa en un segundo paso desde `@org/observabilidad/bootstrap`, después
  * de la llamada a `initTracing` en `main.ts`.
  */
-import { ExceptionFilter, Logger, Type, ValidationPipe } from '@nestjs/common';
+import { Logger, Type, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { buildHelmetOptions } from '@org/shared-auth';
+import { GlobalExceptionFilter } from './lib/global-exception.filter';
 import cookieParser = require('cookie-parser');
 import helmet from 'helmet';
 
@@ -39,15 +40,10 @@ export interface BootstrapOptions {
   swagger?: BootstrapSwaggerConfig;
   /** Puerto por defecto si no hay `PORT` en el entorno. */
   defaultPort: number;
-  /**
-   * Filtro global de excepciones. T-11 lo moverá a la lib y lo aplicará por
-   * defecto; por ahora cada servicio pasa su copia.
-   */
-  exceptionFilter?: ExceptionFilter;
 }
 
 export async function bootstrapNachoppsService(options: BootstrapOptions): Promise<void> {
-  const { serviceName, module, queue, swagger, defaultPort, exceptionFilter } = options;
+  const { serviceName, module, queue, swagger, defaultPort } = options;
 
   if (!process.env.RABBITMQ_URI) {
     throw new Error('RABBITMQ_URI environment variable is required');
@@ -76,9 +72,7 @@ export async function bootstrapNachoppsService(options: BootstrapOptions): Promi
     }),
   );
 
-  if (exceptionFilter) {
-    app.useGlobalFilters(exceptionFilter);
-  }
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   if (queue) {
     app.connectMicroservice({

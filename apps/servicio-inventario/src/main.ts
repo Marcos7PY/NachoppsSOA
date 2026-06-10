@@ -6,10 +6,8 @@ import { join } from 'path';
 config({ path: join(__dirname, '../.env') });
 import { bootstrapNachoppsService } from '@org/observabilidad/bootstrap';
 import { AppModule } from './app/app.module';
-import { GlobalExceptionFilter } from './filters/global-exception.filter';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-inventario', module: AppModule, queue: 'inventario_queue', defaultPort: 3007,
   swagger: { title: 'Nachopps Restobar — API Inventario', description: 'Productos, categorías, stock y validación por lote' },
-  exceptionFilter: new GlobalExceptionFilter(),
 });
