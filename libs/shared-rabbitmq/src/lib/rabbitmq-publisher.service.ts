@@ -69,7 +69,8 @@ export class RabbitMQPublisherService implements OnModuleInit {
       pattern: routingKey,
       data,
     }, {
-      headers: carrier
+      headers: carrier,
+      persistent: true,
     });
     this.logger.log(`Evento publicado: ${routingKey}`);
   }
