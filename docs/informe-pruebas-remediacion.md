@@ -2,11 +2,12 @@
 
 > Ejecución del [plan de pruebas post-remediación](plan-pruebas-post-remediacion.md).
 >
-> - **Commit bajo prueba:** `03e359f` + working tree de la sesión 2026-06-10 (T-28/T-29/T-30/T-20 + suites de prueba; sin commitear).
+> - **Commit bajo prueba (estado vigente):** `4f0fddb` (rama `dev`) — working tree **commiteado en G-0** en 7 commits atómicos. Suite 1 re-corrida en verde sobre este HEAD.
+> - **Corridas previas (histórico):** corrida 1 **sin stack** sobre `03e359f`; corrida 2 (runtime) sobre `03e359f` + working tree sin commitear. Ambas quedan como apéndice histórico; el estado vigente es el de §"Cierre G-0 — verificación sobre el HEAD commiteado (2026-06-10)".
 > - **Rama:** `dev`
 > - **Fecha:** 2026-06-10
 > - **Ejecutor:** Claude Code (Opus 4.8)
-> - **Entorno:** Windows 11, Docker 29.4.3, Node + nx local. La 1.ª corrida fue **sin stack**; la **2.ª corrida (runtime completa, §"Ejecución de runtime 2026-06-10")** se hizo con el **stack 9/9 healthy** (Kong `:8000`, RabbitMQ, 9 Postgres, observabilidad) ya levantado.
+> - **Entorno:** Windows 11, Docker 29.4.3, Node + nx local. El stack (9/9 servicios + Kong `:8000` + RabbitMQ + 9 Postgres + observabilidad) se mantuvo **healthy** durante la verificación de G-0.
 
 ## Resumen ejecutivo
 
@@ -20,13 +21,13 @@
 | 3 — Outbox/Mensajería | ✅ | P-20 (stock 12/12, conc 5/5, seg 7/7), P-21 ×3 (9/9), P-22 (persistencia), P-23 (422), P-24 (purga ×4 svc). |
 | 4 — Perímetro/S2S/WS | ⚠️ Parcial | P-30 ✅. P-31 spec ✅ (live gated por `SERVICE_AUD_ENFORCE`). P-32/P-33 manual/prod-like. |
 | 5 — Integridad/carreras | ✅ | P-40 (turno único) y P-41 (anti-doble-booking) verificados en carrera. |
-| 6 — PWA | ⏳ | P-45 código ✅, en vivo manual; P-46 e2e pendiente. |
+| 6 — PWA | ✅ casi | **P-46 e2e ✅** (Playwright, paginación infinita 1/1); P-45 (Cache Storage en vivo) manual. |
 | 7 — Smoke negocio | ✅ | P-50..P-55 ✅ (pago/cierre/mesa, no-oversell, reserva, reposición, DLQ). P-56 parcial. |
 | 8 — Caos/resiliencia | ✅ | P-60 (caos 8/8), P-61 (identidad down), P-62 (db restart), P-63 (kill réplica vía P-21). |
 
 > **🐞 Hallazgo crítico (T-05):** el re-hash perezoso en `auth.service.ts` re-hasheaba el **hash almacenado** en vez del texto plano → tras el primer login la credencial quedaba corrupta (401 permanente). Corregido (1 línea) + test que codificaba el bug corregido. Detalle en la sección de hallazgos. **Sin este fix, todo el runtime fallaba en cascada.**
 
-**Gate de entrada (Suite 1 en verde): NO superado** por P-03 (cobertura) y T-20 (excluido por diseño). Por tanto, según el propio plan, las suites de runtime no deberían firmarse hasta resolver esos puntos. **Stack:** levantado **9/9 servicios** (tras corregir el build de `servicio-reportes`) + RabbitMQ + 9 Postgres + Kong + observabilidad, con seed completo y 6 usuarios por rol.
+**Gate de entrada (Suite 1 en verde): SUPERADO** sobre el HEAD commiteado `4f0fddb`. P-03 (cobertura) quedó cerrado en T-29 (53.72/52.92, pisos intactos) y T-20 se resolvió de forma **no destructiva** (`git rm --cached`), de modo que P-06/T-20 da 0. La Suite 1 completa (P-01…P-06) se re-corrió en verde sobre el commit citable (ver §"Cierre G-0"). *(Nota histórica: en las corridas previas el gate figuraba "NO superado" por esos dos puntos, ya cerrados.)* **Stack:** **9/9 servicios** healthy + RabbitMQ + 9 Postgres + Kong + observabilidad, con seed completo y 6 usuarios por rol.
 
 ---
 
@@ -73,9 +74,11 @@
 
 ---
 
-## Suites 2–5 — Runtime (stack levantado, 8/9 servicios)
+## Suites 2–5 — Runtime · CORRIDA 1 (histórica, 8/9 servicios) ⚠️ SUPERADA
 
-Stack levantado vía `scripts/build-and-test-all.ps1` (build de imágenes + `docker compose --profile all`). Infra sana (RabbitMQ, 9 Postgres, Kong, observabilidad). Servicios: 8/9 healthy (**reportes no compiló**). Seed con `seed-admin.js` + `poblar-datos.ts` (6 cat., 25 prod., 14 mesas) + 6 usuarios por rol creados vía API.
+> **⚠️ Apéndice histórico.** Esta sección es la **1.ª corrida de runtime**, con `reportes` aún sin compilar (8/9) y varios P-NN en ⏳. **Quedó superada** por la §"Ejecución de runtime 2026-06-10" (corrida 2, stack 9/9) y por el §"Cierre G-0". Se conserva por trazabilidad; los estados ⏳/parciales de aquí **no son el estado vigente**.
+
+Stack levantado vía `scripts/build-and-test-all.ps1` (build de imágenes + `docker compose --profile all`). Infra sana (RabbitMQ, 9 Postgres, Kong, observabilidad). Servicios: 8/9 healthy (**reportes no compiló** — corregido después). Seed con `seed-admin.js` + `poblar-datos.ts` (6 cat., 25 prod., 14 mesas) + 6 usuarios por rol creados vía API.
 
 ### Suite 2 — Gateway y autenticación
 
@@ -135,7 +138,7 @@ Varias "fallas" de los harnesses de stress NO son regresiones de producto, sino 
 - **`/auth/validate` / token validation burst** — `run-all-stress-tests.js` (Test 2) golpea el endpoint eliminado en T-02 → 100% "fallo" esperado.
 - **Rate-limit de login saturado** — al encadenar muchos scripts, el presupuesto por IP de `/auth/login` ya estaba agotado, dando falsos negativos en "Rate limit login por Kong"; en una corrida limpia, P-10 da 5×401+429 correctamente.
 
-> **Recomendación:** actualizar estos fixtures (quitar `zona`, abrir turno antes de C5, retirar el burst de `/auth/validate`) para que el `run-all-stress-tests.js` vuelva a ser una señal limpia y se pueda regenerar el `BASELINE.md` (T-20/P-74).
+> **✅ HECHO (T-28, corrida 2):** los fixtures fueron saneados (quitar `zona`→`ubicacion`, abrir/cerrar turno con poll en C5, retirar el burst de `/auth/validate`, `resetRateLimit()`) y **re-corridos** con señal limpia (`probar:concurrencia` 5/5, `probar:caos` 8/8); `BASELINE.md` regenerado y versionado. Esta nota se conserva como contexto histórico del hallazgo.
 
 ---
 
@@ -194,7 +197,7 @@ corrida dejó pendiente. Automatizada en `stress-tests/run-remediacion-runtime.j
 | ID | Resultado | Detalle |
 |----|-----------|---------|
 | P-45 | ⏸️ parcial | SW no intercepta `/v1/` y caché `v4`: verificado en código (T-27). Inspección en vivo de Cache Storage + offline shell → manual, no ejecutada. |
-| P-46 | ⏳ | E2E Playwright — pendiente (requiere browsers de Playwright + PWA servida). |
+| P-46 | ✅ | **E2E Playwright `paginacion.spec.ts` → 1 passed (17.8s)** sobre el stack vivo. Inventario, Pedidos y Cocina cargan su 2.ª página (paginación infinita). El spec siembra ~50 productos+pedidos "QA Paginacion" vía API y maneja chromium contra el PWA. Montaje same-origin: PWA servido en `:4200` con `VITE_API_BASE_URL=''` + proxy de `/v1`→`:8000` (config Vite temporal, desmontada tras la corrida — el cross-origin directo :4200→:8000 lo bloquea CORS). |
 
 ### Suite 7 — Smoke de negocio
 
@@ -236,11 +239,11 @@ corrida dejó pendiente. Automatizada en `stress-tests/run-remediacion-runtime.j
 2. ✅ **T-20** cerrado: 142 artefactos fuera de control de versiones, `BASELINE.md` + invariantes (P-06/T-20, P-74).
 3. ✅ **Runtime:** Suites 2, 3, 5, 7 (smoke), 8 (caos) en verde; 2.ª mitad de P-10 y P-21 ×3 hechas.
 4. ✅ **Fixtures de stress** saneados y **re-corridos** (señal limpia).
-5. ⏸️ **Falta para el sign-off pleno (no automatizable aquí o de bajo riesgo):**
-   - **P-31** negativo en vivo de audiencia (requiere `SERVICE_AUD_ENFORCE=true`; lógica cubierta por spec).
+5. ✅ **G-0 cerrado** (2026-06-10): working tree commiteado en 7 commits atómicos (HEAD `4f0fddb`), Suite 1 re-corrida en verde sobre el HEAD, informe re-anclado. **P-46** cerrado (Playwright 1/1). **M-01** resuelto (`_indice.md` `fuente:` repuntada a `BASELINE.md`).
+6. ⏸️ **Falta para el sign-off pleno (estrictamente manual / decisión, no automatizable):**
+   - **P-31** negativo en vivo de audiencia (requiere `SERVICE_AUD_ENFORCE=true` — T-17 fase 2; lógica cubierta por spec, tolerante verificado en vivo).
    - **P-32** (WS, 2 navegadores) y **P-33** (CORS WS, staging con dominio/cert) — manuales/prod-like.
-   - **P-45/P-46** (PWA: Cache Storage en vivo + e2e Playwright) y **P-56** (sesión >15 min real).
-   - **`_indice.md`** con `fuente: [E:1]` (placeholder preexistente, corregir aparte).
+   - **P-45** (PWA: Cache Storage en vivo / offline) y **P-56** (sesión >15 min real) — navegador/espera.
 
 **Lo positivo:** todos los invariantes de mensajería/idempotencia/carrera y de resiliencia pasan
 (`probar:stock` 12/12, réplicas ×3, caos broker/identidad/db, persistencia de mensajes, turno único,
@@ -261,3 +264,48 @@ crítico de re-hash (T-05). Quedan solo verificaciones manuales/prod-like y un p
 6. **T-28 (fixtures de stress) — verificado en runtime (stack 9/9):** `run-rabbitmq-chaos.js` (`zona`→`ubicacion` + extracción `mesa.data.mesa.id`), `run-concurrency-limits.js` (C5 abre/cierra turno + poll de cuenta CERRADA en vez de `sleep` fijo), `run-all-stress-tests.js` (fuera `/auth/validate`; presupuesto de login como assert; `resetRateLimit()`). Resultados: **`probar:concurrencia` 5/5** (C5: `{201:1, 400/409:resto}`), **`probar:caos` 8/8**, **`run-all` Test 1** `{401:5, 429:3}`.
 7. **T-30 (vocabulario de mesa):** `zona`→`ubicacion` / `mesaZona`→`mesaUbicacion` en los 7 archivos PWA + nota en `docs/servicios/servicio-mesas/endpoints/POST--raiz.md`. `typecheck`+`lint`+unit en verde.
 8. **T-20 (higiene de repo) — completa, no destructiva:** `git rm --cached` de los 142 artefactos (siguen en disco + historial); `stress-tests/reports/BASELINE.md` creado y versionado (excepción en `.gitignore`); las 9 invariantes repuntadas a él. `git ls-files | grep -E "tsbuildinfo|reports/.*Z\.md|\.zip$|docs-deprecated|design_handoff"` → **0**. Cierra P-06/T-20 y P-74.
+
+---
+
+## Cierre G-0 — verificación sobre el HEAD commiteado (2026-06-10)
+
+> **Estado vigente del informe.** Lo anterior (corridas 1 y 2) queda como histórico; esta sección es el ancla final, sobre un commit citable.
+
+**G-0 (commit del estado verificado).** El working tree de la corrida 2 se commiteó en `dev` en **7 commits atómicos** (HEAD `4f0fddb`), en el orden del plan:
+
+| Commit | Tarea |
+|--------|-------|
+| `97d9b61` | `fix(identidad): re-hash perezoso sobre texto plano` — T-05 |
+| `b0d7d07` | `fix(reportes): declarar deps reales de shared-auth` — incidental |
+| `1057552` | `test(caja,pwa): cobertura turnos/arqueo/registrarPago y format` — T-29 |
+| `ec0a0cf` | `test(stress): fixtures saneados y runner de runtime` — T-28 |
+| `ae7686b` | `refactor(pwa): homologar zona→ubicacion en identificadores` — T-30 |
+| `003e5a2` | `chore(repo): sacar artefactos deprecados del control de versiones` — T-20 |
+| `4f0fddb` | `docs: cierre de remediación v5 e índice de invariantes` — P-73/M-01 |
+
+**Bug corregido durante G-0:** la excepción `!stress-tests/reports/BASELINE.md` **no funcionaba** (el patrón padre `stress-tests/reports/` con `/` final excluye el directorio entero, y git no re-incluye archivos bajo un directorio excluido). Corregida al patrón canónico `stress-tests/reports/*`. Verificación: `git ls-files stress-tests/reports/` → **solo `BASELINE.md`** (criterio G-0 §1.2).
+
+**M-01:** `docs/invariantes/_indice.md` — placeholder roto `fuente: [E:1]` → `[stress-tests/reports/BASELINE.md]` (resuelve con `test -f`).
+
+**Suite 1 re-corrida en verde sobre `4f0fddb`** (G-0 §1.3):
+
+| Gate | Resultado |
+|------|-----------|
+| P-01 lint | ✅ `run-many --target=lint --all` exit 0 — 25 proyectos, 0 errores (solo warns `no-explicit-any`, T-18). |
+| P-02 build | ✅ `run-many --target=build --all` exit 0 — 10 proyectos. |
+| P-03 test | ✅ `run-many --target=test --all` exit 0 — **473/473** specs (49 files), cobertura **53.72/52.92**, pisos intactos. |
+| P-04 drift | ✅ `check-migration-drift.sh` exit 0 — 9/9 en sync (Postgres shadow descartable en `:5544`). |
+| P-05 skills | ✅ `sync-agent-skills.mjs --check` exit 0. |
+| P-06 greps | ✅ erradicación en 0 en fuente real (matches solo en `dist/` no versionado, docs y un spec que asserta la ausencia). |
+
+**Reconfirmación de runtime sobre el stack vivo** (mismo código que el HEAD, vía `node stress-tests/run-remediacion-runtime.js`):
+- `SUITE=http` **8/8** ✅ (P-10, P-23, P-30, P-31 tolerante [enforce off], P-40, P-41, P-50, P-51).
+- `SUITE=smoke` **4/4** ✅ (P-13, P-52, P-53, P-54).
+- `SUITE=caos` **3/3** ✅ (P-61, P-62, P-22). *(P-62 imprime un error cosmético de diagnóstico — consulta `OutboxEvent`, la tabla real es `outbox_events` — pero su assert real pasa.)*
+- **P-46** ✅ (Playwright, paginación infinita 1/1).
+
+**Resultado:** `git status` limpio sobre `4f0fddb`; Suite 1 verde sobre un hash citable; informe re-anclado. El gate G-0 de la firma queda **cumplido**. Lo único pendiente para el sign-off pleno es estrictamente manual/decisión (P-32, P-33, P-45, P-56) y la **fase 2 de T-17** (flip de `SERVICE_AUD_ENFORCE`, a calendarizar).
+
+### Cambios adicionales aplicados en G-0
+9. **`.gitignore`** — patrón `stress-tests/reports/*` (en vez de `stress-tests/reports/`) para que la excepción de `BASELINE.md` funcione.
+10. **`docs/invariantes/_indice.md`** — `fuente:` repuntada (M-01).
