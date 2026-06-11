@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { getJwtPrivateKey, getJwtPublicKey } from '@org/shared-auth';
 import { AuthService } from './auth.service';
@@ -19,7 +19,8 @@ import { JwtStrategy } from './jwt.strategy';
         signOptions: {
           algorithm: 'RS256',
           // Access corto (plan 1.4): el refresh token renueva la sesión.
-          expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+          expiresIn: (process.env.JWT_EXPIRES_IN ||
+            '15m') as JwtSignOptions['expiresIn'],
           issuer: 'nachopps-identidad',
         },
       }),
