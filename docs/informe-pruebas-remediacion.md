@@ -146,9 +146,9 @@ Varias "fallas" de los harnesses de stress NO son regresiones de producto, sino 
 
 1. **🐞 T-05 (CRÍTICO) — re-hash perezoso corrompía la credencial.** `apps/servicio-identidad/src/auth/auth.service.ts` re-hasheaba `usuario.password` (hash) en vez de `command.password` (texto plano). Tras el primer login, el usuario quedaba con 401 permanente. El test `auth.service.spec.ts` "T-05 re-hash perezoso" **codificaba el bug** (esperaba `hash(usuarioBase.password,12)`). **Corregido y verificado E2E** en esta sesión. → Reabre y cierra T-05.
 2. **🐞 `servicio-reportes` no compilaba (CORREGIDO)** — el Dockerfile compila `libs/shared-auth` (que usa `@nestjs/jwt`/`@nestjs/passport`/`passport-jwt`) y reportes no declaraba esas deps, así que `npm install` no las traía al construir su imagen → `tsc` fallaba. reportes **usa** `JwtAuthGuard` de shared-auth ([app.module.ts:30](apps/servicio-reportes/src/app/app.module.ts:30)), así que son deps reales. **Fix:** añadidas a `apps/servicio-reportes/package.json` (como en identidad). Imagen reconstruida y servicio **healthy** (9/9 arriba).
-3. **P-03 — cobertura bajo el piso** (líneas 48.53% < 53%, statements 47.62% < 52%). Bloquea el gate de entrada. No es bajada de pisos; es cobertura insuficiente.
+3. ~~**P-03 — cobertura bajo el piso**~~ (líneas 48.53% < 53%, statements 47.62% < 52%). ~~Bloquea el gate de entrada.~~ No es bajada de pisos; es cobertura insuficiente. → **✅ RESUELTO en T-29 (2026-06-10):** cobertura subió a 53.72 / 52.92, pisos intactos (52/53); gate P-03 en verde sobre `4f0fddb`.
 4. **P-73 / ADR-005 — 4 referencias `fuente:` rotas** por renombrado/consolidación de migraciones (T-26, T-14/T-06). **Corregidas** en esta sesión.
-5. **T-20 (excluida por destructiva)** — explica P-06/T-20 (142 artefactos versionados) y P-74 (sin `BASELINE.md`). Decisión previa registrada; no es regresión nueva.
+5. ~~**T-20 (excluida por destructiva)**~~ — ~~explica P-06/T-20 (142 artefactos versionados) y P-74 (sin `BASELINE.md`).~~ Decisión previa registrada; no es regresión nueva. → **✅ RESUELTO (2026-06-10):** `git rm --cached` (no destructivo) sobre 142 artefactos; `BASELINE.md` versionado vía excepción en `.gitignore`; P-06/T-20 → 0, P-74 ✅.
 
 ## Ejecución de runtime 2026-06-10 (stack 9/9 levantado)
 
