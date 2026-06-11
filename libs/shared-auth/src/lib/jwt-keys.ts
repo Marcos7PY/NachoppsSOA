@@ -16,7 +16,7 @@
 
 /** Las PEM suelen viajar en .env/compose en una línea con `\n` escapados. */
 function normalizePem(value: string): string {
-  return value.includes('\\n') ? value.replaceAll('\\n', '\n') : value;
+  return value.includes(String.raw`\n`) ? value.replaceAll(String.raw`\n`, '\n') : value;
 }
 
 export function getJwtPublicKey(): string {

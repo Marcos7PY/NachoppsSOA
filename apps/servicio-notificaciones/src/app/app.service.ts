@@ -37,10 +37,17 @@ export class AppService {
     }
   }
 
+  /** Texto seguro para interpolar: solo strings/números del payload; nunca '[object Object]'. */
+  private texto(value: unknown, fallback = ''): string {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number') return String(value);
+    return fallback;
+  }
+
   private resolveMesa(data: Record<string, unknown>): string {
-    if (data['numeroMesa'] != null) return `Mesa ${data['numeroMesa']}`;
-    if (data['mesaNumero'] != null) return `Mesa ${data['mesaNumero']}`;
-    return `Mesa ${data['mesaId'] || '??'}`;
+    if (data['numeroMesa'] != null) return `Mesa ${this.texto(data['numeroMesa'], '??')}`;
+    if (data['mesaNumero'] != null) return `Mesa ${this.texto(data['mesaNumero'], '??')}`;
+    return `Mesa ${this.texto(data['mesaId'], '??')}`;
   }
 
   private formatPedidoCreado(data: Record<string, unknown>): string {
@@ -50,7 +57,7 @@ export class AppService {
 
   private formatPedidoActualizado(data: Record<string, unknown>): string {
     const mesa = this.resolveMesa(data);
-    const estadoStr = String(data['estado'] || '').replaceAll('_', ' ').toLowerCase();
+    const estadoStr = this.texto(data['estado']).replaceAll('_', ' ').toLowerCase();
     return `El pedido de la ${mesa} ha cambiado al estado ${estadoStr}.`;
   }
 
@@ -61,12 +68,12 @@ export class AppService {
       if (pattern.includes('pedido.creado') || pattern.includes('creado')) return this.formatPedidoCreado(d);
       if (pattern.includes('pedido.actualizado') || pattern.includes('actualizado')) return this.formatPedidoActualizado(d);
       if (pattern.includes('reserva.creada') || pattern.includes('reserva')) {
-        return `Nueva reserva registrada a nombre de ${d['clienteNombre'] || 'Cliente'} para el ${d['fecha'] || ''} a las ${d['hora'] || ''}.`;
+        return `Nueva reserva registrada a nombre de ${this.texto(d['clienteNombre'], 'Cliente')} para el ${this.texto(d['fecha'])} a las ${this.texto(d['hora'])}.`;
       }
       if (pattern.includes('reserva.cancelada')) {
-        return `La reserva a nombre de ${d['clienteNombre'] || 'Cliente'} ha sido cancelada.`;
+        return `La reserva a nombre de ${this.texto(d['clienteNombre'], 'Cliente')} ha sido cancelada.`;
       }
-      return typeof data === 'object' ? JSON.stringify(data) : String(data);
+      return typeof data === 'object' ? JSON.stringify(data) : this.texto(data);
     } catch {
       return `Actualización de ${pattern} recibida.`;
     }

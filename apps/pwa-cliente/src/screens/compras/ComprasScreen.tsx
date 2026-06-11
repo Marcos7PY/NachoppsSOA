@@ -51,6 +51,10 @@ export function ComprasScreen() {
     return { abiertas, porRecibir, gastoMes, bajos };
   }, [ocs]);
 
+  const enviarOc = (id: string) => {
+    setOcs((xs) => xs.map((o) => (o.id === id ? { ...o, estado: 'ENVIADA' } : o)));
+  };
+
   const recepcionar = (oc: OrdenCompra) => {
     setOcs((xs) => xs.map((o) => (o.id === oc.id ? { ...o, estado: 'RECIBIDA', entrega: 'Hoy' } : o)));
     setRecibir(null);
@@ -109,7 +113,7 @@ export function ComprasScreen() {
                   <td><span className="muted">{oc.entrega}</span></td>
                   <td><span className={`badge dot ${OC_META[oc.estado].cls}`}>{OC_META[oc.estado].label}</span></td>
                   <td style={{ textAlign: 'right' }}>
-                    <OcAccion oc={oc} onRecepcionar={() => setRecibir(oc)} onEnviar={() => setOcs((xs) => xs.map((o) => (o.id === oc.id ? { ...o, estado: 'ENVIADA' } : o)))} />
+                    <OcAccion oc={oc} onRecepcionar={() => setRecibir(oc)} onEnviar={() => enviarOc(oc.id)} />
                   </td>
                 </tr>
               ))}

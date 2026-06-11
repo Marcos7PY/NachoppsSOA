@@ -283,6 +283,15 @@ function MovRow({ m }: { m: MovimientoCajaDto }) {
   const egreso = m.tipo === 'EGRESO';
   const ingreso = m.tipo === 'INGRESO';
   const meta = METODO_META[m.metodo];
+  let montoStyle: { color: string } | undefined;
+  let signo: string | null = null;
+  if (egreso) {
+    montoStyle = { color: 'var(--danger-text)' };
+    signo = '−';
+  } else if (ingreso) {
+    montoStyle = { color: 'var(--ok-text)' };
+    signo = '+';
+  }
   return (
     <tr>
       <td className="mono muted" style={{ whiteSpace: 'nowrap' }}>{horaOf(m.createdAt)}</td>
@@ -302,7 +311,7 @@ function MovRow({ m }: { m: MovimientoCajaDto }) {
       </td>
       <td>{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
       <td className="num">
-        <span className="monto" style={egreso ? { color: 'var(--danger-text)' } : ingreso ? { color: 'var(--ok-text)' } : undefined}>{egreso ? '−' : ingreso ? '+' : null}{fmt(Math.abs(m.monto))}</span>
+        <span className="monto" style={montoStyle}>{signo}{fmt(Math.abs(m.monto))}</span>
         {m.descuento ? <div className="muted" style={{ fontSize: 11 }}>Subtotal {fmt(Math.abs(m.monto) + m.descuento)}</div> : null}
         {m.propina ? <div className="muted" style={{ fontSize: 11 }}>+{fmt(m.propina)} prop.</div> : null}
       </td>

@@ -36,10 +36,17 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   );
   const esperado = k.efectivoEsperado;
   const descuadre = +(contado - esperado).toFixed(2);
-  const estado: 'ok' | 'faltante' | 'sobrante' = Math.abs(descuadre) < 0.005 ? 'ok' : descuadre < 0 ? 'faltante' : 'sobrante';
-  const estadoBadgeCls = estado === 'ok' ? 'badge-ok' : estado === 'faltante' ? 'badge-danger' : 'badge-warn';
-  const estadoDescuadreColor = estado === 'ok' ? 'var(--ok-text)' : estado === 'faltante' ? 'var(--danger-text)' : 'var(--warn-text)';
-  const estadoBadgeLabel = estado === 'ok' ? 'Cuadrado' : estado === 'faltante' ? `Faltan ${fmt(Math.abs(descuadre))}` : `Sobran ${fmt(descuadre)}`;
+  let estado: 'ok' | 'faltante' | 'sobrante' = 'sobrante';
+  if (Math.abs(descuadre) < 0.005) estado = 'ok';
+  else if (descuadre < 0) estado = 'faltante';
+  const ESTADO_UI = {
+    ok: { badge: 'badge-ok', color: 'var(--ok-text)', label: 'Cuadrado' },
+    faltante: { badge: 'badge-danger', color: 'var(--danger-text)', label: `Faltan ${fmt(Math.abs(descuadre))}` },
+    sobrante: { badge: 'badge-warn', color: 'var(--warn-text)', label: `Sobran ${fmt(descuadre)}` },
+  } as const;
+  const estadoBadgeCls = ESTADO_UI[estado].badge;
+  const estadoDescuadreColor = ESTADO_UI[estado].color;
+  const estadoBadgeLabel = ESTADO_UI[estado].label;
 
   const set = (d: number, q: number) => setCounts((c) => ({ ...c, [d]: Math.max(0, q) }));
   const denominaciones = () => Object.fromEntries(

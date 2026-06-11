@@ -767,7 +767,11 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .ped-col-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 11px; display: flex; flex-direction: column; gap: 11px; }
 .ped-col-empty { text-align: center; color: var(--faint); padding: 20px; font-size: 13px; }
 
-.ped-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r); padding: 12px; cursor: pointer; transition: box-shadow .12s, transform .12s; min-width: 0; }
+.ped-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--r); padding: 12px; cursor: pointer; transition: box-shadow .12s, transform .12s; min-width: 0; position: relative; }
+/* Botón extendido: toda la card abre el detalle sin anidar botones */
+.pc-hit { position: absolute; inset: 0; opacity: 0; border: 0; background: none; padding: 0; cursor: pointer; }
+.ped-card .pc-foot .btn { position: relative; z-index: 1; }
+.ped-card:focus-within { box-shadow: 0 0 0 2px var(--accent); }
 .ped-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
 .ped-card.delivery { border-left-color: var(--purple); }
 .ped-card.llevar { border-left-color: var(--warn); }

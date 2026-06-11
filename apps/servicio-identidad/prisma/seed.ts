@@ -18,8 +18,12 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 const SALT_ROUNDS = 10;
-// Solo para datos demo locales; en entornos reales definir SEED_DEFAULT_PASSWORD.
-const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD ?? 'nachopps123';
+// La clave demo se exige por entorno para no dejar credenciales en el código.
+const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD;
+if (!DEFAULT_PASSWORD) {
+  console.error('Define SEED_DEFAULT_PASSWORD en el entorno (o .env) antes de ejecutar el seed.');
+  process.exit(1);
+}
 
 const usuarios = [
   { nombre: 'Administrador',  email: 'admin@nachopps.pe',      rol: 'ADMIN' },
@@ -55,7 +59,7 @@ async function main() {
     console.log(`  ✅ ${u.email} (${u.rol})`);
   }
 
-  console.log('\n🎉 Seed completado. Contraseña para todos: nachopps123');
+  console.log('\n🎉 Seed completado. Contraseña para todos: la de SEED_DEFAULT_PASSWORD.');
 }
 
 main()
