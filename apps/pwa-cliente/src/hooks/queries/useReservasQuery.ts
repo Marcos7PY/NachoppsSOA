@@ -3,6 +3,7 @@ import { useState } from 'react';
 import * as reservasApi from '../../api/reservas.api';
 import { queryClient } from '../../api/queryClient';
 import { mapReserva, mapReservas } from '../../mappers/reserva.mapper';
+import { primerMensaje } from '../../utils/feedback';
 import type {
   CrearReservaPayload,
   DisponibilidadResponse,
@@ -107,13 +108,11 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
     mutationCrear.error ||
     mutationConfirmar.error ||
     mutationCancelar.error;
-  const success = mutationCrear.isSuccess
-    ? 'Reserva creada.'
-    : mutationConfirmar.isSuccess
-      ? 'Reserva confirmada.'
-      : mutationCancelar.isSuccess
-        ? 'Reserva cancelada.'
-        : null;
+  const success = primerMensaje(
+    [mutationCrear.isSuccess, 'Reserva creada.'],
+    [mutationConfirmar.isSuccess, 'Reserva confirmada.'],
+    [mutationCancelar.isSuccess, 'Reserva cancelada.'],
+  );
 
   return {
     reservas: reservasQuery.data?.pages.flatMap((page) => page.reservas) ?? [],
@@ -123,7 +122,7 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
     loading: reservasQuery.isLoading,
     loadingMore: reservasQuery.isFetchingNextPage,
     saving,
-    error: error ? (error as Error).message : null,
+    error: error ? error.message : null,
     success,
     disponibilidad,
     fetch: reservasQuery.refetch,

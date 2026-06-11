@@ -76,18 +76,18 @@ export class AppService {
     const mesaLocal = await this.validarMesa(command.mesaId);
     const itemsProcesados = await this.validarYMapearItems(command.items);
     const total = this.calcularTotal(itemsProcesados);
-    const pedido = await this.persistirPedido(
-      command.mesaId,
-      mesaLocal.numero,
-      itemsProcesados,
+    const pedido = await this.persistirPedido({
+      mesaId: command.mesaId,
+      numeroMesa: mesaLocal.numero,
+      items: itemsProcesados,
       total,
-      command.cliente,
-      command.telefono,
-      command.direccion,
-      command.proveedor,
-      command.modalidad,
+      cliente: command.cliente,
+      telefono: command.telefono,
+      direccion: command.direccion,
+      proveedor: command.proveedor,
+      modalidad: command.modalidad,
       mesero,
-    );
+    });
 
     this.logger.log(`Pedido ${pedido.id} creado con eventos en Outbox`);
     this.pedidosCreadosCounter.inc({ modalidad: command.modalidad ?? 'MESA' });
@@ -247,18 +247,29 @@ export class AppService {
     );
   }
 
-  private async persistirPedido(
-    mesaId: string,
-    numeroMesa: number,
-    items: PedidoItemMapeado[],
-    total: Prisma.Decimal,
-    cliente?: string,
-    telefono?: string,
-    direccion?: string,
-    proveedor?: string,
-    modalidad?: string,
-    mesero?: MeseroPedido | null,
-  ): Promise<PedidoEntity> {
+  private async persistirPedido({
+    mesaId,
+    numeroMesa,
+    items,
+    total,
+    cliente,
+    telefono,
+    direccion,
+    proveedor,
+    modalidad,
+    mesero,
+  }: {
+    mesaId: string;
+    numeroMesa: number;
+    items: PedidoItemMapeado[];
+    total: Prisma.Decimal;
+    cliente?: string;
+    telefono?: string;
+    direccion?: string;
+    proveedor?: string;
+    modalidad?: string;
+    mesero?: MeseroPedido | null;
+  }): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
       const itemsConStockControlado = items.filter((item) => typeof item.stockActual === 'number');
       const cantidadesPorProducto = itemsConStockControlado.reduce((acc, item) => {
@@ -419,7 +430,7 @@ export class AppService {
    * No decide ENTREGADO/PAGADO/CANCELADO: esos son comerciales.
    */
   private derivarEstadoPedido(
-    estadosRaw: Array<EstadoItem | PedidoEstado | string>,
+    estadosRaw: string[],
   ): PedidoEstado | null {
     // Los ítems rechazados por falta de stock no participan en la derivación de
     // producción ("cocina manda"): un ítem fantasma no debe impedir que el resto
@@ -443,7 +454,7 @@ export class AppService {
       if (!actual) {
         throw new NotFoundException(`Pedido ${id} no encontrado`);
       }
-      this.validarTransicion(actual.estado as PedidoEstado, command.estado);
+      this.validarTransicion(actual.estado, command.estado);
 
       const p = await prisma.pedido.update({
         where: { id },
@@ -498,7 +509,7 @@ export class AppService {
       // "Cocina manda": derivamos el estado de producción del pedido desde sus
       // ítems. Solo lo aplicamos si el pedido sigue en fase de producción; nunca
       // pisamos un estado comercial (ENTREGADO/PAGADO/CANCELADO).
-      const estadoActual = pedidoActual.estado as PedidoEstado;
+      const estadoActual = pedidoActual.estado;
       const enProduccion =
         estadoActual === PedidoEstado.Pendiente ||
         estadoActual === PedidoEstado.EnPreparacion ||

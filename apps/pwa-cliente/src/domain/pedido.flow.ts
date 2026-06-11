@@ -10,7 +10,9 @@ export type Canal = 'SALON' | 'DELIVERY' | 'LLEVAR';
 
 export function canalFromModalidad(modalidad?: string): Canal {
   const m = (modalidad ?? 'SALON').toUpperCase();
-  return m === 'DELIVERY' ? 'DELIVERY' : m === 'LLEVAR' ? 'LLEVAR' : 'SALON';
+  if (m === 'DELIVERY') return 'DELIVERY';
+  if (m === 'LLEVAR') return 'LLEVAR';
+  return 'SALON';
 }
 
 export const CANAL_LABEL: Record<Canal, string> = {
@@ -92,5 +94,8 @@ export function derivarEstadoProduccion(estados: EstadoItem[]): EstadoPedido | n
 // ─── SLA (umbral único compartido) ──────────────────────────────
 export const SLA_MIN = 15;
 export const slaRatio = (elapsedMinutes: number) => elapsedMinutes / SLA_MIN;
-export const urgClass = (ratio: number): 'fresh' | 'warn' | 'late' =>
-  ratio >= 1 ? 'late' : ratio >= 0.7 ? 'warn' : 'fresh';
+export const urgClass = (ratio: number): 'fresh' | 'warn' | 'late' => {
+  if (ratio >= 1) return 'late';
+  if (ratio >= 0.7) return 'warn';
+  return 'fresh';
+};

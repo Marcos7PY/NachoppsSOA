@@ -12,7 +12,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS);
     })
   );
-  self.skipWaiting();
+  globalThis.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -23,7 +23,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim();
+  globalThis.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -58,7 +58,7 @@ self.addEventListener('fetch', (event) => {
       }
       return fetch(event.request).then((response) => {
         // Guardar dinámicamente recursos estáticos
-        if (response && response.status === 200 && response.type === 'basic') {
+        if (response?.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);

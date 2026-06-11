@@ -25,12 +25,12 @@ const ESTADO_LABEL: Record<EstadoPedido, string> = {
 
 /** Clase CSS del badge para un estado de pedido/ítem. */
 export function estadoClassOf(estado: EstadoPedido | EstadoItem): string {
-  return ESTADO_CSS[estado as EstadoPedido] ?? 'badge-muted';
+  return ESTADO_CSS[estado] ?? 'badge-muted';
 }
 
 /** Etiqueta legible para un estado de pedido/ítem. */
 export function estadoLabelOf(estado: EstadoPedido | EstadoItem): string {
-  return ESTADO_LABEL[estado as EstadoPedido] ?? estado;
+  return ESTADO_LABEL[estado] ?? estado;
 }
 
 function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
@@ -40,7 +40,7 @@ function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
     );
   }
 
-  const estado = (dto.estado ?? 'PENDIENTE') as EstadoItem;
+  const estado = dto.estado ?? 'PENDIENTE';
   return {
     id: dto.id,
     productoId: dto.productoId,
@@ -64,7 +64,7 @@ export function mapPedido(dto: PedidoDto): PedidoVM {
   return {
     id: dto.id,
     mesaId: dto.mesaId,
-    mesaNumero: dto.numeroMesa != null ? String(dto.numeroMesa).padStart(2, '0') : '??',
+    mesaNumero: dto.numeroMesa == null ? '??' : String(dto.numeroMesa).padStart(2, '0'),
     items,
     total: dto.total,
     estado: dto.estado,

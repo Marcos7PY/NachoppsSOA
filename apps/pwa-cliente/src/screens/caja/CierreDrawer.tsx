@@ -10,6 +10,8 @@ import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 const STEPS = ['Arqueo de efectivo', 'Propinas', 'Reporte interno'];
 
+const CUADRE_LABEL = { ok: 'Caja cuadrada', faltante: 'Faltante', sobrante: 'Sobrante' } as const;
+
 const emptyCounts = () =>
   [...BILLETES, ...MONEDAS].reduce<Record<number, number>>((acc, d) => {
     acc[d] = 0;
@@ -23,7 +25,7 @@ interface Props {
   onDone: (denominaciones: Record<string, number>) => void | Promise<void>;
 }
 
-export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
+export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Readonly<Props>) {
   const [step, setStep] = useState(1);
   const [counts, setCounts] = useState<Record<number, number>>(() => emptyCounts());
   const [generado, setGenerado] = useState(false);
@@ -75,7 +77,9 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
           <div className="steps">
             {STEPS.map((s, i) => {
               const n = i + 1;
-              const cls = step === n ? 'on' : step > n ? 'done' : '';
+              let cls = '';
+              if (step === n) cls = 'on';
+              else if (step > n) cls = 'done';
               return (
                 <Fragment key={s}>
                   <div className={`step ${cls}`}><span className="si">{step > n ? <Icons.Check s={13} /> : n}</span>{s}</div>
@@ -101,7 +105,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
                   <div className="kv"><span className="k">Efectivo contado</span><span className="v mono" style={{ fontSize: 17 }}>{fmt(contado)}</span></div>
                 </div>
                 <div className={`cuadre ${estado}`}>
-                  <div className="lbl">{estado === 'ok' ? 'Caja cuadrada' : estado === 'faltante' ? 'Faltante' : 'Sobrante'}</div>
+                  <div className="lbl">{CUADRE_LABEL[estado]}</div>
                   <div className="big">{descuadre > 0 ? '+' : ''}{fmt(descuadre)}</div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, opacity: 0.85 }}>{estado === 'ok' ? 'El conteo coincide con lo esperado.' : 'Revisa el conteo o registra la diferencia con una nota.'}</div>
                 </div>
@@ -156,11 +160,13 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
           {step > 1 ? <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>Atrás</button> : <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>}
           <span className="spacer" />
           {step === 1 && <span className={`badge dot ${estadoBadgeCls}`} style={{ marginRight: 6 }}>{estadoBadgeLabel}</span>}
-          {step < 3 ? (
+          {step < 3 && (
             <button className="btn btn-primary" onClick={() => setStep(step + 1)}>Siguiente</button>
-          ) : !generado ? (
+          )}
+          {step === 3 && !generado && (
             <button className="btn btn-primary" onClick={() => setGenerado(true)}><Icons.Lock s={16} /> Generar cierre Z</button>
-          ) : (
+          )}
+          {step === 3 && generado && (
             <>
               <button className="btn btn-ghost" onClick={() => window.print()}><Icons.Print s={16} /> Imprimir</button>
               <button className="btn btn-success" onClick={() => onDone(denominaciones())}><Icons.Check s={16} /> Confirmar y cerrar turno</button>
@@ -172,7 +178,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   );
 }
 
-function DenomRow({ d, bill, counts, set }: { d: number; bill?: boolean; counts: Record<number, number>; set: (d: number, q: number) => void }) {
+function DenomRow({ d, bill, counts, set }: Readonly<{ d: number; bill?: boolean; counts: Record<number, number>; set: (d: number, q: number) => void }>) {
   const q = counts[d] || 0;
   const label = d >= 1 ? `S/ ${d}` : `${(d * 100).toFixed(0)}¢`;
   const color = DENOM_COLOR[d] || 'var(--text-2)';
@@ -184,7 +190,7 @@ function DenomRow({ d, bill, counts, set }: { d: number; bill?: boolean; counts:
       </div>
       <div className="denom-stepper">
         <button onClick={() => set(d, q - 1)}>−</button>
-        <input value={q} onChange={(e) => set(d, parseInt(e.target.value.replace(/\D/g, '') || '0', 10))} inputMode="numeric" />
+        <input value={q} onChange={(e) => set(d, Number.parseInt(e.target.value.replace(/\D/g, '') || '0', 10))} inputMode="numeric" />
         <button onClick={() => set(d, q + 1)}>+</button>
       </div>
       <div className="denom-sub">{fmt(d * q)}</div>
@@ -192,9 +198,12 @@ function DenomRow({ d, bill, counts, set }: { d: number; bill?: boolean; counts:
   );
 }
 
-function ZTicket({ k, esperado, contado, descuadre, estado, cajeroNombre }: { k: CajaKpis; esperado: number; contado: number; descuadre: number; estado: string; cajeroNombre: string }) {
+const Row = ({ l, v, bold }: Readonly<{ l: string; v: string; bold?: boolean }>) => <div className={`zrow ${bold ? 'bold' : ''}`}><span>{l}</span><span>{v}</span></div>;
+
+const CUADRE_ROW_LABEL: Record<string, string> = { ok: 'Cuadre', faltante: 'Faltante', sobrante: 'Sobrante' };
+
+function ZTicket({ k, esperado, contado, descuadre, estado, cajeroNombre }: Readonly<{ k: CajaKpis; esperado: number; contado: number; descuadre: number; estado: string; cajeroNombre: string }>) {
   const now = new Date();
-  const Row = ({ l, v, bold }: { l: string; v: string; bold?: boolean }) => <div className={`zrow ${bold ? 'bold' : ''}`}><span>{l}</span><span>{v}</span></div>;
   return (
     <div className="zticket">
       <div className="zc">
@@ -218,7 +227,7 @@ function ZTicket({ k, esperado, contado, descuadre, estado, cajeroNombre }: { k:
       <div className="zlbl" style={{ marginBottom: 4 }}>Arqueo de efectivo</div>
       <Row l="Esperado" v={fmt(esperado)} />
       <Row l="Contado" v={fmt(contado)} />
-      <Row l={estado === 'ok' ? 'Cuadre' : estado === 'faltante' ? 'Faltante' : 'Sobrante'} v={`${descuadre > 0 ? '+' : ''}${fmt(descuadre)}`} bold />
+      <Row l={CUADRE_ROW_LABEL[estado] ?? 'Cuadre'} v={`${descuadre > 0 ? '+' : ''}${fmt(descuadre)}`} bold />
       <hr className="zhr" />
       <Row l="Tickets internos" v={`${k.comprobantes}`} />
       <hr className="zhr" />

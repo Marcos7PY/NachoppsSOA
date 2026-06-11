@@ -69,13 +69,14 @@ export function useInicioData() {
   );
 
   const actividad = useMemo<ActividadItem[]>(() => {
+    const METAS: Partial<Record<string, { t: string; ic: IconName; c: string }>> = {
+      PAGADO: { t: 'Pago registrado', ic: 'Receipt', c: 'var(--ok)' },
+      LISTO: { t: 'Pedido listo', ic: 'Check', c: 'var(--ok)' },
+      ENTREGADO: { t: 'Pedido entregado', ic: 'Check', c: 'var(--info)' },
+      CANCELADO: { t: 'Pedido cancelado', ic: 'Alert', c: 'var(--danger)' },
+    };
     const dePedidos: ActividadItem[] = pedidos.map((p) => {
-      const meta: { t: string; ic: IconName; c: string } =
-        p.estado === 'PAGADO' ? { t: 'Pago registrado', ic: 'Receipt', c: 'var(--ok)' }
-        : p.estado === 'LISTO' ? { t: 'Pedido listo', ic: 'Check', c: 'var(--ok)' }
-        : p.estado === 'ENTREGADO' ? { t: 'Pedido entregado', ic: 'Check', c: 'var(--info)' }
-        : p.estado === 'CANCELADO' ? { t: 'Pedido cancelado', ic: 'Alert', c: 'var(--danger)' }
-        : { t: 'Pedido a cocina', ic: 'Cocina', c: 'var(--accent)' };
+      const meta = METAS[p.estado] ?? { t: 'Pedido a cocina', ic: 'Cocina' as IconName, c: 'var(--accent)' };
       const donde = p.cliente ? p.cliente : `Mesa ${p.mesaNumero}`;
       return { key: `p-${p.id}`, t: meta.t, d: `${donde} · ${p.cantidadItems} ítem(s)`, at: p.createdAt, ic: meta.ic, c: meta.c };
     });
@@ -86,7 +87,7 @@ export function useInicioData() {
         t: 'Reserva confirmada',
         d: `${r.clienteNombre} · ${r.numComensales} pax · ${r.hora}`,
         at: r.createdAt,
-        ic: 'Reservas' as IconName,
+        ic: 'Reservas',
         c: 'var(--info)',
       }));
     return [...dePedidos, ...deReservas]

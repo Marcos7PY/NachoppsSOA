@@ -106,7 +106,9 @@ export const socketService = {
 
     const token = getAuthToken() ?? await refreshAccessToken();
 
-    if (!socket) {
+    if (socket) {
+      socket.auth = token ? { token } : {};
+    } else {
       socket = io(BASE_URL, {
         path: WS_PATH,
         auth: token ? { token } : {},
@@ -137,8 +139,6 @@ export const socketService = {
             authRetrying = false;
           });
       });
-    } else {
-      socket.auth = token ? { token } : {};
     }
 
     socket.connect();

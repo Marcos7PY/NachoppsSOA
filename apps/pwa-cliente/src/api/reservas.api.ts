@@ -37,9 +37,9 @@ export async function getPage(
     response &&
     typeof response === 'object' &&
     'data' in response &&
-    Array.isArray((response as ReservaListResponse).data)
+    Array.isArray(response.data)
   ) {
-    return response as ReservaListResponse;
+    return response;
   }
 
   return {

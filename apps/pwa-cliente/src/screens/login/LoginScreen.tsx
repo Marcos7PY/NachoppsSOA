@@ -1,6 +1,6 @@
 // screens/login/LoginScreen.tsx — Login real con auth store
 
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import { ApiError } from '../../api/client';
@@ -17,7 +17,7 @@ export function LoginScreen() {
   // un 429 o un fallo de red no significan que el correo/contraseña estén mal.
   const [error, setError] = useState<{ kind: string; text: string; field?: boolean } | null>(null);
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -143,7 +143,7 @@ export function LoginScreen() {
           >
             {loading ? (
               <>
-                <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />{' '}
                 Ingresando…
               </>
             ) : (

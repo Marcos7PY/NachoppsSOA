@@ -71,11 +71,9 @@ export function useFocusTrap(
           e.preventDefault();
           last?.focus();
         }
-      } else {
-        if (focused === last || !container.contains(focused)) {
-          e.preventDefault();
-          first.focus();
-        }
+      } else if (focused === last || !container.contains(focused)) {
+        e.preventDefault();
+        first.focus();
       }
     };
 

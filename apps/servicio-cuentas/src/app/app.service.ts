@@ -34,7 +34,7 @@ export class AppService {
         mesaId: c.mesaId,
         pedidos: c.pedidos as any[],
         total: Number(c.total),
-        estado: c.estado as CuentaEstado,
+        estado: c.estado,
         ticket: c.ticket,
         createdAt: c.createdAt.toISOString(),
         updatedAt: c.updatedAt.toISOString(),
@@ -86,7 +86,7 @@ export class AppService {
   // A2+M5: idempotencia + advisory lock + recompute Decimal
   async procesarPedidoCreado(payload: PedidoCreadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
-    if (!pedidoDto || !pedidoDto.mesaId || !pedidoDto.id) {
+    if (!pedidoDto?.mesaId || !pedidoDto.id) {
       this.logger.warn('PedidoCreado sin mesaId/id — ignorado');
       return;
     }
@@ -102,11 +102,9 @@ export class AppService {
       const origenCuentaAbierta = cuenta ? 'reconciliacion-pedido' : 'fallback';
 
       // Fallback INLINE (misma tx): crea cuenta + reemite CuentaAbierta
-      if (!cuenta) {
-        cuenta = await prisma.cuenta.create({
-          data: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
-        });
-      }
+      cuenta ??= await prisma.cuenta.create({
+        data: { mesaId: pedidoDto.mesaId, estado: CuentaEstado.Abierta, pedidos: [], total: 0 },
+      });
 
       await prisma.outboxEvent.create({
         data: {
@@ -148,7 +146,7 @@ export class AppService {
   // A2+M5: idempotencia + advisory lock + recompute Decimal para actualizaciones
   async procesarPedidoActualizado(payload: PedidoActualizadoPayload): Promise<void> {
     const pedidoDto = payload.pedido;
-    if (!pedidoDto || !pedidoDto.mesaId) return;
+    if (!pedidoDto?.mesaId) return;
 
     await this.prisma.$transaction(async (prisma) => {
       // M5: advisory lock por mesa
@@ -331,7 +329,7 @@ export class AppService {
       const montoPorParte = new Prisma.Decimal(cuenta.total).dividedBy(numPartes).toNumber();
       return {
         metodo: 'IGUALES',
-        partes: Array(numPartes).fill(0).map((_, i) => ({
+        partes: new Array(numPartes).fill(0).map((_, i) => ({
           parte: i + 1,
           monto: montoPorParte
         }))
@@ -340,7 +338,7 @@ export class AppService {
 
     if (command.metodo === 'POR_ITEMS') {
       const partes: Record<number, number> = {};
-      const allItems = (pedidos as any[]).flatMap((p: any) => p.items || []);
+      const allItems = pedidos.flatMap((p: any) => p.items || []);
       allItems.forEach((item: any) => {
         const comensal = item.comensal || 1;
         // A3: aritmética Decimal por ítem
@@ -366,7 +364,7 @@ export class AppService {
       mesaId: c.mesaId,
       pedidos: typeof c.pedidos === 'string' ? JSON.parse(c.pedidos) : c.pedidos,
       total: Number(c.total),
-      estado: c.estado as CuentaEstado,
+      estado: c.estado,
       ticket: c.ticket,
       createdAt: c.createdAt?.toISOString() || new Date().toISOString(),
       updatedAt: c.updatedAt?.toISOString() || new Date().toISOString(),
@@ -389,7 +387,7 @@ export class AppService {
 
     const ganador = Array.from(porMesero.entries()).sort(([, a], [, b]) => {
       const porTotal = b.total - a.total;
-      return porTotal !== 0 ? porTotal : b.pedidos - a.pedidos;
+      return porTotal === 0 ? b.pedidos - a.pedidos : porTotal;
     })[0];
 
     if (!ganador) return {};

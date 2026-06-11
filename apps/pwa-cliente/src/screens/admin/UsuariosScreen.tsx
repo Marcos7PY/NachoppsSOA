@@ -2,7 +2,7 @@
 // Cableado real: useUsuariosQuery (lista paginada + alta + cambio de rol).
 // Solo ADMIN gestiona; el resto ve la tabla en lectura.
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useUsuariosQuery } from '../../hooks/queries/useUsuariosQuery';
 import { useAuthStore } from '../../store/auth.store';
@@ -82,7 +82,7 @@ export function UsuariosScreen() {
     };
   }, [usuarios]);
 
-  const handleCrear = async (event: FormEvent) => {
+  const handleCrear = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online) return;
     await crear({
@@ -169,9 +169,8 @@ export function UsuariosScreen() {
             <span className="badge badge-info">{usuarios.length} usuarios</span>
           </div>
 
-          {loading ? (
-            <LoadingRows />
-          ) : usuarios.length === 0 ? (
+          {loading && <LoadingRows />}
+          {!loading && usuarios.length === 0 && (
             <div className="empty">
               <div className="e-ic"><Icons.Usuarios s={24} /></div>
               <h3>Sin usuarios</h3>
@@ -182,7 +181,8 @@ export function UsuariosScreen() {
                 </button>
               )}
             </div>
-          ) : (
+          )}
+          {!loading && usuarios.length > 0 && (
             <>
               <div className="table-wrap table-wrap-flat">
                 <table className="dt">

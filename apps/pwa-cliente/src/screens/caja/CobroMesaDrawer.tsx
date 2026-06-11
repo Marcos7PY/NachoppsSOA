@@ -26,7 +26,7 @@ interface Props {
   onPaid?: () => void;
 }
 
-export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) {
+export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonly<Props>) {
   const online = useOnlineStatus();
   const {
     cuentaActiva, loading, error, success,

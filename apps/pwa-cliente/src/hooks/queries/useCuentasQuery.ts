@@ -6,6 +6,7 @@ import { MESAS_QUERY_KEY } from './useMesasQuery';
 import { PEDIDOS_QUERY_KEY } from './usePedidosQuery';
 import { CAJA_QUERY_KEY } from './useCajaQuery';
 import type { DividirCuentaPayload, RegistrarPagoPayload } from '../../types/cuenta.types';
+import { primerMensaje } from '../../utils/feedback';
 
 export const CUENTAS_QUERY_KEY = ['cuentas'];
 
@@ -70,8 +71,12 @@ export function useCuentasQuery(mesaId?: string) {
   return {
     cuentaActiva: query.data ?? null,
     loading: query.isLoading || mutationAbrir.isPending || mutationRegistrarPago.isPending || mutationCerrar.isPending,
-    error: query.isError ? (query.error as Error).message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
-    success: mutationAbrir.isSuccess ? 'Cuenta abierta.' : mutationRegistrarPago.isSuccess ? 'Pago registrado correctamente.' : mutationCerrar.isSuccess ? mutationCerrar.data.message : null,
+    error: query.isError ? query.error.message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
+    success: primerMensaje(
+      [mutationAbrir.isSuccess, 'Cuenta abierta.'],
+      [mutationRegistrarPago.isSuccess, 'Pago registrado correctamente.'],
+      [mutationCerrar.isSuccess, mutationCerrar.data?.message],
+    ),
     ticket: mutationRegistrarPago.data?.ticket ?? mutationCerrar.data?.ticket ?? null,
     division: mutationDividir.data ?? null,
     

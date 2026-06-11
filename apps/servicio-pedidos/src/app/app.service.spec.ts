@@ -368,18 +368,23 @@ describe('AppService — Pedidos', () => {
         ],
       } as any);
 
-      await (service as any).persistirPedido('mesa-1', 1, [
-        {
-          productoId: 'prod-libre',
-          nombre: 'Ceviche',
-          cantidad: 2,
-          precioUnitario: 25,
-          stockActual: null,
-          area: 'COCINA',
-          comensal: 1,
-          modificadores: [],
-        },
-      ], 50);
+      await (service as any).persistirPedido({
+        mesaId: 'mesa-1',
+        numeroMesa: 1,
+        items: [
+          {
+            productoId: 'prod-libre',
+            nombre: 'Ceviche',
+            cantidad: 2,
+            precioUnitario: 25,
+            stockActual: null,
+            area: 'COCINA',
+            comensal: 1,
+            modificadores: [],
+          },
+        ],
+        total: 50,
+      });
 
       expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
       expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
@@ -410,10 +415,10 @@ describe('AppService — Pedidos', () => {
         ],
       } as any);
 
-      await (service as any).persistirPedido(
-        'mesa-1',
-        1,
-        [
+      await (service as any).persistirPedido({
+        mesaId: 'mesa-1',
+        numeroMesa: 1,
+        items: [
           {
             productoId: 'prod-1',
             nombre: 'Nachos',
@@ -425,14 +430,10 @@ describe('AppService — Pedidos', () => {
             modificadores: [],
           },
         ],
-        25,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
-        'MESA',
-        { id: 'u-mesero-1', nombre: 'Ana Mesa' },
-      );
+        total: 25,
+        modalidad: 'MESA',
+        mesero: { id: 'u-mesero-1', nombre: 'Ana Mesa' },
+      });
 
       expect(mockPrisma.pedido.create).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({

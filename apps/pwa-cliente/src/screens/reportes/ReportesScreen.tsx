@@ -25,7 +25,7 @@ export function ReportesScreen() {
         </div>
       )}
 
-      {loading && !resumen ? (
+      {!resumen && (loading ? (
         <div className="grid-stats">
           {[1, 2, 3].map((row) => (
             <div key={row} className="stat">
@@ -34,13 +34,14 @@ export function ReportesScreen() {
             </div>
           ))}
         </div>
-      ) : !resumen ? (
+      ) : (
         <div className="empty">
           <div className="e-ic"><ChartIcon /></div>
           <h3>Sin resumen disponible</h3>
           <p>El módulo se mantiene vacío hasta recibir datos reales de reportes.</p>
         </div>
-      ) : (
+      ))}
+      {resumen && (
         <div className="report-stack">
           <div className="grid-stats">
             <div className="stat">

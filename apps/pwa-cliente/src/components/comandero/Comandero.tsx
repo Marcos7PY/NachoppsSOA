@@ -4,7 +4,7 @@
 // La lógica del carrito/contexto y el envío viven en useComanda + domain/comanda
 // (T-22); aquí queda el cableado de queries y la presentación.
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icons, type IconName } from '../ui/icons';
 import { useToast } from '../ui/ToastProvider';
 import { fmt } from '../../utils/format';
@@ -94,10 +94,22 @@ export function Comandero({
     </button>
   ) : null;
 
-  const titulo = modoAgregar
-    ? `Agregar a Mesa ${mesaNumero ?? ''}`.trim()
-    : mesaLock ? `Nuevo pedido · Mesa ${mesaNumero ?? ''}`.trim()
-    : 'Nuevo pedido';
+  let titulo = 'Nuevo pedido';
+  if (modoAgregar) titulo = `Agregar a Mesa ${mesaNumero ?? ''}`.trim();
+  else if (mesaLock) titulo = `Nuevo pedido · Mesa ${mesaNumero ?? ''}`.trim();
+
+  // Estado vacío de la grilla (cargando / sin resultados); null = mostrar productos.
+  let gridVacio: ReactNode = null;
+  if (loadingInv && productos.length === 0) {
+    gridVacio = <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>;
+  } else if (productosFiltrados.length === 0) {
+    gridVacio = (
+      <>
+        <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><Icons.Search s={26} /><b>Sin resultados</b><p>Ajusta la categoría o la búsqueda.</p></div>
+        {cargarMasProductos}
+      </>
+    );
+  }
 
   return (
     <div className="cmd-overlay">
@@ -163,14 +175,7 @@ export function Comandero({
               <div className="input cmd-search"><Icons.Search s={15} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" /></div>
             </div>
             <div className="cmd-grid">
-              {loadingInv && productos.length === 0 ? (
-                <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><b>Cargando carta…</b></div>
-              ) : productosFiltrados.length === 0 ? (
-                <>
-                  <div className="cmd-empty" style={{ gridColumn: '1 / -1' }}><Icons.Search s={26} /><b>Sin resultados</b><p>Ajusta la categoría o la búsqueda.</p></div>
-                  {cargarMasProductos}
-                </>
-              ) : (
+              {gridVacio ?? (
                 <>
                   {productosFiltrados.map((p) => {
                     const enCarrito = cmd.lines.find((l) => l.producto.id === p.id)?.cantidad ?? 0;

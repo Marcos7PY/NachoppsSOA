@@ -41,7 +41,7 @@ export class IdempotencyPurgeService {
 
   @Cron(CronExpression.EVERY_HOUR)
   async purgarIdempotencyKeys() {
-    const cutoff = new Date(Date.now() - this.retencionDias * 24 * 3600_000);
+    const cutoff = new Date(Date.now() - this.retencionDias * 24 * 3_600_000);
     const r = await this.db.idempotencyKey.deleteMany({ where: { createdAt: { lt: cutoff } } });
     if (r.count > 0) this.logger.log(`Purga idempotency_keys: ${r.count} eliminadas`);
   }

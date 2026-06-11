@@ -64,8 +64,16 @@ function compact(parts: Array<string | false | null | undefined>): string {
 }
 
 function numberLabel(value: unknown): string | null {
-  if (value === null || value === undefined || value === '') return null;
-  return String(value);
+  if (typeof value === 'string') return value === '' ? null : value;
+  if (typeof value === 'number') return String(value);
+  return null;
+}
+
+/** Texto plano de un campo del payload; objetos/arrays devuelven ''. */
+function textLabel(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  return '';
 }
 
 function moneyLabel(value: unknown): string | null {
@@ -105,7 +113,7 @@ function pedidoRecord(data: UnknownRecord | null): UnknownRecord | null {
 function buildMesaCopy(pattern: string, data: UnknownRecord | null): NotificationCopy | null {
   const mesa = nestedRecord(data, 'mesa') ?? data;
   const numero = numberLabel(mesa?.numero ?? data?.numeroMesa ?? data?.mesaNumero);
-  const estado = String(mesa?.estado ?? data?.estado ?? '').toUpperCase();
+  const estado = textLabel(mesa?.estado ?? data?.estado).toUpperCase();
   const estadoLabel = ESTADO_MESA_LABEL[estado] ?? estado.toLowerCase();
   const ubicacion = numberLabel(mesa?.ubicacion ?? data?.ubicacion);
   const capacidad = numberLabel(mesa?.capacidad ?? data?.capacidad);
@@ -149,7 +157,7 @@ function buildPedidoCopy(pattern: string, data: UnknownRecord | null): Notificat
   const pedido = pedidoRecord(data);
   const numero = mesaNumero(pedido) ?? mesaNumero(data);
   const total = moneyLabel(pedido?.total ?? data?.total);
-  const estado = String(pedido?.estado ?? data?.estado ?? '').toUpperCase();
+  const estado = textLabel(pedido?.estado ?? data?.estado).toUpperCase();
   const estadoLabel = ESTADO_PEDIDO_LABEL[estado] ?? estado.replaceAll('_', ' ').toLowerCase();
   const destino = numero ? `Mesa ${numero}` : numberLabel(pedido?.cliente ?? data?.cliente) ?? 'cliente';
 
@@ -201,7 +209,7 @@ function buildCuentaCopy(pattern: string, data: UnknownRecord | null): Notificat
   if (pattern === 'pago.registrado') {
     return {
       titulo: 'Pago registrado',
-      contenido: compact([`Pago registrado${numero ? ` para Mesa ${numero}` : ''}.`, total]),
+      contenido: compact([numero ? `Pago registrado para Mesa ${numero}.` : 'Pago registrado.', total]),
     };
   }
 
@@ -336,7 +344,7 @@ export function mapSocketNotification(evento: SocketNotificationPayload): Notifi
   const copy = buildNotificationCopy(pattern, dataObj);
 
   return {
-    id: dataObj?.notificacionId ? String(dataObj.notificacionId) : `${pattern}-${Date.now()}`,
+    id: textLabel(dataObj?.notificacionId) || `${pattern}-${Date.now()}`,
     titulo: copy.titulo,
     contenido: copy.contenido,
     canal: 'UI',

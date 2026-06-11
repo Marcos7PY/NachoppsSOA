@@ -7,7 +7,7 @@
 import { PrismaClient } from '../src/generated/prisma';
 import * as bcrypt from 'bcrypt';
 import * as dotenv from 'dotenv';
-import { join } from 'path';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 

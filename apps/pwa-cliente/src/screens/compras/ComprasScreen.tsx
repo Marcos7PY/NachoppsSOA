@@ -206,7 +206,7 @@ function RecepcionDrawer({ oc, onClose, onRecibir }: Readonly<RecepcionDrawerPro
           <div className="banner info" style={{ marginBottom: 14 }}><Icons.Bag s={16} /><span>{oc.prov} · marca lo que llegó conforme</span></div>
           <div style={{ display: 'grid', gap: 8 }}>
             {oc.items.map((it, i) => (
-              <button key={i} className={`rep-opt ${chk[i] ? 'on' : ''}`} onClick={() => setChk((c) => ({ ...c, [i]: !c[i] }))} style={{ width: '100%' }}>
+              <button key={it.n} className={`rep-opt ${chk[i] ? 'on' : ''}`} onClick={() => setChk((c) => ({ ...c, [i]: !c[i] }))} style={{ width: '100%' }}>
                 <span className="mod-tick sq" style={chk[i] ? { background: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}>{chk[i] && <Icons.Check s={12} />}</span>
                 <div style={{ flex: 1, textAlign: 'left' }}>
                   <b style={{ fontSize: 13.5 }}>{it.n}</b>

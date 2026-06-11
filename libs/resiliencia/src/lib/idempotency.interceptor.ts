@@ -59,7 +59,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const routePath = req.route?.path ?? req.url;
     const key = `http:${req.method}:${routePath}:${headerKey}`;
     const requestHash = createHash('sha256')
-      .update(req.body != null ? JSON.stringify(req.body) : '')
+      .update(req.body == null ? '' : JSON.stringify(req.body))
       .digest('hex');
 
     return from(this.handle(next, key, req.method, String(routePath), requestHash, res));
@@ -76,7 +76,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     }
     if (existing.completedAt && existing.statusCode != null) {
       res.status(existing.statusCode);
-      return existing.body != null ? JSON.parse(existing.body) : undefined;
+      return existing.body == null ? undefined : JSON.parse(existing.body);
     }
     // Registro reclamado pero aún sin completar → duplicado concurrente.
     throw new ConflictException(IN_PROGRESS_MSG);

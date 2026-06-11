@@ -12,6 +12,12 @@ interface ComandaCartProps {
   modoAgregar: boolean;
 }
 
+const HINT_CTX_INCOMPLETO: Record<string, string> = {
+  SALON: 'Selecciona una mesa',
+  DELIVERY: 'Completa cliente y dirección',
+  LLEVAR: 'Ingresa el nombre del cliente',
+};
+
 export function ComandaCart({ cmd, modoAgregar }: Readonly<ComandaCartProps>) {
   return (
     <aside className="cmd-cart">
@@ -73,7 +79,7 @@ export function ComandaCart({ cmd, modoAgregar }: Readonly<ComandaCartProps>) {
         </button>
         {!cmd.ctxValido && cmd.lines.length > 0 && (
           <div className="hint" style={{ textAlign: 'center', color: 'var(--danger-text)', marginTop: 8 }}>
-            {cmd.canal === 'SALON' ? 'Selecciona una mesa' : cmd.canal === 'DELIVERY' ? 'Completa cliente y dirección' : 'Ingresa el nombre del cliente'}
+            {HINT_CTX_INCOMPLETO[cmd.canal] ?? HINT_CTX_INCOMPLETO['LLEVAR']}
           </div>
         )}
       </div>

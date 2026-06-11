@@ -18,7 +18,7 @@ interface Props {
   onSave: (mov: CrearMovimientoCajaPayload) => void | Promise<void>;
 }
 
-export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
+export function MovimientoModal({ tipoInicial, onClose, onSave }: Readonly<Props>) {
   const [tipo, setTipo] = useState<'EGRESO' | 'INGRESO'>(tipoInicial);
   const [monto, setMonto] = useState('');
   const [cat, setCat] = useState(CATS[tipoInicial][0]);
@@ -64,7 +64,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
         <div style={{ padding: 20, display: 'grid', gap: 16 }}>
           <div className="seg" style={{ width: '100%' }}>
             <button className={esEgreso ? 'on' : ''} style={{ flex: 1 }} onClick={() => switchTipo('EGRESO')}>Egreso (sale)</button>
-            <button className={!esEgreso ? 'on' : ''} style={{ flex: 1 }} onClick={() => switchTipo('INGRESO')}>Ingreso (entra)</button>
+            <button className={esEgreso ? '' : 'on'} style={{ flex: 1 }} onClick={() => switchTipo('INGRESO')}>Ingreso (entra)</button>
           </div>
 
           <div className="two-up" style={{ gap: 16 }}>

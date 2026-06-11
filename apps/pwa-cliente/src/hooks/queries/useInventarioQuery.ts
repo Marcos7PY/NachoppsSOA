@@ -3,6 +3,7 @@ import * as inventarioApi from '../../api/inventario.api';
 import { mapProductos } from '../../mappers/inventario.mapper';
 import { queryClient } from '../../api/queryClient';
 import type { ActualizarProductoPayload, CrearProductoPayload } from '../../types/inventario.types';
+import { primerMensaje } from '../../utils/feedback';
 
 export const INVENTARIO_CATEGORIAS_KEY = ['inventario-categorias'];
 export const INVENTARIO_PRODUCTOS_KEY = ['inventario-productos'];
@@ -101,8 +102,12 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
     loading,
     loadingMore: productosQuery.isFetchingNextPage,
     saving,
-    error: error ? (error as Error).message : null,
-    success: mutationCrear.isSuccess ? 'Producto creado.' : mutationActualizar.isSuccess ? 'Producto actualizado.' : mutationReponer.isSuccess ? 'Stock actualizado.' : null,
+    error: error ? error.message : null,
+    success: primerMensaje(
+      [mutationCrear.isSuccess, 'Producto creado.'],
+      [mutationActualizar.isSuccess, 'Producto actualizado.'],
+      [mutationReponer.isSuccess, 'Stock actualizado.'],
+    ),
     
     fetch: async () => {
       await categoriasQuery.refetch();

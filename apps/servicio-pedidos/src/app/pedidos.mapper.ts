@@ -1,4 +1,4 @@
-import { PedidoDto, PedidoEstado } from '@org/contracts';
+import { PedidoDto } from '@org/contracts';
 import { Pedido } from '../generated/prisma';
 
 export function toPedidoDto(pedido: Pedido): PedidoDto {
@@ -11,9 +11,9 @@ export function toPedidoDto(pedido: Pedido): PedidoDto {
       id: item.id,
       productoId: item.productoId,
       cantidad: item.cantidad,
-      estado: item.estado as any
+      estado: item.estado
     })) || [],
-    estado: pedido.estado as PedidoEstado,
+    estado: pedido.estado,
     createdAt: pedido.createdAt.toISOString(),
   } as any;
 }

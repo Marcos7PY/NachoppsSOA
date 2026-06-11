@@ -20,6 +20,12 @@ function readAttr<T extends string>(attr: string, fallback: T): T {
   return (document.documentElement.getAttribute(attr) as T) || fallback;
 }
 
+function applyAttr<T extends string>(attr: string, storageKey: string, value: T, setter: (v: T) => void) {
+  document.documentElement.setAttribute(attr, value);
+  localStorage.setItem(storageKey, value);
+  setter(value);
+}
+
 export function Header() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -48,17 +54,11 @@ export function Header() {
 
   const toggleTheme = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.dataset['theme'] = next;
     localStorage.setItem('nachopps-theme', next);
     applyThemeColor(next);
     setTheme(next);
   };
-
-  function applyAttr<T extends string>(attr: string, storageKey: string, value: T, setter: (v: T) => void) {
-    document.documentElement.setAttribute(attr, value);
-    localStorage.setItem(storageKey, value);
-    setter(value);
-  }
 
   const handleLogout = () => {
     logout();

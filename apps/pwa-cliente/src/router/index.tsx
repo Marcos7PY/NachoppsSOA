@@ -49,7 +49,7 @@ function IndicePorRol() {
 // ─── Guard por rol: bloquea rutas no permitidas para el rol ─────
 // Si el rol no puede abrir esta ruta (p. ej. la escribió en la URL),
 // se le redirige silenciosamente a su vista "home".
-function RutaPorRol({ ruta, children }: { ruta: RutaApp; children: ReactNode }) {
+function RutaPorRol({ ruta, children }: Readonly<{ ruta: RutaApp; children: ReactNode }>) {
   const rol = useAuthStore((s) => s.user?.rol);
   if (!puedeAcceder(rol, ruta)) return <Navigate to={`/app/${homeDeRol(rol)}`} replace />;
   return <>{children}</>;
@@ -64,7 +64,7 @@ function ScreenLoading() {
   );
 }
 
-function ScreenBoundary({ modulo, children }: { modulo: string; children: ReactNode }) {
+function ScreenBoundary({ modulo, children }: Readonly<{ modulo: string; children: ReactNode }>) {
   return (
     <ErrorBoundary moduleName={modulo}>
       <Suspense fallback={<ScreenLoading />}>

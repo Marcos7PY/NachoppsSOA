@@ -17,7 +17,7 @@ export function useReportesQuery() {
   return {
     resumen: resumenQuery.data ?? null,
     loading: resumenQuery.isLoading,
-    error: resumenQuery.error ? (resumenQuery.error as Error).message : null,
+    error: resumenQuery.error ? resumenQuery.error.message : null,
     fetch: resumenQuery.refetch,
   };
 }

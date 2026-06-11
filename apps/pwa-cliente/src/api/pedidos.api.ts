@@ -34,9 +34,9 @@ export async function getPage(
     response &&
     typeof response === 'object' &&
     'data' in response &&
-    Array.isArray((response as PedidoListResponse).data)
+    Array.isArray(response.data)
   ) {
-    return response as PedidoListResponse;
+    return response;
   }
 
   return {

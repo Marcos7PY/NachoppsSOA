@@ -109,6 +109,9 @@ function schedulePostCreateConsistencyRefetch(mesaId?: string) {
   });
 }
 
+const contieneItem = (itemId: string) => (p: PedidoVM) =>
+  p.items.some((it) => it.id === itemId);
+
 function applyAvanceItem(
   p: PedidoVM,
   itemId: string,
@@ -220,7 +223,7 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
       queryClient.setQueriesData<PedidosData>({ queryKey: PEDIDOS_QUERY_KEY }, (old) =>
         mapPedidoEnCache(
           old,
-          (p) => p.items.some((it) => it.id === itemId),
+          contieneItem(itemId),
           (p) => applyAvanceItem(p, itemId, estado),
         ),
       );
@@ -239,7 +242,7 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
     currentMesaId: mesaId,
     loading: query.isLoading,
     loadingMore: query.isFetchingNextPage,
-    error: query.isError ? (query.error as Error).message : null,
+    error: query.isError ? query.error.message : null,
     fetch: query.refetch,
     fetchMore: async () => {
       if (query.hasNextPage) await query.fetchNextPage();

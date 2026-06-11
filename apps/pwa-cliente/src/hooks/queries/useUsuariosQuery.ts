@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import * as usuariosApi from '../../api/usuarios.api';
 import { queryClient } from '../../api/queryClient';
 import { mapUsuario, mapUsuarios } from '../../mappers/usuario.mapper';
+import { primerMensaje } from '../../utils/feedback';
 import type {
   CrearUsuarioPayload,
   RolUsuario,
@@ -85,11 +86,10 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
 
   const saving = mutationCrear.isPending || mutationCambiarRol.isPending;
   const error = usuariosQuery.error || mutationCrear.error || mutationCambiarRol.error;
-  const success = mutationCrear.isSuccess
-    ? 'Usuario creado.'
-    : mutationCambiarRol.isSuccess
-      ? 'Rol actualizado.'
-      : null;
+  const success = primerMensaje(
+    [mutationCrear.isSuccess, 'Usuario creado.'],
+    [mutationCambiarRol.isSuccess, 'Rol actualizado.'],
+  );
 
   return {
     usuarios: usuariosQuery.data?.pages.flatMap((page) => page.usuarios) ?? [],
@@ -99,7 +99,7 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
     loading: usuariosQuery.isLoading,
     loadingMore: usuariosQuery.isFetchingNextPage,
     saving,
-    error: error ? (error as Error).message : null,
+    error: error ? error.message : null,
     success,
     fetch: usuariosQuery.refetch,
     fetchMore: async () => {

@@ -22,6 +22,8 @@ const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }
   RESERVADA: { label: 'Reservada', cls: 'reservada', color: 'var(--info)' },
 };
 
+const SKEL_KEYS = Array.from({ length: 12 }, (_, i) => `skel-${i}`);
+
 type ComanderoState =
   | { open: true; mesaId?: string; mesaNumero?: string; mesaUbicacion?: string; modoAgregar: boolean }
   | { open: false };
@@ -54,8 +56,8 @@ export function MesasScreen() {
       <div>
         <div className="page-h"><div><h1>Mesas</h1><div className="sub">Cargando salón…</div></div></div>
         <div className="mesa-floor">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="skel" style={{ height: 110, borderRadius: 'var(--r-lg)' }} />
+          {SKEL_KEYS.map((sk) => (
+            <div key={sk} className="skel" style={{ height: 110, borderRadius: 'var(--r-lg)' }} />
           ))}
         </div>
       </div>
@@ -250,7 +252,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
   const atencion = cuentaActiva ? atencionDeCuenta(cuentaActiva) : null;
-  const badgeCls = m.estado === 'OCUPADA' ? 'badge-accent' : m.estado === 'RESERVADA' ? 'badge-info' : 'badge-muted';
+  const badgeCls = { OCUPADA: 'badge-accent', RESERVADA: 'badge-info', LIBRE: 'badge-muted' }[m.estado] ?? 'badge-muted';
 
   return (
     <div className="drawer-wrap">

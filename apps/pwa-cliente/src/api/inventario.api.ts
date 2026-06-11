@@ -43,9 +43,9 @@ export async function getProductosPage(
     response &&
     typeof response === 'object' &&
     'data' in response &&
-    Array.isArray((response as ProductoListResponse).data)
+    Array.isArray(response.data)
   ) {
-    return response as ProductoListResponse;
+    return response;
   }
 
   return {

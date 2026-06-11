@@ -174,14 +174,14 @@ export const client = {
     request<T>(path, {
       ...init,
       method: 'POST',
-      body: body != null ? JSON.stringify(body) : undefined,
+      body: body == null ? undefined : JSON.stringify(body),
     }),
 
   patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
     request<T>(path, {
       ...init,
       method: 'PATCH',
-      body: body != null ? JSON.stringify(body) : undefined,
+      body: body == null ? undefined : JSON.stringify(body),
     }),
 
   delete: <T>(path: string, init?: RequestInit) =>

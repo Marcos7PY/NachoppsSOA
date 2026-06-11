@@ -278,7 +278,7 @@ export function CajaScreen() {
   );
 }
 
-function MovRow({ m }: { m: MovimientoCajaDto }) {
+function MovRow({ m }: Readonly<{ m: MovimientoCajaDto }>) {
   const apertura = m.tipo === 'APERTURA';
   const egreso = m.tipo === 'EGRESO';
   const ingreso = m.tipo === 'INGRESO';
@@ -292,15 +292,16 @@ function MovRow({ m }: { m: MovimientoCajaDto }) {
     montoStyle = { color: 'var(--ok-text)' };
     signo = '+';
   }
+  let badgeTipo = <span className="tag-canal salon">Cobro</span>;
+  if (apertura) badgeTipo = <span className="badge badge-muted">Apertura</span>;
+  else if (egreso) badgeTipo = <span className="badge badge-danger dot">Egreso</span>;
+  else if (ingreso) badgeTipo = <span className="badge badge-ok dot">Ingreso</span>;
   return (
     <tr>
       <td className="mono muted" style={{ whiteSpace: 'nowrap' }}>{horaOf(m.createdAt)}</td>
       <td>
         <div className="row" style={{ gap: 8 }}>
-          {apertura ? <span className="badge badge-muted">Apertura</span>
-            : egreso ? <span className="badge badge-danger dot">Egreso</span>
-            : ingreso ? <span className="badge badge-ok dot">Ingreso</span>
-            : <span className="tag-canal salon">Cobro</span>}
+          {badgeTipo}
           <strong>{m.donde}</strong>
           {m.motivo && <span className="muted" style={{ fontSize: 12 }}>· {m.motivo}</span>}
           {m.descuento ? <span className="muted" style={{ fontSize: 12 }}>· Desc. {fmt(m.descuento)}</span> : null}

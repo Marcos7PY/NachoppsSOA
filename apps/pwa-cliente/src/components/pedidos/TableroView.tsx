@@ -35,7 +35,7 @@ export function TableroView({ pedidos, onAvanzar, onDetalle, actionLoading, onli
 }
 
 function destino(p: PedidoVM) {
-  if (p.canal === 'SALON') return <><b>Mesa {p.mesaNumero}</b></>;
+  if (p.canal === 'SALON') return <b>Mesa {p.mesaNumero}</b>;
   return (
     <><b>{p.cliente ?? 'Cliente'}</b>
       {p.direccion && <div className="pc-sub"><Icons.Delivery s={12} /> {p.direccion}</div>}

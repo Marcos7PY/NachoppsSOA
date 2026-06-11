@@ -19,12 +19,13 @@ import './styles.css';
 // Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
 const savedTheme = localStorage.getItem('nachopps-theme');
 const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-const initialTheme = savedTheme === 'dark' || savedTheme === 'light'
-  ? savedTheme
-  : systemPrefersDark
-    ? 'dark'
-    : 'light';
-document.documentElement.setAttribute('data-theme', initialTheme);
+let initialTheme: string;
+if (savedTheme === 'dark' || savedTheme === 'light') {
+  initialTheme = savedTheme;
+} else {
+  initialTheme = systemPrefersDark ? 'dark' : 'light';
+}
+document.documentElement.dataset['theme'] = initialTheme;
 applyThemeColor(initialTheme);
 
 const VIEW_PREFS: { key: string; attr: string; allowed: string[] }[] = [
@@ -59,7 +60,9 @@ async function bootstrap() {
   }
 
   // Montar React
-  const root = createRoot(document.getElementById('root')!);
+  const rootEl = document.getElementById('root');
+  if (!rootEl) throw new Error('No existe el contenedor #root');
+  const root = createRoot(rootEl);
 
   root.render(
     <StrictMode>

@@ -1,6 +1,6 @@
 // components/ui/ToastProvider.tsx — toasts globales (reemplazo de window.__toast)
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { Icons, type IconName } from './icons';
 
 export type ToastKind = 'ok' | 'err' | 'info';
@@ -21,6 +21,8 @@ interface ToastContextValue {
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+
+const sinToast = (prev: ToastItem[], id: string) => prev.filter((t) => t.id !== id);
 
 const KIND_COLOR: Record<ToastKind, string> = {
   ok: 'var(--ok)',
@@ -57,12 +59,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const id = Math.random().toString(36).slice(2);
     setToasts((prev) => [...prev, { ...opts, id }]);
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      setToasts((prev) => sinToast(prev, id));
     }, 3600);
   }, []);
 
+  const ctxValue = useMemo(() => ({ toast }), [toast]);
+
   return (
-    <ToastContext.Provider value={{ toast }}>
+    <ToastContext.Provider value={ctxValue}>
       {children}
       <div className="toast-host">
         {toasts.map((t) => <ToastItem key={t.id} t={t} />)}

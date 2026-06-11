@@ -26,10 +26,10 @@ export function Metric({ ic, color, soft, v, k, alert }: Readonly<MetricProps>) 
 
 // ─── SlaRing ─────────────────────────────────────────────────
 
-export function SlaRing({ el }: { el: number }) {
+export function SlaRing({ el }: Readonly<{ el: number }>) {
   const r = ratioOf(el);
   const p = Math.min(100, r * 100);
-  return <span className={`sla ${urgClass(r)}`} style={{ ['--p' as string]: p } as CSSProperties}><b>{Math.round(el)}′</b></span>;
+  return <span className={`sla ${urgClass(r)}`} style={{ '--p': p } as CSSProperties}><b>{Math.round(el)}′</b></span>;
 }
 
 // ─── TicketCard ──────────────────────────────────────────────
@@ -76,17 +76,7 @@ export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, o
                   {it.notas && <div className="note"><Icons.Note s={12} /> {it.notas}</div>}
                 </div>
               </div>
-              {col.estado !== 'LISTO' ? (
-                <button
-                  className="btn btn-soft kds-item-btn"
-                  disabled={!online}
-                  onClick={(e) => { e.stopPropagation(); onAdvance(it.id, it.estado); }}
-                  title={next === 'EN_PREPARACION' ? 'Iniciar' : 'Listo'}
-                  aria-label={`${next === 'EN_PREPARACION' ? 'Iniciar' : 'Marcar listo'}: ${it.cantidad}× ${it.nombre}`}
-                >
-                  {next === 'EN_PREPARACION' ? <Icons.Play s={16} /> : <Icons.Check s={16} />}
-                </button>
-              ) : (
+              {col.estado === 'LISTO' ? (
                 <button
                   className="btn btn-ghost kds-item-btn"
                   disabled={!online}
@@ -95,6 +85,16 @@ export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, o
                   aria-label={`Regresar: ${it.cantidad}× ${it.nombre}`}
                 >
                   <Icons.Undo s={16} />
+                </button>
+              ) : (
+                <button
+                  className="btn btn-soft kds-item-btn"
+                  disabled={!online}
+                  onClick={(e) => { e.stopPropagation(); onAdvance(it.id, it.estado); }}
+                  title={next === 'EN_PREPARACION' ? 'Iniciar' : 'Listo'}
+                  aria-label={`${next === 'EN_PREPARACION' ? 'Iniciar' : 'Marcar listo'}: ${it.cantidad}× ${it.nombre}`}
+                >
+                  {next === 'EN_PREPARACION' ? <Icons.Play s={16} /> : <Icons.Check s={16} />}
                 </button>
               )}
             </div>

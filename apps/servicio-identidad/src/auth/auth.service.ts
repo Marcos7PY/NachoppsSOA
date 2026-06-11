@@ -44,7 +44,7 @@ export class AuthService {
       where: { email: command.email },
     });
 
-    if (!usuario || !usuario.activo) {
+    if (!usuario?.activo) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -167,7 +167,7 @@ export class AuthService {
     }
 
     const usuario = await this.prisma.usuario.findUnique({ where: { id: existing.userId } });
-    if (!usuario || !usuario.activo) throw new UnauthorizedException('Usuario no disponible');
+    if (!usuario?.activo) throw new UnauthorizedException('Usuario no disponible');
 
     const nuevo = await this.issueRefreshToken(usuario.id);
     const nuevoReg = await this.prisma.refreshToken.findUnique({ where: { tokenHash: this.hashToken(nuevo.token) } });

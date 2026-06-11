@@ -31,9 +31,9 @@ const COOKIE_SAME_SITE = (process.env.COOKIE_SAMESITE ?? 'strict') as
   | 'lax'
   | 'none';
 const COOKIE_SECURE =
-  process.env.COOKIE_SECURE != null
-    ? process.env.COOKIE_SECURE === 'true'
-    : process.env.NODE_ENV === 'production' || COOKIE_SAME_SITE === 'none';
+  process.env.COOKIE_SECURE == null
+    ? process.env.NODE_ENV === 'production' || COOKIE_SAME_SITE === 'none'
+    : process.env.COOKIE_SECURE === 'true';
 // Plan 1.4: access corto (alineado con JWT_EXPIRES_IN) + refresh largo con rotación.
 const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS ?? '900'); // 15m
 const ACCESS_COOKIE_MAX_AGE_MS = ACCESS_TTL_SECONDS * 1000;

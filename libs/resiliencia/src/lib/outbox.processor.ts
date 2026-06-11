@@ -217,8 +217,8 @@ export class OutboxProcessor {
 
   @Cron(CronExpression.EVERY_HOUR)
   async purgarOutbox() {
-    const cutoffProcessed = new Date(Date.now() - this.retencionProcessedHoras * 3600_000);
-    const cutoffFailed = new Date(Date.now() - this.retencionFailedHoras * 3600_000);
+    const cutoffProcessed = new Date(Date.now() - this.retencionProcessedHoras * 3_600_000);
+    const cutoffFailed = new Date(Date.now() - this.retencionFailedHoras * 3_600_000);
     const r1 = await this.prisma.outboxEvent.deleteMany({
       where: { status: 'PROCESSED', createdAt: { lt: cutoffProcessed } },
     });

@@ -1,6 +1,9 @@
 import { Icons } from '../ui/icons';
 import type { ProductoVM } from '../../types/inventario.types';
-import { stockNivel, STOCK_BAJO } from '../../domain/inventario';
+import { stockNivel } from '../../domain/inventario';
+
+// NaN no pasa la comparación: solo habilita "Reponer" con una cantidad positiva real.
+const esCantidadValida = (v: string | undefined) => Number(v) > 0;
 
 interface CategoriaGroup {
   categoria: { id: string; nombre: string } | undefined;
@@ -63,7 +66,7 @@ export function ProductoTable({
               <tbody>
                 {group.productos.map((producto) => {
                   const nivel = stockNivel(producto.stockActual);
-                  const rowCls = nivel === 'out' ? 'row-out' : nivel === 'low' ? 'row-low' : '';
+                  const rowCls = { out: 'row-out', low: 'row-low' }[nivel as string] ?? '';
                   return (
                     <tr key={producto.id} className={rowCls}>
                       <td>
@@ -115,7 +118,7 @@ export function ProductoTable({
                           </div>
                           <button
                             className="btn btn-sm btn-soft"
-                            disabled={saving || !online || !(Number(stockInputs[producto.id]) > 0)}
+                            disabled={saving || !online || !esCantidadValida(stockInputs[producto.id])}
                             onClick={() => onReponer(producto.id)}
                           >
                             Reponer
@@ -167,6 +170,3 @@ function LoadingRows() {
     </div>
   );
 }
-
-// Suprime la advertencia de importación no utilizada de STOCK_BAJO en el tooltip de KPI
-export { STOCK_BAJO };

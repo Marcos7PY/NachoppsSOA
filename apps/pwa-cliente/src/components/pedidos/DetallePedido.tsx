@@ -15,6 +15,12 @@ interface DetallePedidoProps {
   now: number;
 }
 
+function flowStepCls(i: number, curIdx: number): string {
+  if (i < curIdx) return 'done';
+  if (i === curIdx) return 'on';
+  return '';
+}
+
 export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
   const meta = CANAL_META[p.canal];
   const Ic = Icons[meta.ic];
@@ -56,7 +62,7 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, on
 
           <div className="flow">
             {FLOW_PEDIDO.map((st, i) => (
-              <div className={`flow-step ${i < curIdx ? 'done' : i === curIdx ? 'on' : ''}`} key={st.estado}>
+              <div className={`flow-step ${flowStepCls(i, curIdx)}`} key={st.estado}>
                 <span className="flow-dot">{i < curIdx ? <Icons.Check s={11} /> : i + 1}</span>
                 <span className="flow-lbl">{st.label}</span>
               </div>

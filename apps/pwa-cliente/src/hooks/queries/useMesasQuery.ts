@@ -47,7 +47,7 @@ export function useMesasQuery() {
   return {
     mesas: query.data ?? [],
     loading: query.isLoading,
-    error: query.isError ? (query.error as Error).message : null,
+    error: query.isError ? query.error.message : null,
     fetch: query.refetch,
     optimisticCambiarEstado: async (id: string, estado: EstadoMesa) => {
       return mutationEstado.mutateAsync({ id, estado });

@@ -122,11 +122,13 @@ export function CartaScreen() {
             </tr>
           </thead>
           <tbody>
-            {loading && productos.length === 0 ? (
+            {loading && productos.length === 0 && (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }} className="muted">Cargando carta…</td></tr>
-            ) : filtrados.length === 0 ? (
+            )}
+            {!(loading && productos.length === 0) && filtrados.length === 0 && (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }} className="muted">Sin platos. Crea uno con "Nuevo plato".</td></tr>
-            ) : filtrados.map((p) => (
+            )}
+            {filtrados.map((p) => (
               <tr key={p.id} style={{ cursor: 'pointer', opacity: p.disponible ? 1 : 0.55 }} onClick={() => setEdit(p)}>
                 <td><strong>{p.nombre}</strong>{p.descripcion && <div className="muted" style={{ fontSize: 12 }}>{p.descripcion}</div>}</td>
                 <td><span className="pill-soft">{p.categoriaNombre ?? '—'}</span></td>

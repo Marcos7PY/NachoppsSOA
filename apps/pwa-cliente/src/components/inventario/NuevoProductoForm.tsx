@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { Icons } from '../ui/icons';
 import type { CrearProductoPayload } from '../../types/inventario.types';
 
@@ -11,7 +11,7 @@ interface NuevoProductoFormProps {
   categorias: CategoriaItem[];
   form: CrearProductoPayload;
   onChange: (key: keyof CrearProductoPayload, value: string | number | boolean) => void;
-  onSubmit: (e: FormEvent) => void;
+  onSubmit: (e: SubmitEvent) => void;
   saving: boolean;
   online: boolean;
 }
@@ -99,7 +99,7 @@ export function NuevoProductoForm({ categorias, form, onChange, onSubmit, saving
               checked={form.disponible}
               type="checkbox"
               onChange={(e) => onChange('disponible', e.target.checked)}
-            />
+            />{' '}
             Disponible para pedidos
           </label>
           <button

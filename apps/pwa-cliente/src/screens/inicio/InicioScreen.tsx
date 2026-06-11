@@ -189,7 +189,7 @@ export function InicioScreen() {
   );
 }
 
-function Spark({ data }: { data: number[] }) {
+function Spark({ data }: Readonly<{ data: number[] }>) {
   if (data.length === 0) return null;
   const max = Math.max(...data) || 1;
   const w = 100;

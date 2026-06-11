@@ -100,6 +100,6 @@ export class AppService {
     if (!mesa) {
       throw new NotFoundException(`Mesa con ID ${id} no encontrada.`);
     }
-    return mesa as unknown as MesaDto;
+    return mesa;
   }
 }

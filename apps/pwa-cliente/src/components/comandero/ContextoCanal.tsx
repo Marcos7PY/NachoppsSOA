@@ -25,7 +25,7 @@ interface ContextoProps {
   retiro: string; setRetiro: (v: string) => void;
 }
 
-function Stepper({ value, onChange, min = 1 }: { value: number; onChange: (n: number) => void; min?: number }) {
+function Stepper({ value, onChange, min = 1 }: Readonly<{ value: number; onChange: (n: number) => void; min?: number }>) {
   return (
     <div className="stepper">
       <button onClick={() => onChange(Math.max(min, value - 1))}><Icons.Minus s={14} /></button>
@@ -35,7 +35,7 @@ function Stepper({ value, onChange, min = 1 }: { value: number; onChange: (n: nu
   );
 }
 
-export function ContextoCanal(p: ContextoProps) {
+export function ContextoCanal(p: Readonly<ContextoProps>) {
   if (p.mesaLock) {
     return (
       <div className="ctx-row">

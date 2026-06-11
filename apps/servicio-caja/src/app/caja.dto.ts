@@ -117,8 +117,8 @@ export interface CajaResumenDto {
   efectivoEsperado: number;
   comprobantes: number;
   pendientes: number;
-  arqueo: unknown | null;
-  cierre: unknown | null;
+  arqueo: unknown;
+  cierre: unknown;
 }
 
 export class TransaccionesBulkQuery {

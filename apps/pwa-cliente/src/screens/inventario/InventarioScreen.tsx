@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import { Icons } from '../../components/ui/icons';
@@ -31,7 +31,7 @@ export function InventarioScreen() {
     ? [{ categoria: categorias.find((c) => c.id === categoriaId), productos }]
     : productosPorCategoria;
 
-  const handleCrear = async (e: FormEvent) => {
+  const handleCrear = async (e: SubmitEvent) => {
     e.preventDefault();
     if (!online) return;
     await crearProducto({

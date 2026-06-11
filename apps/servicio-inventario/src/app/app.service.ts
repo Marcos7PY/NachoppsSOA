@@ -52,7 +52,7 @@ export class AppService {
     const conStock = this.normalizeBoolean(query.conStock);
     const where: Prisma.ProductoWhereInput = {
       ...(query.categoriaId ? { categoriaId: query.categoriaId } : {}),
-      ...(disponible != null ? { disponible } : {}),
+      ...(disponible == null ? {} : { disponible }),
       ...(conStock === true ? { stockActual: { not: null } } : {}),
       ...(conStock === false ? { stockActual: null } : {}),
       ...(query.updatedSince
@@ -184,11 +184,11 @@ export class AppService {
       const p = await prisma.producto.update({
         where: { id },
         data: {
-          ...(command.categoriaId != null ? { categoriaId: command.categoriaId } : {}),
-          ...(command.nombre != null ? { nombre: command.nombre } : {}),
-          ...(command.descripcion !== undefined ? { descripcion: command.descripcion } : {}),
-          ...(command.precio != null ? { precio: command.precio } : {}),
-          ...(command.disponible != null ? { disponible: command.disponible } : {}),
+          ...(command.categoriaId == null ? {} : { categoriaId: command.categoriaId }),
+          ...(command.nombre == null ? {} : { nombre: command.nombre }),
+          ...(command.descripcion === undefined ? {} : { descripcion: command.descripcion }),
+          ...(command.precio == null ? {} : { precio: command.precio }),
+          ...(command.disponible == null ? {} : { disponible: command.disponible }),
         },
         include: { categoria: true },
       });
@@ -316,7 +316,7 @@ export class AppService {
 
     const productoDespues = await prisma.producto.findUnique({ where: { id } });
     let productoFinal = productoDespues;
-    if (productoDespues && productoDespues.stockActual === 0 && productoDespues.disponible) {
+    if (productoDespues?.stockActual === 0 && productoDespues.disponible) {
       productoFinal = await prisma.producto.update({
         where: { id },
         data: { disponible: false }

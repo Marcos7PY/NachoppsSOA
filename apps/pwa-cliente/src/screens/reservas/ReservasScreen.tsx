@@ -1,6 +1,6 @@
 // screens/reservas/ReservasScreen.tsx - Agenda del día y acciones de reservas
 
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
 import type { CrearReservaPayload } from '../../types/reserva.types';
@@ -40,7 +40,7 @@ export function ReservasScreen() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const handleCrear = async (event: FormEvent) => {
+  const handleCrear = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online) return;
     await crear({
@@ -84,15 +84,15 @@ export function ReservasScreen() {
             <span className="spacer" />
             <span className="badge badge-info">{reservas.length} reservas</span>
           </div>
-          {loading ? (
-            <LoadingRows />
-          ) : reservas.length === 0 ? (
+          {loading && <LoadingRows />}
+          {!loading && reservas.length === 0 && (
             <div className="empty">
               <div className="e-ic"><CalendarIcon /></div>
               <h3>Sin reservas para este día</h3>
               <p>Las reservas reales aparecerán aquí cuando el backend las devuelva.</p>
             </div>
-          ) : (
+          )}
+          {!loading && reservas.length > 0 && (
             <div className="table-wrap table-wrap-flat">
               <table className="dt">
                 <thead>

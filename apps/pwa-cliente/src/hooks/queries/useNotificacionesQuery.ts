@@ -34,7 +34,7 @@ export function useNotificacionesQuery() {
     notificaciones: notificacionesQuery.data ?? [],
     loading: notificacionesQuery.isLoading,
     error: notificacionesQuery.error
-      ? (notificacionesQuery.error as Error).message
+      ? notificacionesQuery.error.message
       : null,
     fetch: notificacionesQuery.refetch,
     markAllRead: () => {

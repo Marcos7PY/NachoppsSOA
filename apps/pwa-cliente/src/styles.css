@@ -751,12 +751,13 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .canal-tab:hover { border-color: var(--border-strong); }
 .canal-tab .ct-count { font-variant-numeric: tabular-nums; background: var(--surface-3); color: var(--text-2); border-radius: 12px; font-size: 11.5px; padding: 1px 7px; min-width: 20px; text-align: center; }
 .canal-tab.on { background: var(--text); color: var(--surface); border-color: var(--text); }
-.canal-tab.on .ct-count { background: rgba(255,255,255,.22); color: #fff; }
+.canal-tab.on .ct-count { background: rgba(0,0,0,.28); color: #fff; }
 [data-theme="dark"] .canal-tab.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .canal-tab.on.salon { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .canal-tab.on.delivery { background: var(--purple); border-color: var(--purple); color: #fff; }
-.canal-tab.on.llevar { background: var(--warn); border-color: var(--warn); color: #fff; }
-.canal-tab.on.salon .ct-count, .canal-tab.on.delivery .ct-count, .canal-tab.on.llevar .ct-count { background: rgba(255,255,255,.25); color: #fff; }
+.canal-tab.on.llevar { background: var(--warn); border-color: var(--warn); color: #1f2430; }
+.canal-tab.on.salon .ct-count, .canal-tab.on.delivery .ct-count { background: rgba(0,0,0,.28); color: #fff; }
+.canal-tab.on.llevar .ct-count { background: rgba(0,0,0,.14); color: #1f2430; }
 
 /* Tablero */
 .ped-board { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; min-height: 0; overflow: hidden; }
