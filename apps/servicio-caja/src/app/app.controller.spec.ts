@@ -33,6 +33,12 @@ describe('AppController — Caja', () => {
     expect(service.registrarPago).toHaveBeenCalledWith(body, 'u-1');
   });
 
+  it('P-62: registrarPago acepta token S2S sin email/nombre', async () => {
+    const body = { cuentaId: 'c-1', montoRecibido: 50, metodo: 'EFECTIVO' } as any;
+    await expect(controller.registrarPago(body, 'svc-caja')).resolves.toEqual({ ok: true });
+    expect(service.registrarPago).toHaveBeenCalledWith(body, 'svc-caja');
+  });
+
   it('listarTransacciones delega el query', async () => {
     await controller.listarTransacciones({ limit: 10 } as any);
     expect(service.listarTransacciones).toHaveBeenCalledWith({ limit: 10 });

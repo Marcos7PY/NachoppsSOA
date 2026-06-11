@@ -23,6 +23,8 @@ import { toUsuarioDto } from './usuarios.mapper';
 
 const SALT_ROUNDS = 12;
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7');
+// Ventana corta para distinguir una carrera legítima de refresh de un reuso tardío/robado.
+const REFRESH_REUSE_GRACE_MS = 10_000;
 
 // T-35: hash dummy precomputado al arrancar. Cuando el email no existe o el
 // usuario está inactivo/bloqueado se ejecuta igualmente un bcrypt.compare contra
@@ -135,18 +137,42 @@ export class AuthService {
     return createHash('sha256').update(raw).digest('hex');
   }
 
+  private buildRefreshToken(userId: string): { token: string; tokenHash: string; expiresAt: Date; userId: string } {
+    const token = randomBytes(48).toString('base64url');
+    return {
+      token,
+      tokenHash: this.hashToken(token),
+      expiresAt: new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 3600 * 1000),
+      userId,
+    };
+  }
+
   private signAccessToken(usuario: { id: string; email: string; rol: string; nombre: string }): string {
     return this.jwt.sign({ sub: usuario.id, email: usuario.email, rol: usuario.rol, nombre: usuario.nombre });
   }
 
   /** Crea un refresh token opaco, guarda su hash y devuelve el valor en claro. */
   async issueRefreshToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
-    const token = randomBytes(48).toString('base64url');
-    const expiresAt = new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 3600 * 1000);
+    const refresh = this.buildRefreshToken(userId);
     await this.prisma.refreshToken.create({
-      data: { userId, tokenHash: this.hashToken(token), expiresAt },
+      data: { userId: refresh.userId, tokenHash: refresh.tokenHash, expiresAt: refresh.expiresAt },
     });
-    return { token, expiresAt };
+    return { token: refresh.token, expiresAt: refresh.expiresAt };
+  }
+
+  private async revocarCadenaRefresh(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private esCarreraReciente(token: { revokedAt: Date | null; replacedById?: string | null }): boolean {
+    return Boolean(
+      token.revokedAt &&
+      token.replacedById &&
+      token.revokedAt.getTime() > Date.now() - REFRESH_REUSE_GRACE_MS,
+    );
   }
 
   /**
@@ -163,11 +189,11 @@ export class AuthService {
     if (!existing) throw new UnauthorizedException('Refresh token inválido');
 
     if (existing.revokedAt) {
+      if (this.esCarreraReciente(existing)) {
+        throw new UnauthorizedException('Refresh token ya utilizado');
+      }
       // Reuso detectado: alguien presentó un token ya rotado → revocar la cadena completa.
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: existing.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      await this.revocarCadenaRefresh(existing.userId);
       this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
       throw new UnauthorizedException('Refresh token ya utilizado');
     }
@@ -181,31 +207,42 @@ export class AuthService {
     // T-34: compare-and-swap — solo un caller puede revocar el token presentado.
     // La revocación condicional atómica reemplaza la secuencia leer→emitir→revocar:
     // dos refresh concurrentes con el mismo token ya no emiten dos pares.
-    const revocados = await this.prisma.refreshToken.updateMany({
-      where: { id: existing.id, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
-    if (revocados.count !== 1) {
-      // Otro request rotó primero: tratar como reuso → revocar cadena y rechazar.
-      await this.prisma.refreshToken.updateMany({
-        where: { userId: existing.userId, revokedAt: null },
+    const nuevo = this.buildRefreshToken(usuario.id);
+    const rotacion = await this.prisma.$transaction(async (prisma) => {
+      const revocados = await prisma.refreshToken.updateMany({
+        where: { id: existing.id, revokedAt: null },
         data: { revokedAt: new Date() },
       });
-      this.logger.warn(`Rotación concurrente de refresh token para usuario ${existing.userId}; cadena revocada`);
+      if (revocados.count !== 1) return null;
+
+      const nuevoReg = await prisma.refreshToken.create({
+        data: {
+          userId: nuevo.userId,
+          tokenHash: nuevo.tokenHash,
+          expiresAt: nuevo.expiresAt,
+        },
+      });
+      await prisma.refreshToken.update({
+        where: { id: existing.id },
+        data: { replacedById: nuevoReg.id },
+      });
+      return nuevoReg;
+    });
+
+    if (!rotacion) {
+      const actualizado = await this.prisma.refreshToken.findUnique({ where: { id: existing.id } });
+      if (actualizado && this.esCarreraReciente(actualizado)) {
+        throw new UnauthorizedException('Refresh token ya utilizado');
+      }
+
+      await this.revocarCadenaRefresh(existing.userId);
+      this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
       throw new UnauthorizedException('Refresh token ya utilizado');
     }
 
-    // Solo el ganador emite el token nuevo y enlaza replacedById.
-    const nuevo = await this.issueRefreshToken(usuario.id);
-    const nuevoReg = await this.prisma.refreshToken.findUnique({ where: { tokenHash: this.hashToken(nuevo.token) } });
-    await this.prisma.refreshToken.update({
-      where: { id: existing.id },
-      data: { replacedById: nuevoReg?.id ?? null },
-    });
-
     return {
       access_token: this.signAccessToken(usuario),
-      refresh: nuevo,
+      refresh: { token: nuevo.token, expiresAt: nuevo.expiresAt },
       usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol as RolUsuario },
     };
   }

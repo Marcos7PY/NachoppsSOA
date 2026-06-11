@@ -345,11 +345,14 @@ describe('AuthService — Identidad', () => {
     });
 
     it('rota: emite uno nuevo, revoca el anterior (CAS) y devuelve access', async () => {
-      mockPrisma.refreshToken.findUnique
-        .mockResolvedValueOnce({ id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() + 1e6) })
-        .mockResolvedValueOnce({ id: 'rt-2' });
+      mockPrisma.refreshToken.findUnique.mockResolvedValueOnce({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 1e6),
+      });
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
-      mockPrisma.refreshToken.create.mockResolvedValue({});
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-2' });
       mockPrisma.refreshToken.update.mockResolvedValue({});
       mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
 
@@ -366,17 +369,28 @@ describe('AuthService — Identidad', () => {
       );
     });
 
-    it('T-34/P-56: dos rotaciones concurrentes del mismo token → exactamente una gana', async () => {
-      const existing = { id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() + 1e6) };
-      mockPrisma.refreshToken.findUnique.mockResolvedValue(existing);
+    it('T-34/P-56: dos rotaciones concurrentes → una gana y la cadena nueva sigue viva', async () => {
+      const existing = {
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 1e6),
+      };
+      const rotated = {
+        ...existing,
+        revokedAt: new Date(),
+        replacedById: 'rt-2',
+      };
+      mockPrisma.refreshToken.findUnique
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(rotated);
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
-      mockPrisma.refreshToken.create.mockResolvedValue({});
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-2' });
       mockPrisma.refreshToken.update.mockResolvedValue({});
-      // El CAS solo lo gana el primero: count 1, luego 0 (y la revocación de
-      // cadena del perdedor devuelve count arbitrario).
       mockPrisma.refreshToken.updateMany
         .mockResolvedValueOnce({ count: 1 })
-        .mockResolvedValue({ count: 0 });
+        .mockResolvedValueOnce({ count: 0 });
 
       const resultados = await Promise.allSettled([
         service.rotateRefreshToken('raw-token'),
@@ -388,15 +402,57 @@ describe('AuthService — Identidad', () => {
       expect(exitosos).toHaveLength(1);
       expect(rechazados).toHaveLength(1);
       expect((rechazados[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
+
+      const refreshGanador = (exitosos[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof service.rotateRefreshToken>>>).value.refresh;
+      mockPrisma.refreshToken.findUnique.mockResolvedValueOnce({
+        id: 'rt-2',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: refreshGanador.expiresAt,
+      });
+      mockPrisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-3' });
+      mockPrisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await expect(service.rotateRefreshToken(refreshGanador.token)).resolves.toEqual(
+        expect.objectContaining({
+          access_token: 'fake-access-token',
+          refresh: expect.objectContaining({ token: expect.any(String) }),
+          usuario: expect.objectContaining({ id: 'u-001' }),
+        }),
+      );
+
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
     });
 
     it('detecta reuso: token revocado revoca toda la cadena y rechaza', async () => {
-      mockPrisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', userId: 'u-001', revokedAt: new Date(), expiresAt: new Date(Date.now() + 1e6) });
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: new Date(Date.now() - 11_000),
+        replacedById: 'rt-2',
+        expiresAt: new Date(Date.now() + 1e6),
+      });
       mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
       await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
       expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
       );
+    });
+
+    it('rechaza una carrera ya revocada en gracia sin revocar la cadena', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: new Date(),
+        replacedById: 'rt-2',
+        expiresAt: new Date(Date.now() + 1e6),
+      });
+
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('rechaza un token expirado', async () => {
