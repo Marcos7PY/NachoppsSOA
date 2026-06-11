@@ -186,6 +186,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-identidad:5432/identidad_db?schema=public'
       SERVICE_NAME: 'servicio-identidad'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
@@ -216,6 +217,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-mesas:5432/mesas_db?schema=public'
       SERVICE_NAME: 'servicio-mesas'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
@@ -241,6 +243,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-pedidos:5432/pedidos_db?schema=public'
       SERVICE_NAME: 'servicio-pedidos'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       INVENTARIO_SERVICE_URL: 'http://servicio-inventario:3000/api'
@@ -268,6 +271,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-cuentas:5432/cuentas_db?schema=public'
       SERVICE_NAME: 'servicio-cuentas'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       PEDIDOS_SERVICE_URL: 'http://servicio-pedidos:3000/api'
@@ -294,6 +298,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reservas:5432/reservas_db?schema=public'
       SERVICE_NAME: 'servicio-reservas'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
@@ -319,6 +324,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-inventario:5432/inventario_db?schema=public'
       SERVICE_NAME: 'servicio-inventario'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
@@ -344,6 +350,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-notificaciones:5432/notificaciones_db?schema=public'
       SERVICE_NAME: 'servicio-notificaciones'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
@@ -369,6 +376,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-caja:5432/caja_db?schema=public'
       SERVICE_NAME: 'servicio-caja'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       CUENTAS_SERVICE_URL: 'http://servicio-cuentas:3000/api'
@@ -395,6 +403,7 @@ services:
       PORT: '3000'
       DATABASE_URL: 'postgresql://nachopps:secret@db-reportes:5432/reportes_db?schema=public'
       SERVICE_NAME: 'servicio-reportes'
+      SERVICE_AUD_ENFORCE: 'true'
       RABBITMQ_URI: 'amqp://nachopps:nachopps_secret@rabbitmq:5672'
       OTEL_EXPORTER_OTLP_ENDPOINT: 'http://otel-collector:4318'
       JWT_PUBLIC_KEY: *jwt_public
