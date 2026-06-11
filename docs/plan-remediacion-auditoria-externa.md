@@ -1,4 +1,4 @@
-# Plan de Remediación — Auditoría Externa (T-31 … T-42)
+﻿# Plan de Remediación — Auditoría Externa (T-31 … T-42)
 
 > Continúa la numeración del [plan de cierre v5.1](plan-remediacion-auditoria_v5.md) (T-01…T-30).
 > Origen: auditoría atómica de la codebase (2026-06-11) sobre `dev`. 12 hallazgos:
@@ -10,23 +10,24 @@
 
 ## 0. Tablero general
 
-> **Estado de ejecución (2026-06-11):** T-31…T-42 implementados en `dev`. Evidencia
-> anclada a commit en la columna Estado. Pendiente de runtime (stack vivo): P-51
-> (e2e ya escrito), P-53 (smoke compose prod), smoke `probar:caos` (T-33), paso 1 +
-> P-59 de T-37, y la ratificación de producto del ADR-010 (T-39).
+> **Estado de ejecución (2026-06-11):** T-31…T-42 implementados en `dev`. Tablero:
+> **11/12 con evidencia**. La verificación runtime S-A sobre
+> `infra/docker-compose.prod.yml` cerró P-53, `aud` en vivo, P-59 y regresión del
+> breaker; la Suite 1 completa quedó verde sobre el mismo contenido de cierre.
+> Queda fuera de S-A la ratificación de producto del ADR-010 (T-39).
 
 | ID | Hallazgo | Severidad | Gate | Esfuerzo | Estado |
 |----|----------|-----------|------|----------|--------|
 | T-31 | `cambiarRol`: SQL inválido (`COUNT(*) … FOR UPDATE`) + sin transacción | 🔴 Crítica | G-1 | 0.5 d | ✅ `e7a09e7` — lock de filas en tx; P-50 54/54; P-51 escrito (pendiente stack) |
-| T-32 | Dockerfile prod: ts-node en runtime + devDependencies en imagen | 🟠 Alta | G-2 | 1–2 d | ✅ `bcdb744` — P-52 1.8GB→888MB (identidad); P-54 tsc/ts-node 0, sin shim, Nest bootstrapa; P-53 pendiente stack |
-| T-33 | Circuit breaker ausente en pedidos→inventario/mesas (drift README) | 🟠 Alta | G-3 | 0.5 d | ✅ `515a51d` — Mesas/InventarioHttpClient con breaker; P-55 en verde |
+| T-32 | Dockerfile prod: ts-node en runtime + devDependencies en imagen | 🟠 Alta | G-2 | 1–2 d | ✅ `bcdb744` + S-A `HEAD` — P-52 9/9 imágenes a 888MB; P-53 smoke prod 4/4; P-54 tsc/ts-node 0, sin shim, Nest bootstrapa |
+| T-33 | Circuit breaker ausente en pedidos→inventario/mesas (drift README) | 🟠 Alta | G-3 | 0.5 d | ✅ `515a51d` + S-A `HEAD` — Mesas/InventarioHttpClient con breaker; P-55 en verde; caos runtime 3/3 y breaker inventario 503 inmediato |
 | T-34 | Rotación de refresh token sin compare-and-swap (doble emisión) | 🟡 Media | G-3 | 0.5 d | ✅ `9f0c1ff` — CAS con updateMany condicional; P-56 en verde |
 | T-35 | Enumeración de usuarios por timing en login | 🟡 Media | G-3 | 0.25 d | ✅ `9f0c1ff` — DUMMY_HASH; P-57 en verde |
 | T-36 | Comparación CSRF no constante en tiempo | 🟡 Media | G-3 | 0.25 d | ✅ `9f0c1ff` — timingSafeEqual; P-58 en verde |
-| T-37 | `SERVICE_AUD_ENFORCE` en modo tolerante (= fase 2 de T-17, ya pendiente) | 🟡 Media | G-3 | 0.25 d | ✅ `c266372` — 'true' en ambos compose; paso 1 (grep de warns) y P-59 pendientes de stack |
+| T-37 | `SERVICE_AUD_ENFORCE` en modo tolerante (= fase 2 de T-17, ya pendiente) | 🟡 Media | G-3 | 0.25 d | ✅ `c266372` + S-A `HEAD` — 'true' en ambos compose; grep aud=0; P-59 aud cruzado 401 y aud correcto 200 |
 | T-38 | `shell-quote` crítico en devDependencies | 🟡 Media | G-1 | 0.1 d | ✅ `5e0ba6c` — npm audit 0 (prod y dev) |
 | T-39 | Granularidad anti-doble-booking: 1 reserva/franja para todo el local | 🟡 Media | G-4 | 0.5–2 d | 🟡 `44e297c` — ADR-010 en estado *propuesta*; falta decisión de producto (a/b/c) |
-| T-40 | God-services: extraer clientes HTTP de pedidos (803 líneas) y caja (632) | 🟢 Baja | G-4 | 1 d | ✅ `992a3bb` — PedidosSagaService + CuentasHttpClient; P-61: Suite 1 504/504, pisos intactos |
+| T-40 | God-services: extraer clientes HTTP de pedidos (803 líneas) y caja (632) | 🟢 Baja | G-4 | 1 d | ✅ `992a3bb` + S-A `HEAD` — PedidosSagaService + CuentasHttpClient; P-61: Suite 1 507/507, pisos intactos |
 | T-41 | Documentar exposición interna de `/telemetry/metrics` | 🟢 Baja | G-4 | 0.1 d | ✅ `84c692c` — docs/operacion/telemetry-metrics.md |
 | T-42 | Módulo Compras mock: decisión de alcance registrada | 🟢 Baja | G-4 | 0.1 d | ✅ `84c692c` — ADR-011 |
 
@@ -290,8 +291,33 @@ desbloqueaba el build tsc de caja/pedidos).
    construida y verificada (P-52/P-54): 888MB (antes 1.8GB), sin tsc/ts-node/shim,
    CLI de prisma presente, Nest bootstrapa con `node main.js`.
 
-**Pendiente con stack runtime (docker compose):** P-51 (e2e ya escrito en
-`servicio-identidad-e2e`), P-52 de los 8 servicios restantes + P-53 (smoke 4/4 del
-runbook §4 v5.1), smoke `probar:caos` (T-33), paso 1 + P-59 de T-37, y la decisión
-de producto del ADR-010 (T-39). **Toda la evidencia runtime pendiente está detallada
-en `docs/handoff-SC-cierre-documental.md` → handoff S-A** (sesión con stack en vivo).
+**Verificación runtime S-A ejecutada (stack prod vivo, 2026-06-11):**
+1. `infra/docker-compose.prod.yml` levantado con 9 servicios healthy. Hallazgo corregido
+   durante la sesión: la etapa final del Dockerfile copiaba `node_modules` como `root` y
+   `prisma migrate deploy` fallaba bajo `USER node`; los `COPY --chown=node:node` cierran el
+   arranque prod.
+2. **P-52 extendida:** 9/9 imágenes `nachopps/servicio-*:latest` en **888MB**; `kong` en
+   530MB. Baseline previo ~1.8GB por servicio.
+3. **P-53 smoke 4/4:** `poblar-y-probar` contra Kong prod (`BASE_URL=http://localhost`) pasó
+   **50/50**; informe actualizado en `docs/informe-pruebas.md`. El flujo de métodos de pago
+   ahora cubre **EFECTIVO, TARJETA, YAPE, TRANSFERENCIA y PLIN**. WS verificado manualmente:
+   conexión a `/notificaciones/socket.io`, pedido `201`, evento recibido en vivo
+   (`pedido.actualizado`).
+4. **Regresión T-33/T-34:** `probar:concurrencia` **5/5**, `probar:caos` **8/8**,
+   `probar:seguridad` **6 OK / 1 SKIP / 0 FALLA** (`Puertos directos sin token` queda
+   explícitamente SKIP con `ALLOW_CLOSED_DIRECT_PORTS=true`, porque compose prod no publica
+   3001-3010; el default sigue exigiendo 401 en dev), `probar:stock` **12/12** con AMQP
+   forward local hacia `rabbitmq:5672`. Suite runtime adicional
+   `SUITE=caos node stress-tests/run-remediacion-runtime.js` **3/3**.
+5. **Breaker inventario:** con `servicio-inventario` detenido y producto ausente, pedidos
+   devolvió `500` inicial en 2980ms y luego **503 inmediato** en 9/8/8/8/8ms con log
+   `Circuito ABIERTO en InventarioHttpClient.fetchProductosLote`; tras `resetTimeout`, el
+   mismo caso volvió a **404 de negocio** en 73ms.
+6. **aud en vivo / P-59:** grep `no coincide con SERVICE_NAME` en logs de 2h → **0**; sin 401
+   S2S espurios en pedidos→mesas/inventario ni caja→cuentas; token S2S HS256 con
+   `aud=servicio-mesas` contra `servicio-caja` → **401**, con `aud=servicio-caja` → **200**.
+7. **Suite 1 completa:** `npm exec vitest -- run --coverage` desde la raíz → **52 archivos /
+   507 tests en verde**. Cobertura: statements **53.43%**, branches **51.85%**, functions
+   **46.96%**, lines **54.49%**; pisos 52/45/38/53 intactos.
+
+**Pendiente fuera de S-A:** decisión de producto del ADR-010 (T-39).

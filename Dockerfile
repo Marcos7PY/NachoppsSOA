@@ -68,13 +68,13 @@ ARG APP_NAME
 ENV APP_NAME=${APP_NAME}
 ENV NODE_ENV=production
 
-COPY --from=proddeps /usr/src/app/node_modules ./node_modules
-COPY --from=builder /usr/src/app/dist/apps/${APP_NAME} ./dist/apps/${APP_NAME}
+COPY --chown=node:node --from=proddeps /usr/src/app/node_modules ./node_modules
+COPY --chown=node:node --from=builder /usr/src/app/dist/apps/${APP_NAME} ./dist/apps/${APP_NAME}
 # Migraciones versionadas + config para `prisma migrate deploy` del entrypoint.
-COPY --from=builder /usr/src/app/apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
-COPY --from=builder /usr/src/app/apps/${APP_NAME}/package.json ./apps/${APP_NAME}/package.json
+COPY --chown=node:node --from=builder /usr/src/app/apps/${APP_NAME}/prisma ./apps/${APP_NAME}/prisma
+COPY --chown=node:node --from=builder /usr/src/app/apps/${APP_NAME}/package.json ./apps/${APP_NAME}/package.json
 
-COPY infra/entrypoint.sh ./entrypoint.sh
+COPY --chown=node:node infra/entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
 
 USER node

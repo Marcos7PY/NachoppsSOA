@@ -16,7 +16,7 @@ import * as path from 'path';
 // Config
 // ═══════════════════════════════════════════════════════════
 
-const BASE = 'http://localhost:8000';
+const BASE = process.env.NACHOPPS_BASE_URL || process.env.BASE_URL || 'http://localhost:8000';
 const SLEEP_MS = 4000; // Tiempo máximo de cortesía entre flujos principales
 
 interface TestResult {
@@ -525,6 +525,7 @@ async function main() {
     { mesa: 8, metodo: 'TARJETA' },
     { mesa: 9, metodo: 'YAPE' },
     { mesa: 10, metodo: 'TRANSFERENCIA' },
+    { mesa: 11, metodo: 'PLIN' },
   ];
 
   for (const { mesa, metodo } of metodos) {
@@ -932,7 +933,7 @@ ${servicesChecked?.map(s => `| ${s.name} | ✅ |`).join('\n') || ''}
 | TARJETA | ✅ |
 | YAPE | ✅ |
 | TRANSFERENCIA | ✅ |
-| PLIN | ❌ (no probado) |
+| PLIN | ✅ |
 
 `;
 

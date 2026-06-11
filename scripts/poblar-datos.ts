@@ -5,12 +5,12 @@
  * Requiere: Stack Docker corriendo (levantar-todo.ps1)
  *
  * Crea: 6 categorías, ~25 productos, 12 mesas
- * Vía: Kong API Gateway en http://localhost:8000
+ * Vía: Kong API Gateway en BASE_URL/NACHOPPS_BASE_URL o http://localhost:8000
  */
 
 import axios from 'axios';
 
-const BASE = 'http://localhost:8000';
+const BASE = process.env.NACHOPPS_BASE_URL || process.env.BASE_URL || 'http://localhost:8000';
 
 interface ApiResponse<T = any> {
   message?: string;
