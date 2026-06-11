@@ -56,7 +56,7 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const toast = useCallback((opts: ToastOptions) => {
-    const id = Math.random().toString(36).slice(2);
+    const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { ...opts, id }]);
     setTimeout(() => {
       setToasts((prev) => sinToast(prev, id));

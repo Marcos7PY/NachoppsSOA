@@ -250,7 +250,7 @@ function NuevaOC({ onClose, onCrear }: Readonly<NuevaOCProps>) {
         const ins = INSUMOS.find((i) => i.id === id)!;
         return { n: ins.n, q, uni: ins.uni, costo: ins.costo };
       });
-    onCrear({ id: 'OC-' + Math.floor(Math.random() * 9000 + 1000), prov, estado: 'BORRADOR', fecha: 'Hoy', entrega: '—', items });
+    onCrear({ id: `OC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`, prov, estado: 'BORRADOR', fecha: 'Hoy', entrega: '—', items });
   };
 
   return (

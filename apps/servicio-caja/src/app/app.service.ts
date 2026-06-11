@@ -261,7 +261,7 @@ export class AppService {
           montoReal: efectivoContado,
           diferencia,
           usuarioId: this.usuario(usuarioId),
-          resumen: resumen as Prisma.InputJsonValue,
+          resumen,
         },
       });
 
