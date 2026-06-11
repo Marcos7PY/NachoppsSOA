@@ -21,8 +21,9 @@ describe('JwtStrategy (shared-auth)', () => {
     process.env.SERVICE_JWT_SECRET = 'dummy-service';
 
     const strategy = new JwtStrategy();
+    const payload = { sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana', extra: 'ignored' };
     await expect(
-      strategy.validate({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana', extra: 'ignored' }),
+      strategy.validate(payload),
     ).resolves.toEqual({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana' });
 
     process.env.JWT_PUBLIC_KEY = pub;

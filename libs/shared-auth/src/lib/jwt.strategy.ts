@@ -11,9 +11,10 @@ import {
 
 interface JwtPayload {
   sub: string;
-  email: string;
   rol: string;
-  nombre: string;
+  // Los tokens S2S (rol SISTEMA) no llevan identidad de usuario.
+  email?: string;
+  nombre?: string;
   aud?: string;
 }
 
