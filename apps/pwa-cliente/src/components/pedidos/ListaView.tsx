@@ -3,7 +3,7 @@ import { fmt, elapsedLabel } from '../../utils/format';
 import type { PedidoVM } from '../../types/pedido.types';
 import { CANAL_META, nextLabelFor, type ViewProps } from './pedidos.meta';
 
-export function ListaView({ pedidos, onAvanzar, onDetalle, actionLoading, online, now }: ViewProps) {
+export function ListaView({ pedidos, onAvanzar, onDetalle, actionLoading, online, now }: Readonly<ViewProps>) {
   return (
     <div className="table-wrap" style={{ flex: 1, overflowY: 'auto' }}>
       <table className="dt">

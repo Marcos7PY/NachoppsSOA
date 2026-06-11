@@ -16,7 +16,7 @@ export interface IconProps {
 export type IconComponent = FC<IconProps>;
 
 function icon(paths: ReactNode): IconComponent {
-  return function Icon({ s = 18, sw = 2, style, className }: IconProps) {
+  return function Icon({ s = 18, sw = 2, style, className }: Readonly<IconProps>) {
     return (
       <svg
         className={className ? `ic ${className}` : 'ic'}

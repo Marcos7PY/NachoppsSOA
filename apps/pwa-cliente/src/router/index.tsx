@@ -1,10 +1,9 @@
 // router/index.tsx — React Router v7, rutas protegidas
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { useAuthStore } from '../store/auth.store';
 import { homeDeRol, puedeAcceder, type RutaApp } from '../auth/permisos';
-import { lazy, Suspense } from 'react';
 
 const LoginScreen = lazy(() => import('../screens/login/LoginScreen').then(m => ({ default: m.LoginScreen })));
 const InicioScreen = lazy(() => import('../screens/inicio/InicioScreen').then(m => ({ default: m.InicioScreen })));

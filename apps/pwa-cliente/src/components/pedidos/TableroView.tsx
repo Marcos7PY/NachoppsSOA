@@ -4,7 +4,7 @@ import { ETAPAS_PRODUCCION as ETAPAS, SLA_MIN } from '../../domain/pedido.flow';
 import type { PedidoVM } from '../../types/pedido.types';
 import { CANAL_META, nextLabelFor, type ViewProps } from './pedidos.meta';
 
-export function TableroView({ pedidos, onAvanzar, onDetalle, actionLoading, online, now }: ViewProps) {
+export function TableroView({ pedidos, onAvanzar, onDetalle, actionLoading, online, now }: Readonly<ViewProps>) {
   return (
     <div className="ped-board">
       {ETAPAS.map((et) => {

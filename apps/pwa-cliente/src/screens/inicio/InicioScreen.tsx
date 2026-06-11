@@ -206,7 +206,7 @@ function Spark({ data }: { data: number[] }) {
 }
 
 interface AttProps { ic: IconName; c: 'danger' | 'warn' | 'ok' | 'info'; t: string; s: string; go: () => void }
-function Att({ ic, c, t, s, go }: AttProps) {
+function Att({ ic, c, t, s, go }: Readonly<AttProps>) {
   const Ic = Icons[ic];
   return (
     <div className="att-row">

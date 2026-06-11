@@ -169,7 +169,7 @@ interface CartaDrawerProps {
   onSave: (datos: CartaFormData, prod: ProductoVM | null) => void;
 }
 
-function CartaDrawer({ prod, categorias, saving, onClose, onSave }: CartaDrawerProps) {
+function CartaDrawer({ prod, categorias, saving, onClose, onSave }: Readonly<CartaDrawerProps>) {
   const isNew = !prod;
   const [n, setN] = useState(prod ? prod.nombre : '');
   const [catId, setCatId] = useState<string>(prod ? prod.categoriaId : (categorias[0]?.id ?? ''));

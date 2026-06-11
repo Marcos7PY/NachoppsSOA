@@ -15,7 +15,7 @@ interface DetallePedidoProps {
   now: number;
 }
 
-export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, online, now }: DetallePedidoProps) {
+export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, online, now }: Readonly<DetallePedidoProps>) {
   const meta = CANAL_META[p.canal];
   const Ic = Icons[meta.ic];
   const nextLabel = nextLabelFor(p);

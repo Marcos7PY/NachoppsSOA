@@ -16,7 +16,7 @@ interface NuevoProductoFormProps {
   online: boolean;
 }
 
-export function NuevoProductoForm({ categorias, form, onChange, onSubmit, saving, online }: NuevoProductoFormProps) {
+export function NuevoProductoForm({ categorias, form, onChange, onSubmit, saving, online }: Readonly<NuevoProductoFormProps>) {
   return (
     <aside className="module-side">
       <section className="panel">

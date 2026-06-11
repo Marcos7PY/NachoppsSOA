@@ -9,7 +9,7 @@ interface ShellProps {
   children: ReactNode;
 }
 
-export function Shell({ children }: ShellProps) {
+export function Shell({ children }: Readonly<ShellProps>) {
   const online = useOnlineStatus();
 
   return (

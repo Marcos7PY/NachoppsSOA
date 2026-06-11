@@ -5,11 +5,10 @@ import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule } from '@org/resiliencia';
+import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { ObservabilidadModule } from '@org/observabilidad';
 import { SharedAuthModule, JwtAuthGuard } from '@org/shared-auth';
-import { IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoutingKeys } from '@org/contracts';
 

@@ -37,6 +37,9 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   const esperado = k.efectivoEsperado;
   const descuadre = +(contado - esperado).toFixed(2);
   const estado: 'ok' | 'faltante' | 'sobrante' = Math.abs(descuadre) < 0.005 ? 'ok' : descuadre < 0 ? 'faltante' : 'sobrante';
+  const estadoBadgeCls = estado === 'ok' ? 'badge-ok' : estado === 'faltante' ? 'badge-danger' : 'badge-warn';
+  const estadoDescuadreColor = estado === 'ok' ? 'var(--ok-text)' : estado === 'faltante' ? 'var(--danger-text)' : 'var(--warn-text)';
+  const estadoBadgeLabel = estado === 'ok' ? 'Cuadrado' : estado === 'faltante' ? `Faltan ${fmt(Math.abs(descuadre))}` : `Sobran ${fmt(descuadre)}`;
 
   const set = (d: number, q: number) => setCounts((c) => ({ ...c, [d]: Math.max(0, q) }));
   const denominaciones = () => Object.fromEntries(
@@ -131,7 +134,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
                   ))}
                   <div className="kv" style={{ borderBottom: '1px solid var(--border)' }}><span className="k">Egresos</span><span className="v mono" style={{ color: 'var(--danger-text)' }}>{fmt(k.totalEgresos)}</span></div>
                   <div className="kv" style={{ borderBottom: '1px solid var(--border)' }}><span className="k">Propinas</span><span className="v mono">{fmt(k.propinas)}</span></div>
-                  <div className="kv"><span className="k">Descuadre de caja</span><span className="v mono" style={{ color: estado === 'ok' ? 'var(--ok-text)' : estado === 'faltante' ? 'var(--danger-text)' : 'var(--warn-text)' }}>{descuadre > 0 ? '+' : ''}{fmt(descuadre)}</span></div>
+                  <div className="kv"><span className="k">Descuadre de caja</span><span className="v mono" style={{ color: estadoDescuadreColor }}>{descuadre > 0 ? '+' : ''}{fmt(descuadre)}</span></div>
                 </div>
               </div>
 
@@ -145,7 +148,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 16, alignItems: 'center' }}>
           {step > 1 ? <button className="btn btn-ghost" onClick={() => setStep(step - 1)}>Atrás</button> : <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>}
           <span className="spacer" />
-          {step === 1 && <span className={`badge dot ${estado === 'ok' ? 'badge-ok' : estado === 'faltante' ? 'badge-danger' : 'badge-warn'}`} style={{ marginRight: 6 }}>{estado === 'ok' ? 'Cuadrado' : estado === 'faltante' ? `Faltan ${fmt(Math.abs(descuadre))}` : `Sobran ${fmt(descuadre)}`}</span>}
+          {step === 1 && <span className={`badge dot ${estadoBadgeCls}`} style={{ marginRight: 6 }}>{estadoBadgeLabel}</span>}
           {step < 3 ? (
             <button className="btn btn-primary" onClick={() => setStep(step + 1)}>Siguiente</button>
           ) : !generado ? (

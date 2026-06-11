@@ -46,7 +46,7 @@ export function Comandero({
   mesaNumero,
   mesaUbicacion,
   modoAgregar = false,
-}: ComanderoProps) {
+}: Readonly<ComanderoProps>) {
   const { toast } = useToast();
   const cmdRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(cmdRef, { active: true, onClose });

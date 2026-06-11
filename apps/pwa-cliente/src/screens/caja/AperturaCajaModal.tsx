@@ -9,7 +9,7 @@ interface AperturaCajaModalProps {
   onOpen: (fondoInicial: number) => void | Promise<void>;
 }
 
-export function AperturaCajaModal({ loading, onClose, onOpen }: AperturaCajaModalProps) {
+export function AperturaCajaModal({ loading, onClose, onOpen }: Readonly<AperturaCajaModalProps>) {
   const [fondo, setFondo] = useState('0');
   const monto = Math.max(0, Number(fondo) || 0);
 

@@ -178,7 +178,7 @@ interface RecepcionDrawerProps {
   onRecibir: (oc: OrdenCompra) => void;
 }
 
-function RecepcionDrawer({ oc, onClose, onRecibir }: RecepcionDrawerProps) {
+function RecepcionDrawer({ oc, onClose, onRecibir }: Readonly<RecepcionDrawerProps>) {
   const [chk, setChk] = useState<Record<number, boolean>>(() =>
     Object.fromEntries(oc.items.map((_, i) => [i, true])),
   );
@@ -224,7 +224,7 @@ interface NuevaOCProps {
   onCrear: (oc: OrdenCompra) => void;
 }
 
-function NuevaOC({ onClose, onCrear }: NuevaOCProps) {
+function NuevaOC({ onClose, onCrear }: Readonly<NuevaOCProps>) {
   const [prov, setProv] = useState(PROVEEDORES_COMPRAS[0].n);
   const [sel, setSel] = useState<Record<string, number>>({});
   const insumosProv = INSUMOS.filter((i) => i.prov === prov);

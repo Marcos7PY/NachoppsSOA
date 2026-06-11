@@ -89,7 +89,7 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
 
   return {
     categorias: categoriasQuery.data ?? [],
-    productos: productosQuery.data && categoriasQuery.data
+    productos: productosQuery.data != null && categoriasQuery.data != null
       ? mapProductos(
           productosQuery.data.pages.flatMap((page) => page.productos),
           categoriasQuery.data,

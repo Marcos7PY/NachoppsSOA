@@ -23,7 +23,7 @@ interface StatKpiProps {
   value: ReactNode;
 }
 
-export function StatKpi({ icon, tint, label, value }: StatKpiProps) {
+export function StatKpi({ icon, tint, label, value }: Readonly<StatKpiProps>) {
   const Ic = Icons[icon];
   const c = TINT[tint];
   return (

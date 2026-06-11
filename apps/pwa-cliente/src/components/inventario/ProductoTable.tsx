@@ -26,7 +26,7 @@ export function ProductoTable({
   grupos, stockInputs, onStockInput, saving, online,
   onToggleDisponible, onReponer, onReponerQuick,
   nextCursor, loadingMore, onLoadMore, loading,
-}: ProductoTableProps) {
+}: Readonly<ProductoTableProps>) {
   if (loading) return <LoadingRows />;
 
   const totalProductos = grupos.reduce((s, g) => s + g.productos.length, 0);

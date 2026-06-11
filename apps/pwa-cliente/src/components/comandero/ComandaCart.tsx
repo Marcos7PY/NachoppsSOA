@@ -12,7 +12,7 @@ interface ComandaCartProps {
   modoAgregar: boolean;
 }
 
-export function ComandaCart({ cmd, modoAgregar }: ComandaCartProps) {
+export function ComandaCart({ cmd, modoAgregar }: Readonly<ComandaCartProps>) {
   return (
     <aside className="cmd-cart">
       <div className="cmd-cart-h">

@@ -143,7 +143,7 @@ interface MesaDrawerProps {
   onAgregar: () => void;
 }
 
-function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDrawerProps) {
+function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
   const now = useNow();
@@ -247,7 +247,7 @@ interface MesaTileProps {
   onSelect: () => void;
 }
 
-function MesaTile({ mesa: m, onSelect }: MesaTileProps) {
+function MesaTile({ mesa: m, onSelect }: Readonly<MesaTileProps>) {
   const ocupada = m.estado === 'OCUPADA';
   const meta = EST_META[m.estado];
   const now = useNow();

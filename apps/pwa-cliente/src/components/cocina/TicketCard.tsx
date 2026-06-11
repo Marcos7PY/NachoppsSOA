@@ -14,7 +14,7 @@ interface MetricProps {
   alert?: boolean;
 }
 
-export function Metric({ ic, color, soft, v, k, alert }: MetricProps) {
+export function Metric({ ic, color, soft, v, k, alert }: Readonly<MetricProps>) {
   const Ic = Icons[ic];
   return (
     <div className={`kds-metric ${alert ? 'alert' : ''}`}>
@@ -45,7 +45,7 @@ export interface TicketCardProps {
   onBump: () => void;
 }
 
-export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, onBump }: TicketCardProps) {
+export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, onBump }: Readonly<TicketCardProps>) {
   const el = (now - new Date(p.createdAt).getTime()) / 60000;
   const canalCls = CANAL_CLS[p.canal];
   const donde = p.canal === 'SALON' ? `Mesa ${p.mesaNumero}` : (p.cliente ?? 'Cliente');

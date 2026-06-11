@@ -236,7 +236,8 @@ export function CajaScreen() {
             if (!turno) return;
             await crearMovimiento(turno.id, mov);
             setModal(null);
-            toast({ title: mov.tipo === 'EGRESO' ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: mov.tipo === 'EGRESO' ? 'ArrowDown' : 'ArrowUp', kind: mov.tipo === 'EGRESO' ? 'info' : 'ok' });
+            const esEgreso = mov.tipo === 'EGRESO';
+            toast({ title: esEgreso ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: esEgreso ? 'ArrowDown' : 'ArrowUp', kind: esEgreso ? 'info' : 'ok' });
           }}
         />
       )}
@@ -281,7 +282,7 @@ function MovRow({ m }: { m: MovimientoCajaDto }) {
       </td>
       <td>{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
       <td className="num">
-        <span className="monto" style={egreso ? { color: 'var(--danger-text)' } : ingreso ? { color: 'var(--ok-text)' } : undefined}>{egreso ? '−' : ingreso ? '+' : ''}{fmt(Math.abs(m.monto))}</span>
+        <span className="monto" style={egreso ? { color: 'var(--danger-text)' } : ingreso ? { color: 'var(--ok-text)' } : undefined}>{egreso ? '−' : ingreso ? '+' : null}{fmt(Math.abs(m.monto))}</span>
         {m.descuento ? <div className="muted" style={{ fontSize: 11 }}>Subtotal {fmt(Math.abs(m.monto) + m.descuento)}</div> : null}
         {m.propina ? <div className="muted" style={{ fontSize: 11 }}>+{fmt(m.propina)} prop.</div> : null}
       </td>

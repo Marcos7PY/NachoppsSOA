@@ -12,7 +12,7 @@ interface MiniStatProps {
   d?: ReactNode;
 }
 
-export function MiniStat({ icon, color, soft, k, v, d }: MiniStatProps) {
+export function MiniStat({ icon, color, soft, k, v, d }: Readonly<MiniStatProps>) {
   const Ic = Icons[icon];
   return (
     <div className="stat">
@@ -38,7 +38,7 @@ interface HeroStatProps {
   children?: ReactNode;
 }
 
-export function HeroStat({ icon, color, soft, k, v, sub, delta, up, children }: HeroStatProps) {
+export function HeroStat({ icon, color, soft, k, v, sub, delta, up, children }: Readonly<HeroStatProps>) {
   const Ic = Icons[icon];
   return (
     <div className="stat">
