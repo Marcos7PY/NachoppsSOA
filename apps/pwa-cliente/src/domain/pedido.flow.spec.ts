@@ -88,7 +88,7 @@ describe('ESTADOS_PRODUCCION', () => {
   });
 
   it('NO contiene ENTREGADO (estado comercial, no de producción)', () => {
-    expect(ESTADOS_PRODUCCION.has('ENTREGADO' as any)).toBe(false);
+    expect((ESTADOS_PRODUCCION as ReadonlySet<string>).has('ENTREGADO')).toBe(false);
   });
 });
 

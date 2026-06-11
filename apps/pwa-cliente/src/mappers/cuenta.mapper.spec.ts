@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mapCuenta } from './cuenta.mapper';
 
-function pedidoDto(overrides = {}): any {
+function pedidoDto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'pedido-1',
     mesaId: 'mesa-1',
@@ -24,7 +24,7 @@ function pedidoDto(overrides = {}): any {
   };
 }
 
-function dto(overrides = {}): any {
+function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'cuenta-1',
     mesaId: 'mesa-1',

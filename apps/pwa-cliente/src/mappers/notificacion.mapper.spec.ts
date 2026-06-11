@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { mapNotificacion, mapNotificaciones, mapSocketNotification } from './notificacion.mapper';
 
-function dto(overrides = {}): any {
+function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'notif-1',
     eventoOrigen: 'pedido.creado',

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mapReserva, mapReservas } from './reserva.mapper';
 
-function dto(overrides = {}): any {
+function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'res-1',
     clienteNombre: 'Carlos López',

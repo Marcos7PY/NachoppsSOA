@@ -23,10 +23,8 @@ module.exports = [
     plugins: {
       '@typescript-eslint': tsPlugin,
     },
-    // T-18: `any` pasa a warn (deuda visible). Subir a 'error' cuando el conteo
-    // tienda a 0. Los `any` irreductibles se anotan con `// any justificado: …`.
     rules: {
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
     },
   },
   {

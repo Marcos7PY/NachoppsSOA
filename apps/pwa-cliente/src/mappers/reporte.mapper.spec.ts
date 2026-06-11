@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mapResumen } from './reporte.mapper';
 
-function dto(overrides = {}): any {
+function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     fecha: '2026-06-07',
     totalVentas: 10,

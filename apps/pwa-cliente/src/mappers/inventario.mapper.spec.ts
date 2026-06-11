@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { mapProducto, mapProductos } from './inventario.mapper';
 
-function dto(overrides = {}): any {
+function dto(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'prod-1',
     categoriaId: 'cat-1',
@@ -66,7 +66,7 @@ describe('mapProducto', () => {
   });
 
   it('busca categoria en la lista si dto.categoria es null', () => {
-    const categorias = [{ id: 'cat-1', nombre: 'Comida' }] as any[];
+    const categorias = [{ id: 'cat-1', nombre: 'Comida' }];
     const vm = mapProducto(dto({ categoriaId: 'cat-1', categoria: null }), categorias);
     expect(vm.categoriaNombre).toBe('Comida');
   });

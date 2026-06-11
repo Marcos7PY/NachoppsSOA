@@ -17,8 +17,8 @@ export function useCuentasQuery(mesaId?: string) {
       try {
         const dto = await cuentasApi.getByMesa(mesaId);
         return mapCuenta(dto);
-      } catch (err: any) {
-        if (err.status === 404) return null; // Si no hay cuenta, no es un error duro
+      } catch (err: unknown) {
+        if ((err as { status?: number }).status === 404) return null; // Si no hay cuenta, no es un error duro
         throw err;
       }
     },

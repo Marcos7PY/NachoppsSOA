@@ -40,7 +40,7 @@ describe('mapPedido', () => {
           nombre: 'Nachos',
           cantidad: 2,
           precioUnitario: 10,
-        } as any,
+        } as unknown as PedidoDto['items'][number],
       ],
     });
 
