@@ -25,7 +25,8 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
     $transaction: vi.fn().mockImplementation((fn: (p: any) => Promise<any>) => fn(mock)),
-    $queryRaw: vi.fn().mockResolvedValue([{ count: BigInt(2) }]),
+    // T-31: el lock de admins devuelve filas (no agregado) y se cuenta en aplicación
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]),
     usuario: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -94,12 +95,15 @@ describe('AuthService — Identidad', () => {
   describe('cambiarRol — T-04', () => {
     it('debe cambiar el rol de un usuario cuando hay 2 admins activos', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
-      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(2) }]);
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]);
       mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, rol: 'MESERO' });
       mockPrisma.auditoriaLog.create.mockResolvedValue({});
 
       const result = await service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002');
       expect(result.rol).toBe('MESERO');
+      // T-31: la degradación corre dentro de una transacción (lock + update + auditoría)
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.auditoriaLog.create).toHaveBeenCalledTimes(1);
     });
 
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
@@ -111,7 +115,7 @@ describe('AuthService — Identidad', () => {
 
     it('rechaza degradar al único ADMIN activo — T-04', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
-      mockPrisma.$queryRaw.mockResolvedValue([{ count: BigInt(1) }]);
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }]);
 
       await expect(
         service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002'),

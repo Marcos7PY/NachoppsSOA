@@ -284,25 +284,41 @@ export class AuthService {
       throw new ConflictException('No se puede auto-degradar: use otro administrador para cambiar su propio rol');
     }
 
-    // Si el objetivo es ADMIN y se degrada, verificar que quede al menos un ADMIN activo
+    // T-31: si el objetivo es ADMIN y se degrada, verificar dentro de una transacción
+    // que quede al menos un ADMIN activo. Postgres no admite FOR UPDATE con agregaciones,
+    // así que se bloquean las filas ADMIN (lock por id) y se cuenta en aplicación; el lock
+    // se mantiene hasta el commit y serializa degradaciones concurrentes.
+    let actualizado;
     if (usuario.rol === 'ADMIN' && command.rol !== 'ADMIN') {
-      const resultado = await this.prisma.$queryRaw<[{ count: bigint }]>`
-        SELECT COUNT(*) AS count FROM "Usuario"
-        WHERE rol = 'ADMIN' AND activo = true
-        FOR UPDATE
-      `;
-      const totalAdmins = Number(resultado[0].count);
-      if (totalAdmins <= 1) {
-        throw new ConflictException('No se puede degradar al último administrador activo');
-      }
+      actualizado = await this.prisma.$transaction(async (tx) => {
+        const admins = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Usuario"
+          WHERE rol = 'ADMIN' AND activo = true
+          FOR UPDATE
+        `;
+        if (admins.length <= 1) {
+          throw new ConflictException('No se puede degradar al último administrador activo');
+        }
+        const usuarioActualizado = await tx.usuario.update({
+          where: { id },
+          data: { rol: command.rol },
+        });
+        await tx.auditoriaLog.create({
+          data: {
+            accion: `CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`,
+            usuarioId: id,
+            servicio: 'servicio-identidad',
+          },
+        });
+        return usuarioActualizado;
+      });
+    } else {
+      actualizado = await this.prisma.usuario.update({
+        where: { id },
+        data: { rol: command.rol },
+      });
+      await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`, id, 'servicio-identidad');
     }
-
-    const actualizado = await this.prisma.usuario.update({
-      where: { id },
-      data: { rol: command.rol },
-    });
-
-    await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`, id, 'servicio-identidad');
 
     this.logger.log(`✅ Rol actualizado: ${actualizado.email} → ${command.rol}`);
     return toUsuarioDto(actualizado);
