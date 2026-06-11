@@ -387,7 +387,7 @@ export class AppService {
    * Transiciones permitidas del estado *del pedido* vía el endpoint de pedido.
    * "Cocina manda": el tramo de producción (PENDIENTE → EN_PREPARACION → LISTO)
    * se deriva de los ítems (ver `derivarEstadoPedido`), por eso este endpoint
-   * existe sobre todo para el tramo comercial (LISTO → ENTREGADO → PAGADO) y
+   * existe principalmente para el tramo comercial (LISTO → ENTREGADO → PAGADO) y
    * cancelaciones. Las transiciones de producción quedan disponibles como
    * override manual, pero la UI por defecto no las expone.
    */

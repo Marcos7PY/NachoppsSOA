@@ -159,7 +159,7 @@ export class AppService {
     return turno ? this.mapTurno(turno) : null;
   }
 
-  async obtenerResumenTurnoActivo(usuarioId?: string | null) {
+  async obtenerResumenTurnoActivo(_usuarioId?: string | null) {
     const turno = await this.prisma.turnoCaja.findFirst({
       where: { estado: 'ABIERTA' },
       orderBy: { abiertoAt: 'desc' },
@@ -183,7 +183,6 @@ export class AppService {
       };
     }
 
-    void usuarioId;
     return this.obtenerResumenTurno(turno.id);
   }
 

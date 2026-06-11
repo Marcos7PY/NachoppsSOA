@@ -154,7 +154,7 @@ export class AuthService {
     if (!existing) throw new UnauthorizedException('Refresh token inválido');
 
     if (existing.revokedAt) {
-      // Reuso detectado: alguien presentó un token ya rotado → revocar todo.
+      // Reuso detectado: alguien presentó un token ya rotado → revocar la cadena completa.
       await this.prisma.refreshToken.updateMany({
         where: { userId: existing.userId, revokedAt: null },
         data: { revokedAt: new Date() },
