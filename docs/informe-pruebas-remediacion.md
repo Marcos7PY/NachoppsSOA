@@ -2,7 +2,7 @@
 
 > Ejecución del [plan de pruebas post-remediación](plan-pruebas-post-remediacion.md).
 >
-> - **Commit bajo prueba (estado vigente):** `50376f7` (rama `dev`) — HEAD post-M-02/03/04 (3 commits atómicos posteriores a G-0). Suite 1 re-corrida en verde sobre `4f0fddb`; las 3 micro-tareas M-02/03/04 no requirieron nuevo run completo (ver §"Cierre M-02/03/04").
+> - **Commit bajo prueba (estado vigente):** `6517db6` (rama `dev`) — HEAD post-T-18/T-22 (2 commits atómicos posteriores a M-02/03/04). Suite 1 re-corrida en verde sobre `4f0fddb`; los commits de T-22 y T-18 no requirieron nueva corrida completa (ver §"Cierre T-18/T-22").
 > - **Corridas previas (histórico):** corrida 1 **sin stack** sobre `03e359f`; corrida 2 (runtime) sobre `03e359f` + working tree sin commitear. Ambas quedan como apéndice histórico; el estado vigente es el de §"Cierre G-0 — verificación sobre el HEAD commiteado (2026-06-10)".
 > - **Rama:** `dev`
 > - **Fecha:** 2026-06-10
@@ -35,7 +35,7 @@
 
 | ID | Resultado | Detalle |
 |----|-----------|---------|
-| P-01 lint | ✅ | `nx run-many --target=lint --all` exit 0. 25 proyectos. 2 `warning` `no-explicit-any` en `apps/servicio-pedidos-e2e/.../servicio-pedidos.spec.ts:14,24` (registrados, T-18). |
+| P-01 lint | ✅ | `nx run-many --target=lint --all` exit 0. 25 proyectos. **T-18 cerrado:** regla `no-explicit-any` elevada a `error`; **0 usos de `any`** en todo el workspace (ver §"Cierre T-18/T-22"). |
 | P-02 build | ✅ | `nx run-many --target=build --all` exit 0. 10 proyectos con target `build`, todos OK. (El plan menciona "22 proyectos"; en el workspace actual solo 10 tienen target de build; el resto son libs/e2e.) |
 | P-03 test | ✅ (corregido, T-29) | Estado original: `nx run-many --target=test --all` **exit 1** por cobertura bajo el piso (líneas 48.53% < 53%, statements 47.62% < 52%). **Cerrado en T-29** (2026-06-10): exit 0 con **líneas 53.72% / statements 52.92%** (branches 50%, functions 47.5%), **pisos intactos (52/53)**. Se añadió cobertura a lo más delicado y nuevo: `servicio-caja` 40%→**88.6%** lines (apertura/cierre/arqueo/movimientos de turno — T-25 — y caminos de error de `registrarPago` — T-14/T-17 — + controller) y `format.ts` de la PWA. **473/473** specs en verde. |
 | P-04 migration-drift | ✅ | `scripts/check-migration-drift.sh` exit 0 — "Sin drift" en los 9 servicios. *Nota de entorno:* había un PostgreSQL **nativo** ocupando `:5432`; hubo que levantar el Postgres shadow en `:5544` (`SHADOW_DATABASE_URL=postgresql://postgres:postgres@localhost:5544/drift_shadow`) para no autenticar contra el nativo (P1000). |
@@ -327,3 +327,16 @@ crítico de re-hash (T-05). Quedan solo verificaciones manuales/prod-like y un p
 | `50376f7` | M-02 | `apps/pwa-cliente/playwright.config.ts` + `vite.config.e2e.ts` — harness e2e reproducible: proxy `/v1`→`:8000` y `/notificaciones`→`:8000` (WS), `VITE_API_BASE_URL=''`, bloque `webServer` que arranca Vite automáticamente. `pnpm nx e2e pwa-cliente` funciona de cero (P-46 ya verde en G-0 sobre el mismo código). |
 
 **Pendiente para sign-off pleno:** runbook manual §4 (P-32, P-45, P-56 — local ~45 min; P-33 — staging) y **T-17 fase 2** (iniciar ya la ventana de 7 días de logs para el flip de `SERVICE_AUD_ENFORCE`).
+
+---
+
+## Cierre T-18/T-22 — commits posteriores a M-02/03/04 (2026-06-10)
+
+> **Estado vigente actualizado.** Dos commits en `dev` tras M-02/03/04. HEAD `6517db6`. `nx lint pwa-cliente` y `nx lint servicio-pedidos-e2e` exit 0 (0 errores, 0 warnings).
+
+| Commit | Tarea | Cambio |
+|--------|-------|--------|
+| `ecb3342` | T-22 | `refactor(pwa)`: descomposición de 5 pantallas monolíticas. 9 archivos nuevos en `components/` y `hooks/`: `domain/inventario.ts`, `hooks/useInicioData.ts`, `components/inventario/{ProductoTable,NuevoProductoForm}.tsx`, `components/pedidos/{pedidos.meta.ts,TableroView,ListaView,DetallePedido}.tsx`, `components/cocina/TicketCard.tsx`, `screens/caja/AperturaCajaModal.tsx`. Pantallas resultantes: InicioScreen ~180l, PedidosScreen ~110l, InventarioScreen ~130l, CajaScreen ~260l, CocinaScreen ~175l. |
+| `6517db6` | T-18 | `fix(lint)`: todos los `any` eliminados (catch blocks → `unknown` + `axios.isAxiosError`; factory specs → `Record<string,unknown>`; set cast → `ReadonlySet<string>`; `as any` → `as unknown as PedidoDto['items'][number]`). Regla `no-explicit-any` subida de `warn` a **`error`** en `eslint.config.cjs`. |
+
+**Pendiente para sign-off pleno:** ídem sección anterior — P-32, P-45, P-56, P-33 y T-17 fase 2.

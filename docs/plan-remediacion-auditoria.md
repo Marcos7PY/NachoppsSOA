@@ -53,11 +53,11 @@ defecto que justificaba que G-0 fuera un gate con verificación y no un trámite
 | T-15 | `UsuarioAutenticado` retirado | ✅ | P-06 + P-72. |
 | T-16 | Métricas bloqueadas en Kong | ✅ | P-30: 404/404 externo, 200 interno, Prometheus `up`. |
 | T-17 | S2S con claim `aud` | ⏳ **fase 1/2** | Emisión + lógica de verificación cubiertas (spec 45/45 incl. rechazo por `aud` ajeno). **El enforcement está apagado** (`SERVICE_AUD_ENFORCE=off`, rollout tolerante por diseño): el control no está activo en ningún entorno. Ficha de fase 2 en §3. |
-| T-18 | Routing keys tipadas / `any` | ✅ gate | P-01 verde, 2 `warn` registrados; reducción continua hasta subir la regla a `error`. |
+| T-18 | Routing keys tipadas / `any` | ✅ | P-01 verde. Todos los `any` eliminados (catch→`unknown`, specs→`Record<string,unknown>`, casts seguros). Regla subida a `error` en `eslint.config.cjs` [`6517db6`]. |
 | T-19 | WS rooms por rol | ⏳ | Spec del gateway verde (en P-03). **Falta P-32** (manual, 2 navegadores) — runbook §4.1. |
 | T-20 | Higiene de repo | ✅ | Resuelta **no destructiva**: `git rm --cached` ×142 (disco + historial intactos), `BASELINE.md` versionado por excepción, 9 invariantes repuntadas. P-06/T-20 → 0 y P-74 ✅. Decisión del equipo cumplida en sus criterios. |
 | T-21 | Skills fuente única + CI | ✅ | P-05 (con negativo) + P-75. |
-| T-22 | Backlog frontend | ⏳ continuo | Sin bloqueo de firma; **P-46 ✅** (e2e Playwright verde sobre `4f0fddb`) lo cubre incrementalmente. |
+| T-22 | Backlog frontend | ✅ milestone | 5 pantallas descompuestas siguiendo patrón Comandero [`ecb3342`]: 9 archivos nuevos en `components/` y `hooks/`; pantallas resultantes todas bajo ~200l. **P-46 ✅** (Playwright, paginación infinita). Trabajo continuo no bloquea firma. |
 | T-23 | Mensajes RMQ persistentes | ✅ | **P-22**: 20 mensajes encolados sobreviven a `docker restart rabbitmq`; al reanudar, stock 100→80 (exactamente 1 descuento por pedido). |
 | T-24 | WS CORS unificado a `CORS_ORIGIN` | ⏳ | Grep ✅. **Falta P-33** (prod-like con dominio/cert) — runbook §4.4. |
 | T-25 | Turno de caja único (global) | ✅ | P-40: 5 aperturas concurrentes → 1 ABIERTA, mismo `turno.id`. |
@@ -148,9 +148,7 @@ reproducible para que `pnpm nx e2e pwa-cliente-e2e` funcione de cero.
 Estado por criterio:
 
 1. ✅ **G-0** cumplido: HEAD `4f0fddb`, Suite 1 verde sobre el hash, informe re-anclado (§1).
-   **Nota:** M-02/M-03/M-04 son commits posteriores — re-anclar el informe al HEAD nuevo y
-   correr el gate barato sobre él (lint + test de los proyectos tocados + `pnpm nx e2e
-   pwa-cliente` para validar el harness de M-02 desde cero).
+   **HEAD vigente:** `6517db6` (T-18/T-22, 2 commits sobre M-02/03/04). Informe re-anclado en §"Cierre T-18/T-22". `nx lint pwa-cliente` y `nx lint servicio-pedidos-e2e` exit 0 sobre el HEAD.
 2. ⏳ Runbook §4: **P-46 ✅**; faltan **P-32, P-45, P-56** (local, ~45 min en total) y
    **P-33** (staging) — sin hallazgos bloqueantes hasta ahora.
 3. ⏳ **T-17 fase 2** según §3: ratificar el criterio de flip y **arrancar ya la ventana de
@@ -160,7 +158,7 @@ Estado por criterio:
 5. ✅ **Informe sin contradicciones activas** (M-04): corrida 1 como apéndice, fixtures
    HECHO, hallazgos 3 y 5 tachados-resueltos. Falta solo añadir la línea del bonus de
    detección de reuso de refresh al archivar.
-6. ⏳ Archivado final: informe con fecha, **HEAD post-M-02/03/04** y ejecutor; las cifras
+6. ⏳ Archivado final: informe con fecha, **HEAD `6517db6`** y ejecutor; las cifras
    de la corrida 2 ya son el `BASELINE.md` vigente.
 
 ---
