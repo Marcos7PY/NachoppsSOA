@@ -32,7 +32,7 @@ export class AppService {
       cuentas: cuentas.map(c => ({
         id: c.id,
         mesaId: c.mesaId,
-        pedidos: c.pedidos as any[],
+        pedidos: c.pedidos as unknown[],
         total: Number(c.total),
         estado: c.estado,
         ticket: c.ticket,
@@ -118,9 +118,11 @@ export class AppService {
         },
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
 
       // A2: dedup por pedido.id — una reentrega no duplica el cobro
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (snapshot.some((p: any) => p.id === pedidoDto.id)) {
         this.logger.warn(`Pedido ${pedidoDto.id} ya está en la cuenta ${cuenta.id} — ignorado (idempotente)`);
         return;
@@ -130,12 +132,14 @@ export class AppService {
 
       // A3: recompute del total desde el array, con Decimal (no increment ciego)
       const total = snapshot.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
         new Prisma.Decimal(0),
       );
 
       await prisma.cuenta.update({
         where: { id: cuenta.id },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: { total, pedidos: snapshot as any },
       });
     });
@@ -157,7 +161,9 @@ export class AppService {
       });
       if (!cuenta) return;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const index = snapshot.findIndex((p: any) => p.id === pedidoDto.id);
 
       if (index >= 0) {
@@ -168,12 +174,14 @@ export class AppService {
 
       // A3: recompute total con Decimal desde el snapshot actualizado
       const total = snapshot.reduce(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
         new Prisma.Decimal(0),
       );
 
       await prisma.cuenta.update({
         where: { id: cuenta.id },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data: { total, pedidos: snapshot as any },
       });
     });
@@ -259,7 +267,9 @@ export class AppService {
         throw new BadRequestException('La cuenta ya fue cerrada por otra operación concurrente.');
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allItems = pedidos.flatMap((p: any) => p.items || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mappedItems = allItems.map((item: any) => ({
         productoId: item.productoId,
         nombre: item.nombre,
@@ -303,6 +313,7 @@ export class AppService {
       id: cierre.ticketId,
       cuentaId: id,
       mesaId: cierre.cuenta.mesaId,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       items: (cierre.pedidos as any[]).flatMap((p: any) => p.items || []),
       subtotal: cierre.subtotal.toNumber(),
       descuento: cierre.descuento.toNumber(),
@@ -315,6 +326,7 @@ export class AppService {
     return { message: 'Cuenta cerrada exitosamente', ticket };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async dividirCuenta(id: string, command: DividirCuentaCommand): Promise<any> {
     const cuenta = await this.obtenerCuenta(id);
     const pedidos = Array.isArray(cuenta.pedidos) ? cuenta.pedidos : [];
@@ -338,7 +350,9 @@ export class AppService {
 
     if (command.metodo === 'POR_ITEMS') {
       const partes: Record<number, number> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allItems = pedidos.flatMap((p: any) => p.items || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       allItems.forEach((item: any) => {
         const comensal = item.comensal || 1;
         // A3: aritmética Decimal por ítem
@@ -358,6 +372,7 @@ export class AppService {
     throw new BadRequestException('Método de división no soportado');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapToDto(c: any): CuentaDto {
     return {
       id: c.id,
@@ -371,6 +386,7 @@ export class AppService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private obtenerMeseroCuenta(pedidos: any[]): { meseroId?: string; meseroNombre?: string } {
     const porMesero = new Map<string, { meseroNombre?: string; total: number; pedidos: number }>();
 

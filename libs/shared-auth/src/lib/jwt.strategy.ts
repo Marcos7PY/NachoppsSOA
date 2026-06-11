@@ -9,6 +9,14 @@ import {
   JWT_VERIFY_ALGORITHMS,
 } from './jwt-keys';
 
+interface JwtPayload {
+  sub: string;
+  email: string;
+  rol: string;
+  nombre: string;
+  aud?: string;
+}
+
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
   return req?.cookies?.['access_token'] ?? null;
 };
@@ -31,7 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: JwtPayload) {
     // T-17: un token S2S (rol SISTEMA) solo es válido en el servicio cuyo
     // SERVICE_NAME coincide con su claim `aud`. No se usa la opción `audience` de
     // passport-jwt porque rechazaría los RS256 de usuario, que no llevan `aud`.

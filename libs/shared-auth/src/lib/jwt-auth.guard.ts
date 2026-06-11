@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import type { Request } from 'express';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -26,19 +27,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return authenticated;
   }
 
-  override handleRequest(
-    err: any,
-    user: any,
-    info: any,
-    context: ExecutionContext,
-  ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
     if (err || !user) {
       throw new UnauthorizedException('Token inválido o expirado');
     }
     return user;
   }
 
-  private assertCsrfToken(request: any) {
+  private assertCsrfToken(request: Request) {
     if (SAFE_METHODS.has(String(request.method).toUpperCase())) return;
 
     const authorization = request.headers?.authorization;

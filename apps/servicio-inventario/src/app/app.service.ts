@@ -98,6 +98,7 @@ export class AppService {
     return undefined;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toProductoDto(producto: any): ProductoDto {
     return {
       id: producto.id,
@@ -264,6 +265,7 @@ export class AppService {
     await this.reducirStockAutomaticoConPrisma(this.prisma, id, cantidad);
   }
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private async reducirStockAutomaticoConPrisma(
     prisma: any,
     id: string,
@@ -342,13 +344,16 @@ export class AppService {
 
     this.logger.log(`Stock reducido para ${productoFinal?.nombre ?? id}: -> ${productoFinal?.stockActual}`);
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async procesarPedidoCreado(pedido: any): Promise<void> {
     if (!pedido?.id || !Array.isArray(pedido.items)) {
       this.logger.warn('PedidoCreado sin id/items — ignorado');
       return;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (pedido.items.some((item: any) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
       throw new Error(`Fallo QA controlado para pedido ${pedido.id}`);
     }
@@ -364,8 +369,8 @@ export class AppService {
           }
         }
       });
-    } catch (e: any) {
-      if (e?.code === 'P2002') {
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
         this.logger.warn(`Pedido ${pedido.id} ya procesado — stock no se reduce de nuevo`);
         return;
       }

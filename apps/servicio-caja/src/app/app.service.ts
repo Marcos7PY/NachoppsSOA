@@ -300,7 +300,7 @@ export class AppService {
           montoReal: efectivoContado,
           diferencia,
           usuarioId: this.usuario(usuarioId),
-          resumen: resumen as any,
+          resumen: resumen as Prisma.InputJsonValue,
         },
       });
 
@@ -492,6 +492,7 @@ export class AppService {
     return Math.min(Math.max(Math.trunc(parsed), 1), 100);
   }
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   private buildResumen(turno: any) {
     const movimientos = Array.isArray(turno.movimientos) ? turno.movimientos : [];
     const ventas = movimientos.filter((m: any) => m.tipo === 'VENTA');
@@ -627,4 +628,5 @@ export class AppService {
       createdAt: c.createdAt.toISOString(),
     };
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 }

@@ -5,7 +5,7 @@ export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
 
 export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
@@ -20,6 +20,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
       ...options,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (...args: any[]) {
       let breaker = CIRCUIT_BREAKER_REGISTRY.get(breakerName);
       

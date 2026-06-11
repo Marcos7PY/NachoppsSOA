@@ -14,6 +14,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request as ExpressRequest, Response } from 'express';
+
+interface AuthenticatedRequest extends ExpressRequest {
+  user: { sub: string; email: string; rol: string; nombre: string };
+}
 import { randomBytes } from 'node:crypto';
 import { AuthService } from './auth.service';
 import {
@@ -96,7 +100,7 @@ export class AuthController {
     @Body() body: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const raw = (req as any).cookies?.['refresh_token'] ?? body?.refresh_token;
+    const raw = req.cookies?.['refresh_token'] ?? body?.refresh_token;
     if (!raw) throw new UnauthorizedException('No hay refresh token');
     const result = await this.authService.rotateRefreshToken(raw);
     this.setAuthCookies(res, result.access_token, result.refresh.token);
@@ -107,7 +111,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('auth/logout')
   async logout(@Req() req: ExpressRequest, @Res({ passthrough: true }) res: Response) {
-    await this.authService.revokeRefreshTokenByRaw((req as any).cookies?.['refresh_token']);
+    await this.authService.revokeRefreshTokenByRaw(req.cookies?.['refresh_token']);
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: COOKIE_SECURE,
@@ -136,7 +140,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('auth/me')
-  async me(@Request() req: any) {
+  async me(@Request() req: AuthenticatedRequest) {
     return this.authService.obtenerPerfil(req.user.sub);
   }
 
@@ -164,7 +168,7 @@ export class AuthController {
   async cambiarRol(
     @Param('id') id: string,
     @Body() command: CambiarRolCommand,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     return this.authService.cambiarRol(id, command, req.user.sub);
   }

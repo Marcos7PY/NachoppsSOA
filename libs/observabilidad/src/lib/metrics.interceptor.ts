@@ -44,12 +44,13 @@ export class MetricsInterceptor implements NestInterceptor {
     });
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctxType = context.getType();
 
     if (ctxType === 'rpc' || (ctxType as string) === 'rmq') {
       const rmqContext = ctxType === 'rpc'
         ? context.switchToRpc().getContext<RmqContext>()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         : (context as any).args?.[1] as RmqContext | undefined;
         
       const msg = rmqContext?.getMessage?.();

@@ -33,4 +33,12 @@ module.exports = [
       sourceType: 'commonjs',
     },
   },
+  {
+    // Test doubles (mocks/stubs/spies) routinely need `any` to satisfy jest.fn() signatures
+    // and partial service shapes. Relaxing only in spec files keeps production code strict.
+    files: ['**/*.spec.ts', '**/*.spec.tsx'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
 ];

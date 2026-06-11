@@ -48,7 +48,7 @@ export class CuentaDto {
   @IsString()
   mesaId: string;
   @IsArray()
-  pedidos: any[]; // Se poblará con detalles de pedidos
+  pedidos: unknown[];
   @IsNumber()
   total: number;
   @IsEnum(CuentaEstado)
@@ -70,7 +70,7 @@ export class TicketDto {
   @IsString()
   mesaId: string;
   @IsArray()
-  items: any[];
+  items: unknown[];
   @IsNumber()
   subtotal: number;
   @IsNumber()

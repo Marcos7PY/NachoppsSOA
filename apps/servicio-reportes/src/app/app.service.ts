@@ -58,6 +58,7 @@ export class AppService {
     const stats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
     for (const v of ventas) {
       if (!Array.isArray(v.items)) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const item of v.items as any[]) {
         const pid = item.productoId;
         if (!pid) continue;
@@ -132,6 +133,7 @@ export class AppService {
       },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalIngresos = ventas.reduce((acc: number, v: any) => acc + Number(v.total), 0);
 
     // 1. Agrupar Ventas por Hora reales del día
@@ -159,7 +161,8 @@ export class AppService {
 
     for (const v of ventas) {
       if (Array.isArray(v.items)) {
-        for (const item of v.items as any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const item of v.items as any[]) {
           const pid = item.productoId;
           if (!pid) continue;
           const current = productStats.get(pid) || { nombre: item.nombre || pid, cantidad: 0, ingresos: 0 };

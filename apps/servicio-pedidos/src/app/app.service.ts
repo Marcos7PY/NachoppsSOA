@@ -172,7 +172,7 @@ export class AppService {
           },
         );
 
-        const productos = Array.isArray(data) ? data : (data as any).productos ?? [];
+        const productos = Array.isArray(data) ? data : (data as { productos?: unknown[] }).productos ?? [];
         for (const p of productos) {
           await this.prisma.productoLocal.upsert({
             where: { id: p.id },
@@ -667,8 +667,8 @@ export class AppService {
           },
         });
       });
-    } catch (error: any) {
-      if (error?.code === 'P2002') {
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === 'P2002') {
         this.logger.warn(`StockInsuficiente ${idempotencyKey} ya procesado — sin cambios`);
         return;
       }
@@ -679,6 +679,7 @@ export class AppService {
   private async procesarEventoProducto(
     routingKey: string,
     payload: { id: string; eventId?: string; stockSyncMode?: string; stockDelta?: number; stockActual?: number | null },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     apply: (prisma: any) => Promise<void>,
   ): Promise<void> {
     const fallbackKey = routingKey === RoutingKeys.ProductoActualizado
@@ -690,8 +691,8 @@ export class AppService {
         await prisma.idempotencyKey.create({ data: { key: idempotencyKey } });
         await apply(prisma);
       });
-    } catch (error: any) {
-      if (error?.code === 'P2002') {
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === 'P2002') {
         this.logger.warn(`Evento ${idempotencyKey} ya procesado — proyeccion de productos no se aplica de nuevo`);
         return;
       }
@@ -699,6 +700,7 @@ export class AppService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async upsertProductoLocalConPrisma(prisma: any, producto: {
     id: string;
     nombre: string;

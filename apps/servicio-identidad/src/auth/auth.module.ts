@@ -19,7 +19,7 @@ import { JwtStrategy } from './jwt.strategy';
         signOptions: {
           algorithm: 'RS256',
           // Access corto (plan 1.4): el refresh token renueva la sesión.
-          expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any,
+          expiresIn: process.env.JWT_EXPIRES_IN || '15m',
           issuer: 'nachopps-identidad',
         },
       }),

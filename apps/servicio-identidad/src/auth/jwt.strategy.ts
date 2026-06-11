@@ -16,6 +16,13 @@ import {
  * El payload decodificado se inyecta en `req.user`.
  * Plan 2.1: verifica RS256 (usuario, clave pública) y HS256 (servicio, secreto).
  */
+interface JwtPayload {
+  sub: string;
+  email: string;
+  rol: string;
+  nombre: string;
+}
+
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
   return req?.cookies?.['access_token'] ?? null;
 };
@@ -36,7 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /** Retorna el payload que se asigna a `req.user`. */
-  async validate(payload: any) {
+  async validate(payload: JwtPayload) {
     return {
       sub: payload.sub,
       email: payload.email,
