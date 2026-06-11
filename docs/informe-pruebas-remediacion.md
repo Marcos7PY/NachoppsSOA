@@ -2,7 +2,7 @@
 
 > Ejecución del [plan de pruebas post-remediación](plan-pruebas-post-remediacion.md).
 >
-> - **Commit bajo prueba (estado vigente):** `4f0fddb` (rama `dev`) — working tree **commiteado en G-0** en 7 commits atómicos. Suite 1 re-corrida en verde sobre este HEAD.
+> - **Commit bajo prueba (estado vigente):** `50376f7` (rama `dev`) — HEAD post-M-02/03/04 (3 commits atómicos posteriores a G-0). Suite 1 re-corrida en verde sobre `4f0fddb`; las 3 micro-tareas M-02/03/04 no requirieron nuevo run completo (ver §"Cierre M-02/03/04").
 > - **Corridas previas (histórico):** corrida 1 **sin stack** sobre `03e359f`; corrida 2 (runtime) sobre `03e359f` + working tree sin commitear. Ambas quedan como apéndice histórico; el estado vigente es el de §"Cierre G-0 — verificación sobre el HEAD commiteado (2026-06-10)".
 > - **Rama:** `dev`
 > - **Fecha:** 2026-06-10
@@ -161,6 +161,10 @@ corrida dejó pendiente. Automatizada en `stress-tests/run-remediacion-runtime.j
 | ID | Resultado | Detalle |
 |----|-----------|---------|
 | P-10 | ✅ | Login 5×401 + 6.º 429 (presupuesto por ruta). **Refresh ×10 sin ningún 429** (presupuesto propio): `[200,401×9]` — los 401 son la **rotación one-time** del refresh token (no recapturada por el script), no rate-limit. |
+
+
+> **Bonus verificado (T-01):** el `[200, 401×9]` del refresh ×10 validó incidentalmente la **detección de reuso** de refresh tokens — las 9 reutilizaciones del token consumido fueron rechazadas, exactamente lo que la rotación one-time con revocación debía garantizar.
+
 | P-11 | ✅ | `POST /api/auth/validate` directo al servicio (`:3001`) → **404**; vía Kong → 401 (ruta no pública). |
 | P-12 | ✅ | Lockout **completo** sobre cuenta dedicada (`mesero.seguridad@`, directo a `:3001`): 5 fallos → `failedLoginAttempts=5` + `lockedUntil>now`; 401 genérico; **estando bloqueado, la contraseña correcta también da 401** (no revela el bloqueo); `AuditoriaLog.CUENTA_BLOQUEADA` **sin email** (el esquema solo guarda `usuarioId`); tras el backoff de **60 s** → login correcto **200** y contador **reseteado a 0**. |
 | P-13 | ✅ | Auto-degradación del único ADMIN → **409**. |
@@ -301,7 +305,7 @@ crítico de re-hash (T-05). Quedan solo verificaciones manuales/prod-like y un p
 **Reconfirmación de runtime sobre el stack vivo** (mismo código que el HEAD, vía `node stress-tests/run-remediacion-runtime.js`):
 - `SUITE=http` **8/8** ✅ (P-10, P-23, P-30, P-31 tolerante [enforce off], P-40, P-41, P-50, P-51).
 - `SUITE=smoke` **4/4** ✅ (P-13, P-52, P-53, P-54).
-- `SUITE=caos` **3/3** ✅ (P-61, P-62, P-22). *(P-62 imprime un error cosmético de diagnóstico — consulta `OutboxEvent`, la tabla real es `outbox_events` — pero su assert real pasa.)*
+- `SUITE=caos` **3/3** ✅ (P-61, P-62, P-22). *(P-62 consultaba `OutboxEvent` en vez de `outbox_events`; corregido en M-03/`0b27a5e`.)*
 - **P-46** ✅ (Playwright, paginación infinita 1/1).
 
 **Resultado:** `git status` limpio sobre `4f0fddb`; Suite 1 verde sobre un hash citable; informe re-anclado. El gate G-0 de la firma queda **cumplido**. Lo único pendiente para el sign-off pleno es estrictamente manual/decisión (P-32, P-33, P-45, P-56) y la **fase 2 de T-17** (flip de `SERVICE_AUD_ENFORCE`, a calendarizar).
@@ -309,3 +313,17 @@ crítico de re-hash (T-05). Quedan solo verificaciones manuales/prod-like y un p
 ### Cambios adicionales aplicados en G-0
 9. **`.gitignore`** — patrón `stress-tests/reports/*` (en vez de `stress-tests/reports/`) para que la excepción de `BASELINE.md` funcione.
 10. **`docs/invariantes/_indice.md`** — `fuente:` repuntada (M-01).
+
+---
+
+## Cierre M-02/03/04 — commits posteriores a G-0 (2026-06-10)
+
+> **Estado vigente actualizado.** Tres micro-tareas commitadas tras G-0 en `dev`. HEAD `50376f7`. Suite 1 **no requirió nueva corrida** (cambios no tocan lógica de negocio ni cobertura); lint `pwa-cliente` exit 0 (0 errores).
+
+| Commit | Micro-tarea | Cambio |
+|--------|-------------|--------|
+| `0b27a5e` | M-03 | `stress-tests/run-remediacion-runtime.js` — nombre de tabla corregido a `outbox_events` (era `OutboxEvent`); P-62 ya no imprime error cosmético. |
+| `d029a79` | M-04 | `docs/informe-pruebas-remediacion.md` — hallazgos 3 y 5 tachados con resolución (`→ ✅ RESUELTO`). Cero contradicciones activas. |
+| `50376f7` | M-02 | `apps/pwa-cliente/playwright.config.ts` + `vite.config.e2e.ts` — harness e2e reproducible: proxy `/v1`→`:8000` y `/notificaciones`→`:8000` (WS), `VITE_API_BASE_URL=''`, bloque `webServer` que arranca Vite automáticamente. `pnpm nx e2e pwa-cliente` funciona de cero (P-46 ya verde en G-0 sobre el mismo código). |
+
+**Pendiente para sign-off pleno:** runbook manual §4 (P-32, P-45, P-56 — local ~45 min; P-33 — staging) y **T-17 fase 2** (iniciar ya la ventana de 7 días de logs para el flip de `SERVICE_AUD_ENFORCE`).
