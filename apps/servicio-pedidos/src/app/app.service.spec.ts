@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
@@ -14,6 +14,7 @@ vi.mock('@org/resiliencia', async () => {
 import { AppService } from './app.service';
 import { MesasHttpClient } from './mesas-http.client';
 import { InventarioHttpClient } from './inventario-http.client';
+import { PedidosSagaService } from './pedidos-saga.service';
 import { PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
@@ -39,6 +40,7 @@ function createService(prisma: any, tokenService: any) {
     prisma,
     new MesasHttpClient(tokenService),
     new InventarioHttpClient(tokenService),
+    new PedidosSagaService(prisma),
   );
 }
 
@@ -173,92 +175,8 @@ describe('AppService — Pedidos', () => {
     });
   });
 
-  describe('actualizarEstado — guard de transiciones', () => {
-    it('permite el avance comercial LISTO → ENTREGADO', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Listo } as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
-        ...basePedido,
-        estado: PedidoEstado.Entregado,
-        items: [],
-      } as any);
-
-      await service.actualizarEstado('p-001', { estado: PedidoEstado.Entregado });
-
-      expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'p-001' },
-        data: { estado: PedidoEstado.Entregado },
-      }));
-    });
-
-    it('rechaza una transición inválida (PAGADO → EN_PREPARACION)', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Pagado } as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update');
-
-      await expect(
-        service.actualizarEstado('p-001', { estado: PedidoEstado.EnPreparacion }),
-      ).rejects.toThrow(/inválida/i);
-      expect(updateSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('actualizarEstadoItem — cocina manda (derivación)', () => {
-    const itemBase = { id: 'i-1', pedidoId: 'p-001', nombre: 'Plato', cantidad: 1, precioUnitario: 10, area: 'COCINA', notas: null, modificadores: [] };
-
-    it('sube el pedido a EN_PREPARACION cuando arranca el primer ítem', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as any);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
-        ...basePedido,
-        estado: PedidoEstado.Pendiente,
-        items: [
-          { ...itemBase, id: 'i-1', estado: PedidoEstado.EnPreparacion },
-          { ...itemBase, id: 'i-2', estado: PedidoEstado.Pendiente },
-        ],
-      } as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
-        ...basePedido, estado: PedidoEstado.EnPreparacion, items: [],
-      } as any);
-
-      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.EnPreparacion });
-
-      expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
-        data: { estado: PedidoEstado.EnPreparacion },
-      }));
-    });
-
-    it('marca el pedido LISTO y emite pedido.listo cuando todos los ítems están listos', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-2', pedidoId: 'p-001' } as any);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
-        ...basePedido,
-        estado: PedidoEstado.EnPreparacion,
-        items: [
-          { ...itemBase, id: 'i-1', estado: PedidoEstado.Listo },
-          { ...itemBase, id: 'i-2', estado: PedidoEstado.Listo },
-        ],
-      } as any);
-      vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
-        ...basePedido, estado: PedidoEstado.Listo, items: [],
-      } as any);
-
-      await service.actualizarEstadoItem('i-2', { estado: PedidoEstado.Listo });
-
-      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
-      expect(eventos.some((e: any) => e.routingKey === 'pedido.listo')).toBe(true);
-    });
-
-    it('no pisa un estado comercial (ENTREGADO) al tocar un ítem', async () => {
-      vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as any);
-      vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({
-        ...basePedido,
-        estado: PedidoEstado.Entregado,
-        items: [{ ...itemBase, id: 'i-1', estado: PedidoEstado.Listo }],
-      } as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update');
-
-      await service.actualizarEstadoItem('i-1', { estado: PedidoEstado.Listo });
-
-      expect(updateSpy).not.toHaveBeenCalled();
-    });
-  });
+  // T-40: los specs de transiciones y derivación viven ahora en
+  // pedidos-saga.service.spec.ts, junto a la clase extraída.
 
   describe('listarPedidos', () => {
     it('debe listar solo pedidos activos por mesa', async () => {
@@ -609,86 +527,6 @@ describe('AppService — Pedidos', () => {
     });
   });
 
-  describe('procesarStockInsuficiente — compensación de saga', () => {
-    const itemRechazado = (over: Record<string, any> = {}) => ({
-      id: 'it-1', productoId: 'prod-a', nombre: 'A', cantidad: 1, precioUnitario: 10,
-      area: 'COCINA', notas: null, estado: 'RECHAZADO_SIN_STOCK', modificadores: [], ...over,
-    });
-
-    it('marca el ítem RECHAZADO_SIN_STOCK y emite PedidoActualizado, sin tocar el pedido si quedan ítems vivos', async () => {
-      const prisma: any = createMockPrismaService({
-        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-        pedido: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'ped-1', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
-            total: 50, createdAt: new Date(),
-            items: [
-              itemRechazado(),
-              itemRechazado({ id: 'it-2', productoId: 'prod-b', nombre: 'B', estado: 'PENDIENTE' }),
-            ],
-          }),
-          update: vi.fn(),
-        },
-        outboxEvent: { create: vi.fn().mockResolvedValue({}) },
-        idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
-      });
-      prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = createService(prisma, mockPublisher as any);
-
-      await svc.procesarStockInsuficiente({ pedidoId: 'ped-1', productoId: 'prod-a', solicitado: 5, disponible: 1 });
-
-      expect(prisma.pedidoItem.updateMany).toHaveBeenCalledWith({
-        where: { pedidoId: 'ped-1', productoId: 'prod-a', estado: { not: 'RECHAZADO_SIN_STOCK' } },
-        data: { estado: 'RECHAZADO_SIN_STOCK' },
-      });
-      expect(prisma.pedido.update).not.toHaveBeenCalled();
-      expect(prisma.outboxEvent.create).toHaveBeenCalledTimes(1);
-      expect(prisma.outboxEvent.create.mock.calls[0][0].data.routingKey).toBe('pedido.actualizado');
-    });
-
-    it('pasa el pedido entero a RECHAZADO_SIN_STOCK cuando todos los ítems quedan rechazados', async () => {
-      const items = [itemRechazado()];
-      const prisma: any = createMockPrismaService({
-        pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
-        pedido: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'ped-2', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
-            total: 10, createdAt: new Date(), items,
-          }),
-          update: vi.fn().mockResolvedValue({
-            id: 'ped-2', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.RechazadoSinStock,
-            total: 10, createdAt: new Date(), items,
-          }),
-        },
-        outboxEvent: { create: vi.fn().mockResolvedValue({}) },
-        idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
-      });
-      prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = createService(prisma, mockPublisher as any);
-
-      await svc.procesarStockInsuficiente({ pedidoId: 'ped-2', productoId: 'prod-a', solicitado: 5, disponible: 0 });
-
-      expect(prisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'ped-2' },
-        data: { estado: PedidoEstado.RechazadoSinStock },
-      }));
-    });
-
-    it('es idempotente: una clave duplicada (P2002) no propaga ni re-marca', async () => {
-      const prisma: any = createMockPrismaService({
-        idempotencyKey: { create: vi.fn().mockRejectedValue({ code: 'P2002' }) },
-        pedidoItem: { updateMany: vi.fn() },
-        pedido: { findUnique: vi.fn(), update: vi.fn() },
-        outboxEvent: { create: vi.fn() },
-      });
-      prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = createService(prisma, mockPublisher as any);
-
-      await expect(
-        svc.procesarStockInsuficiente({ pedidoId: 'ped-3', productoId: 'prod-a', solicitado: 1, disponible: 0 }),
-      ).resolves.toBeUndefined();
-      expect(prisma.pedidoItem.updateMany).not.toHaveBeenCalled();
-      expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
-    });
-  });
+  // T-40: los specs de procesarStockInsuficiente viven ahora en
+  // pedidos-saga.service.spec.ts, junto a la clase extraída.
 });

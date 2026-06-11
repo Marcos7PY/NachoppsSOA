@@ -6,6 +6,7 @@ import { EventsController } from './events.controller';
 import { AppService } from './app.service';
 import { MesasHttpClient } from './mesas-http.client';
 import { InventarioHttpClient } from './inventario-http.client';
+import { PedidosSagaService } from './pedidos-saga.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
@@ -34,6 +35,7 @@ import { RoutingKeys } from '@org/contracts';
     AppService,
     MesasHttpClient,
     InventarioHttpClient,
+    PedidosSagaService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     IdempotencyInterceptor,
     { provide: IDEMPOTENCY_DB, useExisting: PrismaService },

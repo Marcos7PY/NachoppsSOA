@@ -17,6 +17,7 @@ vi.mock('@org/resiliencia', async () => {
 });
 
 import { AppService } from './app.service';
+import { CuentasHttpClient } from './cuentas-http.client';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
   return {
@@ -63,7 +64,9 @@ describe('AppService — Caja', () => {
 
     process.env['CUENTAS_SERVICE_URL'] = 'http://localhost:3005/api';
 
-    service = new AppService(mockPrisma as any, mockTokenService as any);
+    // T-40: el cliente HTTP real con el token service mockeado, para que los
+    // specs sigan espiando axios de extremo a extremo.
+    service = new AppService(mockPrisma as any, new CuentasHttpClient(mockTokenService as any));
   });
 
   describe('registrarPago', () => {

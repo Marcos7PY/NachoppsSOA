@@ -16,6 +16,7 @@ vi.mock('@org/resiliencia', async () => {
 });
 
 import { AppService } from './app.service';
+import { CuentasHttpClient } from './cuentas-http.client';
 
 const baseTurno = {
   id: 'turno-001',
@@ -77,7 +78,10 @@ describe('AppService — Caja (turnos, movimientos, arqueo, cierre)', () => {
     vi.clearAllMocks();
     prisma = createMockPrisma();
     process.env['CUENTAS_SERVICE_URL'] = 'http://localhost:3005/api';
-    service = new AppService(prisma as any, { generateServiceToken: vi.fn().mockReturnValue('tok') } as any);
+    service = new AppService(
+      prisma as any,
+      new CuentasHttpClient({ generateServiceToken: vi.fn().mockReturnValue('tok') } as any),
+    );
   });
 
   describe('obtenerTurnoActivo', () => {

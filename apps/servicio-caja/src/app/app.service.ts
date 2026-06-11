@@ -5,7 +5,6 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ServiceTokenService } from '@org/shared-auth';
 import { getOrCreateCounter, getOrCreateHistogram } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -15,9 +14,7 @@ import {
   TransaccionDto,
   TransaccionListResponse,
 } from '@org/contracts';
-import { CircuitBreakerOptions } from '@org/resiliencia';
 import { Prisma } from '../generated/prisma';
-import axios from 'axios';
 import {
   AbrirTurnoCajaCommand,
   CerrarTurnoCajaCommand,
@@ -25,13 +22,7 @@ import {
   PagarCuentaCajaCommand,
   RegistrarArqueoCajaCommand,
 } from './caja.dto';
-
-interface CuentaRemota {
-  id: string;
-  mesaId: string;
-  total: number;
-  estado: string;
-}
+import { CuentasHttpClient, CuentaRemota } from './cuentas-http.client';
 
 const METODOS = ['EFECTIVO', 'TARJETA', 'YAPE', 'PLIN', 'TRANSFERENCIA'] as const;
 
@@ -47,19 +38,10 @@ export class AppService {
     [10, 25, 50, 100, 200, 500, 1000],
     ['metodo'],
   );
-  private readonly CUENTAS_URL =
-    process.env['CUENTAS_SERVICE_URL'] ?? 'http://servicio-cuentas:3000/api';
-  private readonly HTTP_TIMEOUT_MS = 5000;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly serviceTokenService: ServiceTokenService,
+    private readonly cuentasHttp: CuentasHttpClient,
   ) {}
-
-  private getServiceToken(): string {
-    // Caja solo llama a cuentas → audiencia fija (T-17).
-    return this.serviceTokenService.generateServiceToken('servicio-caja', 'servicio-cuentas');
-  }
 
   private usuario(usuarioId?: string | null) {
     return usuarioId ?? 'sistema';
@@ -71,27 +53,6 @@ export class AppService {
 
   private money(value: number | string | Prisma.Decimal) {
     return new Prisma.Decimal(value);
-  }
-
-  @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30_000 })
-  private async fetchCuenta(cuentaId: string): Promise<CuentaRemota> {
-    const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
-      timeout: this.HTTP_TIMEOUT_MS,
-      headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-    });
-    return res.data;
-  }
-
-  private async cerrarCuentaRemota(cuentaId: string, descuento: number) {
-    const res = await axios.post(
-      `${this.CUENTAS_URL}/${cuentaId}/cerrar`,
-      { descuento },
-      {
-        timeout: this.HTTP_TIMEOUT_MS,
-        headers: { Authorization: `Bearer ${this.getServiceToken()}` },
-      },
-    );
-    return res.data;
   }
 
   async abrirTurno(command: AbrirTurnoCajaCommand, usuarioId?: string | null) {
@@ -335,7 +296,7 @@ export class AppService {
 
     let cuentaRemota: CuentaRemota;
     try {
-      cuentaRemota = await this.fetchCuenta(command.cuentaId);
+      cuentaRemota = await this.cuentasHttp.fetchCuenta(command.cuentaId);
     } catch (error: unknown) {
       const axiosError = error as { response?: { status: number }; code?: string };
       if (axiosError.response?.status === 404) {
@@ -439,7 +400,7 @@ export class AppService {
 
     let ticket: unknown;
     try {
-      const cierre = await this.cerrarCuentaRemota(command.cuentaId, descuento.toNumber());
+      const cierre = await this.cuentasHttp.cerrarCuenta(command.cuentaId, descuento.toNumber());
       ticket = cierre?.ticket;
       await this.prisma.cuentaAbierta.update({
         where: { cuentaId: command.cuentaId },

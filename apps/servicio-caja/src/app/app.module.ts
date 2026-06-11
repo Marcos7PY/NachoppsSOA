@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
+import { CuentasHttpClient } from './cuentas-http.client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { ObservabilidadModule } from '@org/observabilidad';
@@ -30,6 +31,7 @@ import { RoutingKeys } from '@org/contracts';
   controllers: [AppController, EventsController],
   providers: [
     AppService,
+    CuentasHttpClient,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     IdempotencyInterceptor,
     { provide: IDEMPOTENCY_DB, useExisting: PrismaService },
