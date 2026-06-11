@@ -1,5 +1,6 @@
 // screens/caja/CajaScreen.tsx — Caja: dashboard de turno + cobro de mesa + cierre operativo.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
@@ -192,7 +193,7 @@ export function CajaScreen() {
       {/* Selector de mesa para cobrar */}
       {cobroPicker && (
         <div className="modal-wrap">
-          <div className="scrim" onClick={() => setCobroPicker(false)} />
+          <Scrim onClose={() => setCobroPicker(false)} />
           <div className="modal" style={{ width: 460, position: 'relative', zIndex: 1 }}>
             <div className="panel-h" style={{ padding: '16px 20px' }}>
               <h3 style={{ fontSize: 17 }}>Cobrar cuenta · elegir mesa</h3>

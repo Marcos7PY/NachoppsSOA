@@ -1,6 +1,7 @@
 // screens/compras/ComprasScreen.tsx — Compras / Proveedores (OC, recepción, costeo)
 // Datos mock (ver src/data/compras.mock.ts). Sin backend de compras aún.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { MiniStat } from '../../components/ui/Stat';
@@ -185,7 +186,7 @@ function RecepcionDrawer({ oc, onClose, onRecibir }: RecepcionDrawerProps) {
 
   return (
     <div className="drawer-wrap">
-      <div className="scrim" onClick={onClose} />
+      <Scrim onClose={onClose} />
       <aside className="drawer">
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: 'var(--accent-soft)', color: 'var(--accent-text)' }}><Icons.ArrowDown s={17} /></span>
@@ -246,7 +247,7 @@ function NuevaOC({ onClose, onCrear }: NuevaOCProps) {
 
   return (
     <div className="drawer-wrap">
-      <div className="scrim" onClick={onClose} />
+      <Scrim onClose={onClose} />
       <aside className="drawer">
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <h3 style={{ fontSize: 17 }}>Nueva orden de compra</h3>
@@ -255,9 +256,9 @@ function NuevaOC({ onClose, onCrear }: NuevaOCProps) {
         </div>
         <div className="drawer-body">
           <div className="field" style={{ marginBottom: 14 }}>
-            <label>Proveedor</label>
+            <label htmlFor="compra-proveedor">Proveedor</label>
             <div className="input">
-              <select value={prov} onChange={(e) => { setProv(e.target.value); setSel({}); }} style={{ border: 0, background: 'transparent', width: '100%' }}>
+              <select id="compra-proveedor" value={prov} onChange={(e) => { setProv(e.target.value); setSel({}); }} style={{ border: 0, background: 'transparent', width: '100%' }}>
                 {PROVEEDORES_COMPRAS.map((p) => <option key={p.id} value={p.n}>{p.n}</option>)}
               </select>
             </div>

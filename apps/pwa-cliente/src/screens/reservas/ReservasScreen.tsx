@@ -155,9 +155,10 @@ export function ReservasScreen() {
             <div className="panel-h"><h3>Nueva reserva</h3></div>
             <form className="form-stack" onSubmit={handleCrear}>
               <div className="field">
-                <label>Cliente</label>
+                <label htmlFor="reserva-cliente">Cliente</label>
                 <div className="input">
                   <input
+                    id="reserva-cliente"
                     required
                     value={form.clienteNombre}
                     onChange={(event) => handleChange('clienteNombre', event.target.value)}
@@ -165,9 +166,10 @@ export function ReservasScreen() {
                 </div>
               </div>
               <div className="field">
-                <label>Teléfono</label>
+                <label htmlFor="reserva-telefono">Teléfono</label>
                 <div className="input">
                   <input
+                    id="reserva-telefono"
                     value={form.clienteTelefono}
                     onChange={(event) => handleChange('clienteTelefono', event.target.value)}
                   />
@@ -175,9 +177,10 @@ export function ReservasScreen() {
               </div>
               <div className="form-grid-2">
                 <div className="field">
-                  <label>Fecha</label>
+                  <label htmlFor="reserva-fecha">Fecha</label>
                   <div className="input">
                     <input
+                      id="reserva-fecha"
                       required
                       type="date"
                       value={form.fecha}
@@ -186,9 +189,10 @@ export function ReservasScreen() {
                   </div>
                 </div>
                 <div className="field">
-                  <label>Hora</label>
+                  <label htmlFor="reserva-hora">Hora</label>
                   <div className="input">
                     <input
+                      id="reserva-hora"
                       required
                       type="time"
                       value={form.hora}
@@ -199,18 +203,20 @@ export function ReservasScreen() {
               </div>
               <div className="form-grid-2">
                 <div className="field">
-                  <label>Mesa preferida</label>
+                  <label htmlFor="reserva-mesa">Mesa preferida</label>
                   <div className="input">
                     <input
+                      id="reserva-mesa"
                       value={form.mesaPreferida}
                       onChange={(event) => handleChange('mesaPreferida', event.target.value)}
                     />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Personas</label>
+                  <label htmlFor="reserva-personas">Personas</label>
                   <div className="input">
                     <input
+                      id="reserva-personas"
                       min="1"
                       type="number"
                       value={form.numComensales}

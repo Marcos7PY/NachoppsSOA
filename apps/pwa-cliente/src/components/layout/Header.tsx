@@ -30,7 +30,7 @@ export function Header() {
   const [now, setNow] = useState(() => new Date());
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const settingsRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(settingsRef, { active: settingsOpen, onClose: () => setSettingsOpen(false) });
   const [theme, setTheme] = useState<Theme>(() => readAttr('data-theme', 'light'));
   const [density, setDensity] = useState<Density>(() => readAttr('data-density', 'comfy'));
@@ -110,8 +110,8 @@ export function Header() {
         </button>
         {settingsOpen && (
           <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setSettingsOpen(false)} />
-            <div className="settings-pop" ref={settingsRef} role="dialog" aria-modal="true" aria-label="Vista y accesibilidad">
+            <button type="button" aria-label="Cerrar" tabIndex={-1} style={{ position: 'fixed', inset: 0, zIndex: 89, background: 'transparent', border: 'none', padding: 0, cursor: 'default', appearance: 'none' }} onClick={() => setSettingsOpen(false)} />
+            <dialog open className="settings-pop" ref={settingsRef} aria-modal="true" aria-label="Vista y accesibilidad">
               <div className="sp-row">
                 <span className="sp-lbl">Densidad</span>
                 <div className="seg sm" style={{ width: '100%' }}>
@@ -136,7 +136,7 @@ export function Header() {
                   <span className="knob" />
                 </button>
               </div>
-            </div>
+            </dialog>
           </>
         )}
       </div>
@@ -167,8 +167,8 @@ export function Header() {
         </button>
         {notificationsOpen && (
           <>
-          <div style={{ position: 'fixed', inset: 0, zIndex: 89 }} onClick={() => setNotificationsOpen(false)} />
-          <div className="notif-popover" role="dialog" aria-label="Notificaciones">
+          <button type="button" aria-label="Cerrar" tabIndex={-1} style={{ position: 'fixed', inset: 0, zIndex: 89, background: 'transparent', border: 'none', padding: 0, cursor: 'default', appearance: 'none' }} onClick={() => setNotificationsOpen(false)} />
+          <dialog open className="notif-popover" aria-label="Notificaciones">
             <div className="panel-h">
               <h3>Notificaciones</h3>
               <span className="spacer" />
@@ -197,7 +197,7 @@ export function Header() {
                 ))}
               </div>
             )}
-          </div>
+          </dialog>
           </>
         )}
       </div>

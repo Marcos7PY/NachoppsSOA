@@ -111,10 +111,10 @@ export function UsuariosScreen() {
       </div>
 
       {!online && (
-        <div className="banner warn module-feedback" role="status">
+        <output className="banner warn module-feedback">
           <Icons.Alert s={17} />
           <span>Sin conexión. Las mutaciones están deshabilitadas.</span>
-        </div>
+        </output>
       )}
 
       {(error || success) && (
@@ -147,7 +147,7 @@ export function UsuariosScreen() {
           />
         </div>
         <span className="spacer" />
-        <div className="filters" role="group" aria-label="Filtrar por rol">
+        <fieldset className="filters" aria-label="Filtrar por rol">
           <button className={`chip ${rolFiltro === '' ? 'on' : ''}`} onClick={() => setRolFiltro('')}>Todos</button>
           {ROLES.map((role) => (
             <button
@@ -158,7 +158,7 @@ export function UsuariosScreen() {
               {role.label}
             </button>
           ))}
-        </div>
+        </fieldset>
       </div>
 
       <div className="module-grid">

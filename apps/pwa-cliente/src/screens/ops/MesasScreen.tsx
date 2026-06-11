@@ -2,6 +2,7 @@
 // Cableado real: useMesasQuery (plano + estados) y useCuentasQuery (cuenta de la
 // mesa seleccionada). Lanza el Comandero para tomar/agregar pedido.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
@@ -147,7 +148,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
   const now = useNow();
   const meta = EST_META[m.estado];
-  const drawerRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(drawerRef, { active: true, onClose });
 
   const items = cuentaActiva?.pedidos.flatMap((p) => p.items) ?? [];
@@ -156,11 +157,11 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
 
   return (
     <div className="drawer-wrap">
-      <div className="scrim" onClick={onClose} />
-      <aside
+      <Scrim onClose={onClose} />
+      <dialog
+        open
         className="drawer"
         ref={drawerRef}
-        role="dialog"
         aria-modal="true"
         aria-label={`Mesa ${m.numero}`}
       >
@@ -236,7 +237,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: MesaDraw
             </>
           )}
         </div>
-      </aside>
+      </dialog>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // screens/caja/CobroMesaDrawer.tsx — Cobro de una cuenta de mesa (REAL).
 // Cableado a useCuentasQuery: registrarPago. El backend registra el pago y cierra la cuenta.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icons, type IconName } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
@@ -30,7 +31,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
     cuentaActiva, loading, error, success,
     registrarPago, clearFeedback,
   } = useCuentasQuery(mesaId);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(modalRef, { active: true, onClose });
 
   const [metodo, setMetodo] = useState<MetodoPago>('EFECTIVO');
@@ -66,11 +67,11 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
 
   return (
     <div className="modal-wrap">
-      <div className="scrim" onClick={onClose} />
-      <div
+      <Scrim onClose={onClose} />
+      <dialog
+        open
         className="modal xwide"
         ref={modalRef}
-        role="dialog"
         aria-modal="true"
         aria-label="Cobrar cuenta"
         style={{ position: 'relative', zIndex: 1 }}
@@ -153,7 +154,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
                 {metodo === 'EFECTIVO' ? (
                   <div className="two-up" style={{ gap: 14 }}>
                     <div>
-                      <div className="field" style={{ marginBottom: 8 }}><label>Recibido</label><div className="input"><span className="muted">S/</span><input value={recibido} onChange={(e) => setRecibido(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ fontSize: 18, fontWeight: 800 }} /></div></div>
+                      <div className="field" style={{ marginBottom: 8 }}><label htmlFor="cobro-recibido">Recibido</label><div className="input"><span className="muted">S/</span><input id="cobro-recibido" value={recibido} onChange={(e) => setRecibido(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ fontSize: 18, fontWeight: 800 }} /></div></div>
                       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                         {['exacto', 50, 100, 200].map((c) => <button key={c} className="chip" onClick={() => setRecibido(c === 'exacto' ? totalCobro.toFixed(2) : String(c))}>{c === 'exacto' ? 'Exacto' : 'S/ ' + c}</button>)}
                       </div>
@@ -179,7 +180,7 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Props) 
             </div>
           )}
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

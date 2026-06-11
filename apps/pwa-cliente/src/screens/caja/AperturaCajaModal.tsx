@@ -1,3 +1,4 @@
+import { Scrim } from '../../components/ui/Scrim';
 import { useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
@@ -14,7 +15,7 @@ export function AperturaCajaModal({ loading, onClose, onOpen }: AperturaCajaModa
 
   return (
     <div className="modal-wrap">
-      <div className="scrim" onClick={onClose} />
+      <Scrim onClose={onClose} />
       <div className="modal" style={{ width: 420, position: 'relative', zIndex: 1 }}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: 'var(--ok-soft)', color: 'var(--ok-text)' }}>
@@ -26,10 +27,11 @@ export function AperturaCajaModal({ loading, onClose, onOpen }: AperturaCajaModa
         </div>
         <div style={{ padding: 20, display: 'grid', gap: 14 }}>
           <div className="field">
-            <label>Fondo inicial</label>
+            <label htmlFor="apertura-fondo">Fondo inicial</label>
             <div className="input">
               <span className="muted">S/</span>
               <input
+                id="apertura-fondo"
                 value={fondo}
                 onChange={(e) => setFondo(e.target.value.replace(/[^\d.]/g, ''))}
                 inputMode="decimal"

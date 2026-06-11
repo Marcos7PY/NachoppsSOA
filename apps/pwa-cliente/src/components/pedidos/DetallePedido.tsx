@@ -1,3 +1,4 @@
+import { Scrim } from '../ui/Scrim';
 import { useEffect } from 'react';
 import { Icons } from '../ui/icons';
 import { fmt, elapsedLabel } from '../../utils/format';
@@ -27,9 +28,9 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, on
   }, [onClose]);
 
   return (
-    <div className="drawer-wrap" role="dialog" aria-modal="true" aria-label={`Detalle del pedido ${p.id.slice(0, 8)}`}>
-      <div className="scrim" onClick={onClose} />
-      <aside className="drawer">
+    <div className="drawer-wrap">
+      <Scrim onClose={onClose} />
+      <dialog open className="drawer" aria-modal="true" aria-label={`Detalle del pedido ${p.id.slice(0, 8)}`}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className={`tag-canal ${meta.cls}`}><Ic s={12} /> {meta.label}</span>
           <h3 style={{ fontSize: 17, marginLeft: 4 }}>{p.id.slice(0, 8)}</h3>
@@ -95,7 +96,7 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, on
             </button>
           )}
         </div>
-      </aside>
+      </dialog>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 // (useInventarioQuery con conStock=false). Los productos con stock viven en el
 // módulo Inventario. Sin food cost, happy hour ni modificadores.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { MiniStat } from '../../components/ui/Stat';
@@ -182,7 +183,7 @@ function CartaDrawer({ prod, categorias, saving, onClose, onSave }: CartaDrawerP
 
   return (
     <div className="drawer-wrap">
-      <div className="scrim" onClick={onClose} />
+      <Scrim onClose={onClose} />
       <aside className="drawer">
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <h3 style={{ fontSize: 18 }}>{isNew ? 'Nuevo plato' : n}</h3>
@@ -191,20 +192,20 @@ function CartaDrawer({ prod, categorias, saving, onClose, onSave }: CartaDrawerP
         </div>
         <div className="drawer-body">
           <div className="field" style={{ marginBottom: 12 }}>
-            <label>Nombre</label>
-            <div className="input"><input value={n} onChange={(e) => setN(e.target.value)} placeholder="Ej. Lomo Saltado" autoFocus={isNew} /></div>
+            <label htmlFor="carta-nombre">Nombre</label>
+            <div className="input"><input id="carta-nombre" value={n} onChange={(e) => setN(e.target.value)} placeholder="Ej. Lomo Saltado" autoFocus={isNew} /></div>
           </div>
           <div className="field" style={{ marginBottom: 12 }}>
-            <label>Categoría</label>
+            <label htmlFor="carta-categoria">Categoría</label>
             <div className="input">
-              <select value={catId} onChange={(e) => setCatId(e.target.value)} style={{ border: 0, background: 'transparent', width: '100%' }}>
+              <select id="carta-categoria" value={catId} onChange={(e) => setCatId(e.target.value)} style={{ border: 0, background: 'transparent', width: '100%' }}>
                 {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </div>
           </div>
           <div className="field" style={{ marginBottom: 14 }}>
-            <label>Precio de venta</label>
-            <div className="input"><span className="muted">S/</span><input value={precio} onChange={(e) => setPrecio(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" /></div>
+            <label htmlFor="carta-precio">Precio de venta</label>
+            <div className="input"><span className="muted">S/</span><input id="carta-precio" value={precio} onChange={(e) => setPrecio(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" /></div>
           </div>
 
           <div className="row" style={{ justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid var(--border)' }}>

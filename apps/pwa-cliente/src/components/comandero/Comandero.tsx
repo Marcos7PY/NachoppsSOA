@@ -48,7 +48,7 @@ export function Comandero({
   modoAgregar = false,
 }: ComanderoProps) {
   const { toast } = useToast();
-  const cmdRef = useRef<HTMLDivElement>(null);
+  const cmdRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(cmdRef, { active: true, onClose });
   const [cat, setCat] = useState<string>('TODAS');
   const [q, setQ] = useState('');
@@ -101,10 +101,10 @@ export function Comandero({
 
   return (
     <div className="cmd-overlay">
-      <div
+      <dialog
+        open
         className="cmd"
         ref={cmdRef}
-        role="dialog"
         aria-modal="true"
         aria-label={titulo}
       >
@@ -194,7 +194,7 @@ export function Comandero({
           {/* Comanda */}
           <ComandaCart cmd={cmd} modoAgregar={modoAgregar} />
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

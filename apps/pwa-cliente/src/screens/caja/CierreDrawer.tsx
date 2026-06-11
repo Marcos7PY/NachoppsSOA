@@ -1,5 +1,6 @@
 // screens/caja/CierreDrawer.tsx — Cierre operativo: arqueo → propinas → reporte interno.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
@@ -26,7 +27,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
   const [step, setStep] = useState(1);
   const [counts, setCounts] = useState<Record<number, number>>(() => emptyCounts());
   const [generado, setGenerado] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(modalRef, { active: true, onClose });
 
   const contado = useMemo(
@@ -44,11 +45,11 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
 
   return (
     <div className="modal-wrap">
-      <div className="scrim" onClick={onClose} />
-      <div
+      <Scrim onClose={onClose} />
+      <dialog
+        open
         className="modal xwide"
         ref={modalRef}
-        role="dialog"
         aria-modal="true"
         aria-label="Cierre de caja"
         style={{ position: 'relative', zIndex: 1 }}
@@ -156,7 +157,7 @@ export function CierreDrawer({ k, cajeroNombre, onClose, onDone }: Props) {
             </>
           )}
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

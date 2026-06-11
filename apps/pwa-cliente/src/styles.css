@@ -173,7 +173,7 @@ input, select, textarea { font-family: inherit; }
    INPUTS / SEARCH / FILTERS
    ============================================================ */
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field > label { font-size: 12.5px; font-weight: 700; color: var(--text-2); }
+.field > label, .field > .lbl { font-size: 12.5px; font-weight: 700; color: var(--text-2); }
 .input, .search-box { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 9px 12px; color: var(--muted); }
 .input:focus-within, .search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .input input, .search-box input, .input select, .input textarea { border: 0; outline: 0; font: inherit; color: var(--text); background: transparent; width: 100%; }
@@ -234,6 +234,15 @@ table.dt th.sortable:hover { color: var(--text); }
 /* ============================================================
    DRAWER / MODAL / SCRIM
    ============================================================ */
+/* Reset de estilos UA para elementos semánticos usados en lugar de roles ARIA
+   (dialog/output/fieldset); las clases (.modal, .drawer, .banner, .filters…)
+   aportan el estilo real. */
+dialog { position: static; inset: auto; margin: 0; padding: 0; border: 0; width: auto; height: auto; max-width: none; max-height: none; background: none; color: inherit; }
+dialog[open] { display: flex; flex-direction: column; }
+dialog.modal, dialog.settings-pop, dialog.notif-popover { display: block; }
+output { display: block; }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 60; opacity: 0; animation: fade .15s forwards; }
 @keyframes fade { to { opacity: 1; } }
 .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 92vw; background: var(--surface); border-left: 1px solid var(--border); z-index: 61; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); transform: translateX(100%); animation: slidein .22s cubic-bezier(.2,.8,.2,1) forwards; }
@@ -876,7 +885,7 @@ table.dt th.sortable:hover { color: var(--text); }
 .ctx-row.delivery { align-items: flex-end; }
 .ctx-field { display: grid; gap: 4px; }
 .ctx-field.grow { flex: 1; min-width: 160px; }
-.ctx-field > label { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--cmd-ink); }
+.ctx-field > label, .ctx-field > .lbl { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--cmd-ink); }
 .ctx-field .input { height: 38px; }
 .ctx-field.grow .input { width: 100%; }
 .ctx-mesas { display: flex; gap: 6px; flex-wrap: wrap; }

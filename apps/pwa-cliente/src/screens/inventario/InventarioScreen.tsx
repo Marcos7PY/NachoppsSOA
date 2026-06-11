@@ -69,10 +69,10 @@ export function InventarioScreen() {
       </div>
 
       {!online && (
-        <div className="banner warn module-feedback" role="status">
+        <output className="banner warn module-feedback">
           <Icons.Alert s={17} />
           <span>Sin conexión. Las mutaciones están deshabilitadas.</span>
-        </div>
+        </output>
       )}
 
       {(error || success) && (

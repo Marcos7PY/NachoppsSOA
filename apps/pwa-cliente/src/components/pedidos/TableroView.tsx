@@ -51,7 +51,14 @@ function PedidoCard({ p, onAvanzar, onDetalle, actionLoading, online, now }: { p
   const Ic = Icons[meta.ic];
 
   return (
-    <div className={`ped-card ${meta.cls}`} onClick={() => onDetalle(p)}>
+    <div
+      className={`ped-card ${meta.cls}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver detalle del pedido ${p.id.slice(0, 6)}`}
+      onClick={() => onDetalle(p)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDetalle(p); } }}
+    >
       <div className="pc-top">
         <span className={`tag-canal ${meta.cls}`}><Ic s={12} /> {meta.label}</span>
         <span className="pc-id mono">{p.id.slice(0, 6)}</span>

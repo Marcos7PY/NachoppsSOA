@@ -1,5 +1,6 @@
 // screens/caja/MovimientoModal.tsx — Egreso / Ingreso de efectivo.
 
+import { Scrim } from '../../components/ui/Scrim';
 import { useRef, useState } from 'react';
 import { Icons } from '../../components/ui/icons';
 import { fmt } from '../../utils/format';
@@ -22,7 +23,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
   const [monto, setMonto] = useState('');
   const [cat, setCat] = useState(CATS[tipoInicial][0]);
   const [nota, setNota] = useState('');
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDialogElement>(null);
   useFocusTrap(modalRef, { active: true, onClose });
 
   const esEgreso = tipo === 'EGRESO';
@@ -42,11 +43,11 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
 
   return (
     <div className="modal-wrap">
-      <div className="scrim" onClick={onClose} />
-      <div
+      <Scrim onClose={onClose} />
+      <dialog
+        open
         className="modal wide"
         ref={modalRef}
-        role="dialog"
         aria-modal="true"
         aria-label="Movimiento de efectivo"
         style={{ position: 'relative', zIndex: 1 }}
@@ -69,8 +70,8 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
           <div className="two-up" style={{ gap: 16 }}>
             <div>
               <div className="field" style={{ marginBottom: 10 }}>
-                <label>Monto</label>
-                <div className="input"><span className="muted">S/</span><input autoFocus value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="0.00" style={{ fontSize: 20, fontWeight: 800 }} /></div>
+                <label htmlFor="mov-monto">Monto</label>
+                <div className="input"><span className="muted">S/</span><input id="mov-monto" autoFocus value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="0.00" style={{ fontSize: 20, fontWeight: 800 }} /></div>
               </div>
               <div className="keypad">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => <button key={d} onClick={() => setMonto((m) => m + d)}>{d}</button>)}
@@ -82,7 +83,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
 
             <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
               <div className="field">
-                <label>Categoría</label>
+                <span className="lbl">Categoría</span>
                 <div className="row" style={{ flexWrap: 'wrap', gap: 7 }}>
                   {CATS[tipo].map((c) => (
                     <button key={c} className={`chip ${cat === c ? 'on' : ''}`} onClick={() => setCat(c)}>{c}</button>
@@ -90,8 +91,8 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
                 </div>
               </div>
               <div className="field">
-                <label>Nota (opcional)</label>
-                <div className="input"><input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. balón de gas, proveedor de pescado…" /></div>
+                <label htmlFor="mov-nota">Nota (opcional)</label>
+                <div className="input"><input id="mov-nota" value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. balón de gas, proveedor de pescado…" /></div>
               </div>
               <div className={`cuadre ${esEgreso ? 'faltante' : 'ok'}`} style={{ padding: '12px 14px' }}>
                 <div className="lbl">{esEgreso ? 'Sale de caja' : 'Entra a caja'}</div>
@@ -108,7 +109,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Props) {
             <Icons.Check s={16} /> Registrar {esEgreso ? 'egreso' : 'ingreso'}
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
