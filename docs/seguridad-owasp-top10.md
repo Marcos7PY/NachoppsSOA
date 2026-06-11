@@ -57,8 +57,16 @@ desechable, nunca a datos reales.
 
 - **Google Fonts sin Subresource Integrity** (`apps/pwa-cliente/index.html`): el CSS de Google Fonts varía por user-agent, por lo que SRI no es aplicable. Alternativa futura: self-host de las fuentes.
 - **Cabecera `Server` de Kong**: mitigado con `KONG_HEADERS: 'off'` en `infra/docker-compose.yml` (replicar en `docker-compose.prod.yml`).
-- **`typescript:S7764` (`globalThis` vs `window`)**: en una PWA que solo corre en navegador, `window` es el idioma natural; regla a desactivar en el Quality Profile del proyecto (pendiente: Sonar offline al cierre de S-5).
-- **`typescript:S7735` (condición negada con `else`)**: los casos restantes son ternarios encadenados de JSX donde invertir ramas empeora la legibilidad; triaje caso a caso en el próximo re-scan.
+- **`typescript:S7764` (`globalThis` vs `window`)**: en una PWA que solo corre en navegador, `window` es el idioma natural. Desactivada en el Quality Profile clonado **"Nachopps way (TS)"**, asignado al proyecto (2026-06-11).
+- **`Web:S5725` (Google Fonts sin SRI)**: marcada como *aceptada* en SonarQube con comentario; misma justificación que arriba.
+
+## Estado SonarQube (2026-06-11, cierre del plan de remediación)
+
+- **Quality gate: PASSED** · 0 bugs · 0 vulnerabilidades abiertas · 0 code smells.
+- Quality gate del proyecto: **"Nachopps way"** (clon de Sonar way con `new_coverage` al 50%).
+- La línea base de *New Code* se fijó en el análisis del cierre de la remediación
+  (`SPECIFIC_ANALYSIS` 2026-06-11): la deuda de cobertura previa queda medida como
+  cobertura global (~40%) y el gate exige cobertura solo al código nuevo.
 
 ## Rutina recomendada
 
