@@ -76,6 +76,18 @@ describe('jwt-keys (plan 2.1 RS256 usuario / HS256 servicio)', () => {
     expect(resolved).not.toContain('\\n');
   });
 
+  it('normaliza JWT_PRIVATE_KEY con \\n escapados', () => {
+    process.env.JWT_PRIVATE_KEY = privateKey.trim().replace(/\n/g, '\\n');
+    const resolved = getJwtPrivateKey();
+    expect(resolved).toContain('-----BEGIN PRIVATE KEY-----');
+    expect(resolved).toContain('\n');
+  });
+
+  it('llama done con error cuando el header del token es malformado', async () => {
+    const { err } = await resolveKey(makeJwtSecretOrKeyProvider(publicKey, serviceSecret), 'not-a-valid-jwt-at-all');
+    expect(err).toBeInstanceOf(Error);
+  });
+
   it('lanza si faltan las variables de entorno', () => {
     delete process.env.JWT_PRIVATE_KEY;
     expect(() => getJwtPrivateKey()).toThrow(/JWT_PRIVATE_KEY/);

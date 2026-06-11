@@ -108,17 +108,20 @@ describe('AppService — Reportes', () => {
       expect(r.productos[1]).toEqual({ productoId: 'p2', nombre: 'Pizza', cantidad: 1, ingresos: 60 });
     });
 
-    it('por-turno deriva ALMUERZO/CENA de la hora', async () => {
+    it('por-turno deriva ALMUERZO/CENA/OTRO de la hora', async () => {
       prisma.ventaDiaria.findMany.mockResolvedValue([
         { total: 50, fecha: new Date('2026-01-02T13:00:00') },
         { total: 30, fecha: new Date('2026-01-02T14:00:00') },
         { total: 90, fecha: new Date('2026-01-02T20:00:00') },
+        { total: 20, fecha: new Date('2026-01-02T09:00:00') }, // antes del almuerzo → OTRO
       ]);
       const r = await service.obtenerPorTurno({});
       const almuerzo = r.turnos.find((t) => t.turno === 'ALMUERZO');
       const cena = r.turnos.find((t) => t.turno === 'CENA');
+      const otro = r.turnos.find((t) => t.turno === 'OTRO');
       expect(almuerzo).toEqual({ turno: 'ALMUERZO', totalVentas: 2, ingresos: 80 });
       expect(cena).toEqual({ turno: 'CENA', totalVentas: 1, ingresos: 90 });
+      expect(otro).toEqual({ turno: 'OTRO', totalVentas: 1, ingresos: 20 });
     });
 
     it('por-mesero agrupa por meseroId y separa lo sin asignar', async () => {

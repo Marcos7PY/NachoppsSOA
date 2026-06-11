@@ -150,6 +150,21 @@ describe('ReservasService — Reservas', () => {
         numComensales: 4,
       })).rejects.toThrow('No hay disponibilidad');
     });
+
+    it('re-lanza errores que no son de unicidad', async () => {
+      mockPrisma.reserva.count.mockResolvedValue(0);
+      mockPrisma.$transaction.mockRejectedValue(new Error('db timeout'));
+
+      await expect(service.crear({
+        clienteId: 'c-001',
+        clienteNombre: 'Juan',
+        clienteTelefono: '999',
+        fecha: '2026-06-15',
+        hora: '19:00',
+        mesaPreferida: 5,
+        numComensales: 4,
+      })).rejects.toThrow('db timeout');
+    });
   });
 
   describe('confirmar', () => {

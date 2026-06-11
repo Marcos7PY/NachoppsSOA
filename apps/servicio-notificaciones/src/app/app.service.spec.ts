@@ -90,5 +90,21 @@ describe('AppService — Notificaciones', () => {
         }),
       );
     });
+
+    it('usa fallback en texto() cuando el valor no es string ni número', async () => {
+      prisma.notificacion.create.mockResolvedValue({ id: 'fb' });
+
+      // mesaId=null → texto(null, '??') toma el fallback → Mesa ??
+      await service.registrarNotificacion('pedido.creado', {
+        mesaId: null,
+        total: 10,
+      });
+
+      expect(prisma.notificacion.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contenido: expect.stringContaining('Mesa ??'),
+        }),
+      });
+    });
   });
 });

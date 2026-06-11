@@ -154,4 +154,33 @@ describe('mapSocketNotification', () => {
     expect(vm.titulo).toBe('Mesa actualizada');
     expect(vm.contenido).toBe('Mesa 3 ahora está libre. · Salón Principal · 4 personas');
   });
+
+  it('stock.insuficiente incluye solicitado y disponible', () => {
+    const vm = mapSocketNotification({
+      pattern: 'stock.insuficiente',
+      data: { nombre: 'Coca-Cola', solicitado: 5, stockActual: 2 },
+    });
+    expect(vm.titulo).toBe('Stock insuficiente');
+    expect(vm.contenido).toContain('Coca-Cola');
+    expect(vm.contenido).toContain('Solicitado: 5');
+    expect(vm.contenido).toContain('Disponible: 2');
+  });
+
+  it('producto.creado genera mensaje de nuevo producto', () => {
+    const vm = mapSocketNotification({
+      pattern: 'producto.creado',
+      data: { nombre: 'Limonada' },
+    });
+    expect(vm.titulo).toBe('Nuevo producto');
+    expect(vm.contenido).toContain('Limonada');
+  });
+
+  it('producto.actualizado genera mensaje de actualización', () => {
+    const vm = mapSocketNotification({
+      pattern: 'producto.actualizado',
+      data: { nombre: 'Limonada' },
+    });
+    expect(vm.titulo).toBe('Producto actualizado');
+    expect(vm.contenido).toContain('Limonada');
+  });
 });

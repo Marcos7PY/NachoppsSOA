@@ -1,3 +1,4 @@
+import { ConflictException } from '@nestjs/common';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
 import { MesaEstado } from '@org/contracts';
@@ -98,6 +99,31 @@ describe('AppService — Mesas', () => {
     it('debe lanzar NotFoundException si la mesa no existe', async () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(null);
       await expect(service.actualizarEstado('inexistente', { estado: MesaEstado.Ocupada })).rejects.toThrow('no encontrada');
+    });
+
+    it('devuelve "Estado sin cambios" cuando el estado ya es el mismo', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase); // estado = Libre
+      const result = await service.actualizarEstado('m-001', { estado: MesaEstado.Libre });
+      expect(result.message).toBe('Estado sin cambios');
+    });
+
+    it('lanza ConflictException cuando updateMany devuelve count=0 (escritura concurrente)', async () => {
+      mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase);
+      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+        const txMock = {
+          ...mockPrisma,
+          mesa: {
+            ...mockPrisma.mesa,
+            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+            findUnique: vi.fn(),
+          },
+          outboxEvent: { create: vi.fn(), createMany: vi.fn() },
+        };
+        return cb(txMock);
+      });
+      await expect(
+        service.actualizarEstado('m-001', { estado: MesaEstado.Ocupada })
+      ).rejects.toThrow(ConflictException);
     });
   });
 
