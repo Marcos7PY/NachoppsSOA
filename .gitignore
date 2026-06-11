@@ -84,3 +84,5 @@ test-output
 **/src/generated/prisma
 
 .env
+# SonarQube token local
+infra/sonarqube/.sonar-token.local
