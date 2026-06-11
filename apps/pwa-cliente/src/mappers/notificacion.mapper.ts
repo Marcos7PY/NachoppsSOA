@@ -150,7 +150,7 @@ function buildPedidoCopy(pattern: string, data: UnknownRecord | null): Notificat
   const numero = mesaNumero(pedido) ?? mesaNumero(data);
   const total = moneyLabel(pedido?.total ?? data?.total);
   const estado = String(pedido?.estado ?? data?.estado ?? '').toUpperCase();
-  const estadoLabel = ESTADO_PEDIDO_LABEL[estado] ?? estado.replace(/_/g, ' ').toLowerCase();
+  const estadoLabel = ESTADO_PEDIDO_LABEL[estado] ?? estado.replaceAll('_', ' ').toLowerCase();
   const destino = numero ? `Mesa ${numero}` : numberLabel(pedido?.cliente ?? data?.cliente) ?? 'cliente';
 
   if (pattern === 'pedido.creado') {

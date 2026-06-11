@@ -57,6 +57,8 @@ desechable, nunca a datos reales.
 
 - **Google Fonts sin Subresource Integrity** (`apps/pwa-cliente/index.html`): el CSS de Google Fonts varía por user-agent, por lo que SRI no es aplicable. Alternativa futura: self-host de las fuentes.
 - **Cabecera `Server` de Kong**: mitigado con `KONG_HEADERS: 'off'` en `infra/docker-compose.yml` (replicar en `docker-compose.prod.yml`).
+- **`typescript:S7764` (`globalThis` vs `window`)**: en una PWA que solo corre en navegador, `window` es el idioma natural; regla a desactivar en el Quality Profile del proyecto (pendiente: Sonar offline al cierre de S-5).
+- **`typescript:S7735` (condición negada con `else`)**: los casos restantes son ternarios encadenados de JSX donde invertir ramas empeora la legibilidad; triaje caso a caso en el próximo re-scan.
 
 ## Rutina recomendada
 

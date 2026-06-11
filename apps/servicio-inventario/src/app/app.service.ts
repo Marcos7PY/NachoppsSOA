@@ -80,7 +80,7 @@ export class AppService {
 
     return {
       data: data.map((producto) => this.toProductoDto(producto)),
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
   }
 

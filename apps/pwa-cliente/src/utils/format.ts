@@ -7,7 +7,7 @@ export function fmt(n: number): string {
 
 /** ISO de hace `m` minutos */
 export function minAgo(m: number): string {
-  return new Date(Date.now() - m * 60000).toISOString();
+  return new Date(Date.now() - m * 60_000).toISOString();
 }
 
 /**
@@ -27,7 +27,7 @@ export function horaOf(iso: string): string {
 
 /** Minutos transcurridos (entero) desde un ISO respecto a `now` (ms) */
 export function elapsedMin(iso: string, now: number = Date.now()): number {
-  return Math.round((now - new Date(iso).getTime()) / 60000);
+  return Math.round((now - new Date(iso).getTime()) / 60_000);
 }
 
 /** Etiqueta legible "hace 5m" / "hace 1h 20m" */

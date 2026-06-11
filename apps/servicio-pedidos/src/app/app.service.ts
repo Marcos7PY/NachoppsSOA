@@ -373,7 +373,7 @@ export class AppService {
 
     return {
       data: data.map(p => this.mapToDto(p)),
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
   }
 

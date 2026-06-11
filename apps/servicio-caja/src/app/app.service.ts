@@ -73,7 +73,7 @@ export class AppService {
     return new Prisma.Decimal(value);
   }
 
-  @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30000 })
+  @CircuitBreakerOptions({ timeout: 5000, errorThresholdPercentage: 50, resetTimeout: 30_000 })
   private async fetchCuenta(cuentaId: string): Promise<CuentaRemota> {
     const res = await axios.get<CuentaRemota>(`${this.CUENTAS_URL}/${cuentaId}`, {
       timeout: this.HTTP_TIMEOUT_MS,
@@ -482,7 +482,7 @@ export class AppService {
 
     return {
       data: data.map((t) => this.mapTransaccion(t)),
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
   }
 

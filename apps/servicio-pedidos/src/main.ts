@@ -2,7 +2,7 @@ import { initTracing } from '@org/observabilidad';
 initTracing('servicio-pedidos');
 
 import { config } from 'dotenv';
-import { join } from 'path';
+import { join } from 'node:path';
 config({ path: join(__dirname, '../.env') });
 import { bootstrapNachoppsService } from '@org/observabilidad/bootstrap';
 import { AppModule } from './app/app.module';

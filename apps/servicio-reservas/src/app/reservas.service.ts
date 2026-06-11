@@ -42,7 +42,7 @@ export class ReservasService {
 
     return {
       data: data.map(toReservaDto),
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
   }
 

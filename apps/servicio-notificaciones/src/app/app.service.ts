@@ -50,7 +50,7 @@ export class AppService {
 
   private formatPedidoActualizado(data: Record<string, unknown>): string {
     const mesa = this.resolveMesa(data);
-    const estadoStr = String(data['estado'] || '').replace(/_/g, ' ').toLowerCase();
+    const estadoStr = String(data['estado'] || '').replaceAll('_', ' ').toLowerCase();
     return `El pedido de la ${mesa} ha cambiado al estado ${estadoStr}.`;
   }
 

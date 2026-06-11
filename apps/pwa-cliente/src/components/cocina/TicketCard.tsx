@@ -46,7 +46,7 @@ export interface TicketCardProps {
 }
 
 export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, onBump }: Readonly<TicketCardProps>) {
-  const el = (now - new Date(p.createdAt).getTime()) / 60000;
+  const el = (now - new Date(p.createdAt).getTime()) / 60_000;
   const canalCls = CANAL_CLS[p.canal];
   const donde = p.canal === 'SALON' ? `Mesa ${p.mesaNumero}` : (p.cliente ?? 'Cliente');
 

@@ -16,7 +16,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
     const defaultOptions: CircuitBreaker.Options = {
       timeout: 3000, 
       errorThresholdPercentage: 50, 
-      resetTimeout: 30000, 
+      resetTimeout: 30_000, 
       ...options,
     };
 

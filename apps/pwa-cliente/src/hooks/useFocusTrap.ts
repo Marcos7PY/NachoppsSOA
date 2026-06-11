@@ -63,13 +63,13 @@ export function useFocusTrap(
       }
 
       const first = els[0];
-      const last = els[els.length - 1];
+      const last = els.at(-1);
       const focused = document.activeElement;
 
       if (e.shiftKey) {
         if (focused === first || !container.contains(focused)) {
           e.preventDefault();
-          last.focus();
+          last?.focus();
         }
       } else {
         if (focused === last || !container.contains(focused)) {

@@ -19,7 +19,7 @@ const AREAS: { key: 'TODAS' | ItemArea; label: string; ic: IconName }[] = [
   { key: 'BAR', label: 'Barra', ic: 'Drink' },
 ];
 
-const elapsedMinF = (iso: string, now: number) => (now - new Date(iso).getTime()) / 60000;
+const elapsedMinF = (iso: string, now: number) => (now - new Date(iso).getTime()) / 60_000;
 
 export function CocinaScreen() {
   const online = useOnlineStatus();

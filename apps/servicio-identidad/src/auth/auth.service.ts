@@ -263,7 +263,7 @@ export class AuthService {
 
     return {
       data: data.map(toUsuarioDto),
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
     };
   }
 
