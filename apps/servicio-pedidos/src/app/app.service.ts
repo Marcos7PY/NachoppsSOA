@@ -1,5 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, ServiceUnavailableException, InternalServerErrorException } from '@nestjs/common';
-import { ServiceTokenService } from '@org/shared-auth';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   PedidoDto,
@@ -20,26 +19,13 @@ import {
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { getOrCreateCounter } from '@org/observabilidad';
-import axios from 'axios';
+import { MesasHttpClient } from './mesas-http.client';
+import { InventarioHttpClient } from './inventario-http.client';
 import {
   PedidoItemMapeado,
   MesaLocalEntity,
   PedidoEntity,
 } from './types';
-
-interface ProductoRemotoLote {
-  id: string;
-  nombre: string;
-  precio: number;
-  stockActual: number | null;
-  categoria?: { nombre: string } | null;
-  disponible: boolean;
-}
-
-interface MesaRemota {
-  id: string;
-  numero: number;
-}
 
 interface MeseroPedido {
   id: string;
@@ -56,21 +42,11 @@ export class AppService {
   private readonly pedidosRechazadosCounter = getOrCreateCounter(
     'pedidos_rechazados_sin_stock_total', 'Ítems/pedidos rechazados por falta de stock',
   );
-  private readonly HTTP_TIMEOUT_MS = 5000;
-  private readonly INVENTARIO_URL =
-    process.env['INVENTARIO_SERVICE_URL'] ?? 'http://servicio-inventario:3000/api';
-  private readonly MESAS_URL =
-    process.env['MESAS_SERVICE_URL'] ?? 'http://servicio-mesas:3000/api';
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly serviceTokenService: ServiceTokenService,
+    private readonly mesasHttp: MesasHttpClient,
+    private readonly inventarioHttp: InventarioHttpClient,
   ) {}
-
-  private getServiceToken(audience: string): string {
-    // Pedidos llama a mesas e inventario → audiencia según destino (T-17).
-    return this.serviceTokenService.generateServiceToken('servicio-pedidos', audience);
-  }
 
   async crearPedido(command: CrearPedidoCommand, mesero?: MeseroPedido | null): Promise<{ message: string; pedido: PedidoDto }> {
     const mesaLocal = await this.validarMesa(command.mesaId);
@@ -107,43 +83,20 @@ export class AppService {
   }
 
   private async sincronizarMesaLocal(mesaId: string): Promise<MesaLocalEntity> {
-    let token: string;
-    try {
-      token = this.getServiceToken('servicio-mesas');
-    } catch {
-      throw new ServiceUnavailableException('No se pudo generar token para consultar mesas. Reintente.');
-    }
+    // T-33: la llamada remota (token + axios + breaker + mapeo de errores) vive
+    // en MesasHttpClient; aquí solo queda la proyección local.
+    const data = await this.mesasHttp.obtenerMesa(mesaId);
 
-    try {
-      const { data } = await axios.get<MesaRemota>(`${this.MESAS_URL}/mesas/${mesaId}`, {
-        timeout: this.HTTP_TIMEOUT_MS,
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      return this.prisma.mesaLocal.upsert({
-        where: { id: data.id },
-        create: {
-          id: data.id,
-          numero: data.numero,
-        },
-        update: {
-          numero: data.numero,
-        },
-      });
-    } catch (error: unknown) {
-      const axiosError = error as { response?: { status: number }; code?: string; message?: string };
-      if (axiosError.response?.status === 404) {
-        throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
-      }
-      if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-        throw new ServiceUnavailableException('El servicio de mesas no responde. Reintente.');
-      }
-      if (axiosError.code === 'ECONNREFUSED') {
-        throw new ServiceUnavailableException('El servicio de mesas no está disponible.');
-      }
-      this.logger.error(`Error en cold-start de mesa ${mesaId}: ${axiosError.message}`);
-      throw new InternalServerErrorException('No se pudo cargar la mesa desde mesas. Reintente.');
-    }
+    return this.prisma.mesaLocal.upsert({
+      where: { id: data.id },
+      create: {
+        id: data.id,
+        numero: data.numero,
+      },
+      update: {
+        numero: data.numero,
+      },
+    });
   }
 
   private async asegurarProductosLocales(productoIds: string[]): Promise<void> {
@@ -155,54 +108,27 @@ export class AppService {
 
     if (faltantes.length > 0) {
       this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
-      let token: string;
-      try {
-        token = this.getServiceToken('servicio-inventario');
-      } catch {
-        throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');
-      }
-
-      try {
-        const { data } = await axios.post<ProductoRemotoLote[]>(
-          `${this.INVENTARIO_URL}/productos/lote`,
-          { ids: faltantes },
-          {
-            timeout: this.HTTP_TIMEOUT_MS,
-            headers: { Authorization: `Bearer ${token}` },
+      // T-33: la llamada remota vive en InventarioHttpClient (breaker incluido).
+      const productos = await this.inventarioHttp.obtenerProductosLote(faltantes);
+      for (const p of productos) {
+        await this.prisma.productoLocal.upsert({
+          where: { id: p.id },
+          create: {
+            id: p.id,
+            nombre: p.nombre,
+            precio: p.precio,
+            stockActual: p.stockActual ?? null,
+            categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            disponible: p.disponible ?? true,
           },
-        );
-
-        const productos = Array.isArray(data) ? data : (data as { productos?: unknown[] }).productos ?? [];
-        for (const p of productos) {
-          await this.prisma.productoLocal.upsert({
-            where: { id: p.id },
-            create: {
-              id: p.id,
-              nombre: p.nombre,
-              precio: p.precio,
-              stockActual: p.stockActual ?? null,
-              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
-              disponible: p.disponible ?? true,
-            },
-            update: {
-              nombre: p.nombre,
-              precio: p.precio,
-              stockActual: p.stockActual ?? null,
-              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
-              disponible: p.disponible ?? true,
-            },
-          });
-        }
-      } catch (error: unknown) {
-        const axiosError = error as { response?: { status: number }; code?: string; message?: string };
-        if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-          throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
-        }
-        if (axiosError.code === 'ECONNREFUSED') {
-          throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
-        }
-        this.logger.error(`Error en cold-start de productos: ${axiosError.message}`);
-        throw new InternalServerErrorException('No se pudieron cargar productos desde inventario. Reintente.');
+          update: {
+            nombre: p.nombre,
+            precio: p.precio,
+            stockActual: p.stockActual ?? null,
+            categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            disponible: p.disponible ?? true,
+          },
+        });
       }
     }
   }

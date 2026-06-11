@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
+
+// T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
+// el comportamiento del breaker se prueba aparte en http-clients.breaker.spec.ts.
+vi.mock('@org/resiliencia', async () => {
+  const actual = await vi.importActual('@org/resiliencia');
+  return {
+    ...actual,
+    CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
+  };
+});
+
 import { AppService } from './app.service';
+import { MesasHttpClient } from './mesas-http.client';
+import { InventarioHttpClient } from './inventario-http.client';
 import { PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
@@ -17,6 +30,16 @@ function createMockPublisher() {
     publish: vi.fn().mockResolvedValue(undefined),
     generateServiceToken: vi.fn().mockReturnValue('service-token'),
   };
+}
+
+// T-33: los clientes HTTP reales con el token service mockeado, para que los
+// specs sigan espiando axios de extremo a extremo.
+function createService(prisma: any, tokenService: any) {
+  return new AppService(
+    prisma,
+    new MesasHttpClient(tokenService),
+    new InventarioHttpClient(tokenService),
+  );
 }
 
 describe('AppService — Pedidos', () => {
@@ -69,7 +92,7 @@ describe('AppService — Pedidos', () => {
     });
     mockPublisher = createMockPublisher();
 
-    service = new AppService(mockPrisma as any, mockPublisher as any);
+    service = createService(mockPrisma as any, mockPublisher as any);
   });
 
   afterEach(() => {
@@ -610,7 +633,7 @@ describe('AppService — Pedidos', () => {
         idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
       });
       prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = new AppService(prisma, mockPublisher as any);
+      const svc = createService(prisma, mockPublisher as any);
 
       await svc.procesarStockInsuficiente({ pedidoId: 'ped-1', productoId: 'prod-a', solicitado: 5, disponible: 1 });
 
@@ -641,7 +664,7 @@ describe('AppService — Pedidos', () => {
         idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
       });
       prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = new AppService(prisma, mockPublisher as any);
+      const svc = createService(prisma, mockPublisher as any);
 
       await svc.procesarStockInsuficiente({ pedidoId: 'ped-2', productoId: 'prod-a', solicitado: 5, disponible: 0 });
 
@@ -659,7 +682,7 @@ describe('AppService — Pedidos', () => {
         outboxEvent: { create: vi.fn() },
       });
       prisma.$transaction = vi.fn(async (cb: any) => cb(prisma));
-      const svc = new AppService(prisma, mockPublisher as any);
+      const svc = createService(prisma, mockPublisher as any);
 
       await expect(
         svc.procesarStockInsuficiente({ pedidoId: 'ped-3', productoId: 'prod-a', solicitado: 1, disponible: 0 }),

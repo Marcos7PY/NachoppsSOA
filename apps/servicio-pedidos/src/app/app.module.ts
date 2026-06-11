@@ -4,6 +4,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { EventsController } from './events.controller';
 import { AppService } from './app.service';
+import { MesasHttpClient } from './mesas-http.client';
+import { InventarioHttpClient } from './inventario-http.client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { OutboxAdminModule, OutboxModule, IdempotencyPurgeModule, IdempotencyInterceptor, IDEMPOTENCY_DB } from '@org/resiliencia';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
@@ -30,6 +32,8 @@ import { RoutingKeys } from '@org/contracts';
   controllers: [AppController, EventsController],
   providers: [
     AppService,
+    MesasHttpClient,
+    InventarioHttpClient,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     IdempotencyInterceptor,
     { provide: IDEMPOTENCY_DB, useExisting: PrismaService },
