@@ -104,14 +104,35 @@ export class CrearReservaCommand {
   @IsNotEmpty()
   hora: string;
 
-  @IsOptional()
   @IsString()
-  mesaPreferida?: string;
+  @IsNotEmpty()
+  mesaPreferida: string;
 
   @IsOptional()
   @IsNumber()
   @Transform(({ obj, value }) => value ?? obj.personas)
   numComensales?: number;
+}
+
+export class ReservaDisponibilidadResponse {
+  @IsString()
+  fecha: string;
+
+  @IsString()
+  hora: string;
+
+  @IsOptional()
+  @IsString()
+  mesaPreferida?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  mesasReservadas: string[];
+
+  @IsNumber()
+  capacidadRestante: number;
+
+  disponible: boolean;
 }
 
 export class ReservaCreadaPayload {

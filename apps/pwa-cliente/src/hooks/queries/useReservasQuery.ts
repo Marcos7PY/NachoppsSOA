@@ -138,14 +138,14 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
     cancelar: async (id: string, motivo?: string) => {
       await mutationCancelar.mutateAsync({ id, motivo });
     },
-    consultarDisponibilidad: async (fecha: string, hora: string) => {
-      if (!fecha || !hora) {
+    consultarDisponibilidad: async (fecha: string, hora: string, mesaPreferida?: string) => {
+      if (!fecha || !hora || !mesaPreferida) {
         setDisponibilidad(null);
         return;
       }
 
       try {
-        setDisponibilidad(await reservasApi.disponibilidad(fecha, hora));
+        setDisponibilidad(await reservasApi.disponibilidad(fecha, hora, mesaPreferida));
       } catch {
         setDisponibilidad(null);
       }

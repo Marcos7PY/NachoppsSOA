@@ -16,8 +16,12 @@ export class AppController {
   }
 
   @Get('disponibilidad')
-  disponibilidad(@Query('fecha') fecha: string, @Query('hora') hora: string) {
-    return this.reservas.consultarDisponibilidad(fecha, hora);
+  disponibilidad(
+    @Query('fecha') fecha: string,
+    @Query('hora') hora: string,
+    @Query('mesaPreferida') mesaPreferida?: string,
+  ) {
+    return this.reservas.consultarDisponibilidad(fecha, hora, mesaPreferida);
   }
 
   @Post()

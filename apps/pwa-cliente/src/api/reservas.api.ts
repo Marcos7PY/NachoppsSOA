@@ -69,7 +69,15 @@ export async function cancelar(id: string, motivo?: string): Promise<ReservaDto>
   return unwrapEntity<ReservaDto>(response, 'reserva');
 }
 
-export function disponibilidad(fecha: string, hora: string): Promise<DisponibilidadResponse> {
-  const query = new URLSearchParams({ fecha, hora }).toString();
+export function disponibilidad(
+  fecha: string,
+  hora: string,
+  mesaPreferida?: string,
+): Promise<DisponibilidadResponse> {
+  const query = new URLSearchParams({
+    fecha,
+    hora,
+    ...(mesaPreferida ? { mesaPreferida } : {}),
+  }).toString();
   return client.get<DisponibilidadResponse>(`/reservas/disponibilidad?${query}`);
 }

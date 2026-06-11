@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -10,6 +11,7 @@ import {
   ReservaCanceladaPayload,
   ReservaEstado,
   ReservaListResponse,
+  ReservaDisponibilidadResponse,
   RoutingKeys,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
@@ -55,8 +57,13 @@ export class ReservasService {
   async crear(command: CrearReservaCommand) {
     const clienteNombre = command.clienteNombre ?? 'Sin nombre';
     const numComensales = command.numComensales ?? 2;
+    const mesaPreferida = command.mesaPreferida?.trim();
 
-    await this.assertSlotDisponible(command.fecha, command.hora);
+    if (!mesaPreferida) {
+      throw new BadRequestException('Selecciona una mesa para crear la reserva');
+    }
+
+    await this.assertMesaDisponible(command.fecha, command.hora, mesaPreferida);
 
     let reserva: Reserva;
     try {
@@ -69,7 +76,7 @@ export class ReservasService {
             clienteTelefono: command.clienteTelefono ?? null,
             fecha: new Date(command.fecha),
             hora: command.hora,
-            mesaPreferida: command.mesaPreferida,
+            mesaPreferida,
             numComensales,
             estado: ReservaEstado.Pendiente,
           },
@@ -87,7 +94,7 @@ export class ReservasService {
       });
     } catch (error) {
       if (this.isUniqueConstraintViolation(error)) {
-        throw new ConflictException('No hay disponibilidad para la fecha y hora solicitadas');
+        throw new ConflictException('La mesa ya está reservada para la fecha y hora solicitadas');
       }
       throw error;
     }
@@ -134,27 +141,39 @@ export class ReservasService {
     return { message: 'Reserva cancelada', reserva: toReservaDto(updated) };
   }
 
-  async consultarDisponibilidad(fecha: string, hora: string) {
-    const conflictos = await this.prisma.reserva.count({
+  async consultarDisponibilidad(
+    fecha: string,
+    hora: string,
+    mesaPreferida?: string,
+  ): Promise<ReservaDisponibilidadResponse> {
+    const mesa = mesaPreferida?.trim();
+    const reservasActivas = await this.prisma.reserva.findMany({
       where: {
         fecha: new Date(fecha),
         hora,
         estado: { in: [ReservaEstado.Pendiente, ReservaEstado.Confirmada] },
       },
+      select: { mesaPreferida: true },
     });
+    const mesasReservadas = reservasActivas
+      .map((reserva) => reserva.mesaPreferida)
+      .filter((mesaReservada): mesaReservada is string => Boolean(mesaReservada));
+    const mesaOcupada = mesa ? mesasReservadas.includes(mesa) : false;
 
     return {
       fecha,
       hora,
-      disponible: conflictos === 0,
-      capacidadRestante: conflictos === 0 ? 1 : 0,
+      ...(mesa ? { mesaPreferida: mesa } : {}),
+      mesasReservadas,
+      disponible: !mesaOcupada,
+      capacidadRestante: mesaOcupada ? 0 : 1,
     };
   }
 
-  private async assertSlotDisponible(fecha: string, hora: string): Promise<void> {
-    const { disponible } = await this.consultarDisponibilidad(fecha, hora);
+  private async assertMesaDisponible(fecha: string, hora: string, mesaPreferida: string): Promise<void> {
+    const { disponible } = await this.consultarDisponibilidad(fecha, hora, mesaPreferida);
     if (!disponible) {
-      throw new ConflictException('No hay disponibilidad para la fecha y hora solicitadas');
+      throw new ConflictException('La mesa ya está reservada para la fecha y hora solicitadas');
     }
   }
 

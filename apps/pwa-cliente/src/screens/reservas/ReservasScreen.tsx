@@ -1,8 +1,9 @@
 // screens/reservas/ReservasScreen.tsx - Agenda del día y acciones de reservas
 
-import { useState, type SubmitEvent } from 'react';
+import { useMemo, useState, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
+import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
 import type { CrearReservaPayload } from '../../types/reserva.types';
 
 const INITIAL_FORM: CrearReservaPayload = {
@@ -18,6 +19,7 @@ export function ReservasScreen() {
   const online = useOnlineStatus();
   const [fecha, setFecha] = useState(INITIAL_FORM.fecha);
   const [form, setForm] = useState<CrearReservaPayload>(INITIAL_FORM);
+  const { mesas, loading: loadingMesas } = useMesasQuery();
   const {
     reservas,
     nextCursor,
@@ -35,6 +37,14 @@ export function ReservasScreen() {
     consultarDisponibilidad,
     clearFeedback,
   } = useReservasQuery({ fecha });
+  const mesasFisicas = useMemo(
+    () => mesas.filter((mesa) => mesa.numeroRaw < 90),
+    [mesas],
+  );
+  const mesaLabelById = useMemo(
+    () => new Map(mesasFisicas.map((mesa) => [mesa.id, `Mesa ${mesa.numero}`])),
+    [mesasFisicas],
+  );
 
   const handleChange = (key: keyof CrearReservaPayload, value: string | number) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -47,7 +57,7 @@ export function ReservasScreen() {
       ...form,
       clienteNombre: form.clienteNombre.trim(),
       clienteTelefono: form.clienteTelefono?.trim(),
-      mesaPreferida: form.mesaPreferida?.trim() || undefined,
+      mesaPreferida: form.mesaPreferida.trim(),
       numComensales: Number(form.numComensales) || 1,
     });
   };
@@ -113,7 +123,7 @@ export function ReservasScreen() {
                         <strong>{reserva.clienteNombre}</strong>
                         {reserva.clienteTelefono && <div className="muted">{reserva.clienteTelefono}</div>}
                       </td>
-                      <td>{reserva.mesaPreferida ?? 'Sin preferencia'}</td>
+                      <td>{reserva.mesaPreferida ? mesaLabelById.get(reserva.mesaPreferida) ?? reserva.mesaPreferida : 'Sin mesa'}</td>
                       <td>{reserva.numComensales}</td>
                       <td><span className={`badge dot ${reserva.estadoClass}`}>{reserva.estadoLabel}</span></td>
                       <td>
@@ -203,13 +213,21 @@ export function ReservasScreen() {
               </div>
               <div className="form-grid-2">
                 <div className="field">
-                  <label htmlFor="reserva-mesa">Mesa preferida</label>
+                  <label htmlFor="reserva-mesa">Mesa</label>
                   <div className="input">
-                    <input
+                    <select
                       id="reserva-mesa"
+                      required
                       value={form.mesaPreferida}
                       onChange={(event) => handleChange('mesaPreferida', event.target.value)}
-                    />
+                    >
+                      <option value="">{loadingMesas ? 'Cargando mesas...' : 'Selecciona una mesa'}</option>
+                      {mesasFisicas.map((mesa) => (
+                        <option key={mesa.id} value={mesa.id}>
+                          Mesa {mesa.numero} · {mesa.capacidad} pers.
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="field">
@@ -227,14 +245,15 @@ export function ReservasScreen() {
               </div>
               {disponibilidad && (
                 <div className={`banner ${disponibilidad.disponible ? 'ok' : 'warn'}`}>
-                  {disponibilidad.disponible ? 'Horario disponible' : 'Horario sin disponibilidad'}
+                  {disponibilidad.disponible ? 'Mesa disponible en ese horario' : 'Mesa ya reservada en ese horario'}
                 </div>
               )}
               <div className="row wrap">
                 <button
                   className="btn btn-ghost"
+                  disabled={!form.fecha || !form.hora || !form.mesaPreferida}
                   type="button"
-                  onClick={() => consultarDisponibilidad(form.fecha, form.hora)}
+                  onClick={() => consultarDisponibilidad(form.fecha, form.hora, form.mesaPreferida)}
                 >
                   Ver disponibilidad
                 </button>

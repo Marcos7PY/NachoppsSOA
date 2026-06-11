@@ -46,6 +46,8 @@ export interface ReservaResponse {
 export interface DisponibilidadResponse {
   fecha: string;
   hora: string;
+  mesaPreferida?: string;
+  mesasReservadas: string[];
   disponible: boolean;
   capacidadRestante: number;
 }

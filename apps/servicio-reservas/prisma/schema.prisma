@@ -14,7 +14,7 @@ model Reserva {
   clienteTelefono String?
   fecha           DateTime @db.Date
   hora            String
-  mesaPreferida   String?
+  mesaPreferida   String
   numComensales   Int      @default(2)
   estado          String   @default("PENDIENTE")
   createdAt       DateTime @default(now())
