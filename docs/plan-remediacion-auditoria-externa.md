@@ -293,4 +293,5 @@ desbloqueaba el build tsc de caja/pedidos).
 **Pendiente con stack runtime (docker compose):** P-51 (e2e ya escrito en
 `servicio-identidad-e2e`), P-52 de los 8 servicios restantes + P-53 (smoke 4/4 del
 runbook §4 v5.1), smoke `probar:caos` (T-33), paso 1 + P-59 de T-37, y la decisión
-de producto del ADR-010 (T-39).
+de producto del ADR-010 (T-39). **Toda la evidencia runtime pendiente está detallada
+en `docs/handoff-SC-cierre-documental.md` → handoff S-A** (sesión con stack en vivo).

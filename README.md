@@ -54,7 +54,7 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 
 - **Transactional Outbox** en los 9 servicios: el evento se persiste en la misma transacción que el cambio de estado y un `OutboxProcessor` (cron 1s) lo publica con reintentos (5 → `FAILED`), purga e idempotencia.
 - **Idempotencia de consumidores:** claim atómico de `idempotencyKey` (p.ej. por `pedido.id`) antes de procesar.
-- **Resiliencia:** retry interceptor en consumidores + circuit breaker en llamadas síncronas (pedidos→inventario, caja→cuentas).
+- **Resiliencia:** retry interceptor en consumidores + circuit breaker en llamadas síncronas (pedidos→mesas, pedidos→inventario, caja→cuentas).
 - **Seguridad:** JWT en cookie `httpOnly`, CSRF double-submit (`X-CSRF-Token`), `helmet`, CORS restrictivo, `ValidationPipe` whitelist, `GlobalExceptionFilter`, Swagger solo fuera de producción, fail-fast sin `RABBITMQ_URI`, graceful shutdown.
 
 ## Desarrollo
