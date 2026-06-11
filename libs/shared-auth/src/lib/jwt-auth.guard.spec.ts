@@ -87,6 +87,37 @@ describe('JwtAuthGuard compartido', () => {
     },
   );
 
+  // T-36/P-58: la comparación constante no debe lanzar
+  // ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH con longitudes distintas → 403 limpio.
+  it.each(['POST', 'PATCH', 'DELETE'])(
+    'rechaza %s con 403 cuando cookie y header CSRF tienen longitudes distintas',
+    async (method) => {
+      await expect(
+        guard.canActivate(
+          contextFor({
+            method,
+            path: '/api/recurso',
+            headers: { 'x-csrf-token': 'csrf-token-mucho-mas-largo-que-la-cookie' },
+            cookies: { 'nachopps.csrf_token': 'csrf-token' },
+          }),
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    },
+  );
+
+  it('rechaza con 403 cuando cookie y header difieren con igual longitud', async () => {
+    await expect(
+      guard.canActivate(
+        contextFor({
+          method: 'POST',
+          path: '/api/recurso',
+          headers: { 'x-csrf-token': 'csrf-token-B' },
+          cookies: { 'nachopps.csrf_token': 'csrf-token-A' },
+        }),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
   it('permite /api/telemetry/metrics sin autenticación', async () => {
     await expect(
       guard.canActivate(contextFor({ path: '/api/telemetry/metrics', method: 'GET', headers: {}, cookies: {} }))

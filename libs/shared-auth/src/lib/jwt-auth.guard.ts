@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { timingSafeEqual } from 'node:crypto';
 import type { Request } from 'express';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -51,7 +52,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       ? headerToken[0]
       : headerToken;
 
-    if (!cookieToken || !normalizedHeader || cookieToken !== normalizedHeader) {
+    // T-36: comparación en tiempo constante; longitudes distintas devuelven 403
+    // sin lanzar ERR_CRYPTO_TIMING_SAFE_EQUAL_LENGTH.
+    const a = Buffer.from(String(cookieToken));
+    const b = Buffer.from(String(normalizedHeader));
+    const iguales = a.length === b.length && timingSafeEqual(a, b);
+    if (!cookieToken || !normalizedHeader || !iguales) {
       throw new ForbiddenException('Token CSRF inválido o ausente');
     }
   }

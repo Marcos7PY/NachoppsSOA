@@ -13,10 +13,12 @@ vi.mock('bcrypt', () => ({
   default: {
     compare: vi.fn().mockResolvedValue(true),
     hash: vi.fn().mockResolvedValue('hashed_password'),
+    hashSync: vi.fn().mockReturnValue('dummy_hash'),
     getRounds: vi.fn().mockReturnValue(12),
   },
   compare: vi.fn().mockResolvedValue(true),
   hash: vi.fn().mockResolvedValue('hashed_password'),
+  hashSync: vi.fn().mockReturnValue('dummy_hash'),
   getRounds: vi.fn().mockReturnValue(12),
 }));
 
@@ -197,6 +199,40 @@ describe('AuthService — Identidad', () => {
     });
   });
 
+  describe('login — T-35 tiempo constante (P-57)', () => {
+    it('ejecuta bcrypt.compare también cuando el email no existe', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+
+      await expect(service.login({ email: 'nadie@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(bcrypt.compare).toHaveBeenCalledWith('x', 'dummy_hash');
+    });
+
+    it('ejecuta bcrypt.compare también cuando el usuario está inactivo', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase, activo: false });
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+    });
+
+    it('ejecuta bcrypt.compare también cuando la cuenta está bloqueada', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({
+        ...usuarioBase,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(bcrypt.compare).toHaveBeenCalledWith('x', 'dummy_hash');
+    });
+  });
+
   describe('login — T-05 re-hash perezoso', () => {
     it('re-hashea cuando el costo almacenado es menor a 12', async () => {
       vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
@@ -308,21 +344,50 @@ describe('AuthService — Identidad', () => {
       expect(arg.data.expiresAt).toBeInstanceOf(Date);
     });
 
-    it('rota: emite uno nuevo, revoca el anterior y devuelve access', async () => {
+    it('rota: emite uno nuevo, revoca el anterior (CAS) y devuelve access', async () => {
       mockPrisma.refreshToken.findUnique
         .mockResolvedValueOnce({ id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() + 1e6) })
         .mockResolvedValueOnce({ id: 'rt-2' });
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
       mockPrisma.refreshToken.create.mockResolvedValue({});
       mockPrisma.refreshToken.update.mockResolvedValue({});
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
 
       const r = await service.rotateRefreshToken('raw-token');
       expect(r.access_token).toBe('fake-access-token');
       expect(r.usuario.id).toBe('u-001');
       expect(typeof r.refresh.token).toBe('string');
+      // T-34: la revocación es condicional (compare-and-swap sobre revokedAt: null)
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rt-1', revokedAt: null } }),
+      );
       expect(mockPrisma.refreshToken.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'rt-1' }, data: expect.objectContaining({ replacedById: 'rt-2' }) }),
       );
+    });
+
+    it('T-34/P-56: dos rotaciones concurrentes del mismo token → exactamente una gana', async () => {
+      const existing = { id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() + 1e6) };
+      mockPrisma.refreshToken.findUnique.mockResolvedValue(existing);
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+      mockPrisma.refreshToken.update.mockResolvedValue({});
+      // El CAS solo lo gana el primero: count 1, luego 0 (y la revocación de
+      // cadena del perdedor devuelve count arbitrario).
+      mockPrisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValue({ count: 0 });
+
+      const resultados = await Promise.allSettled([
+        service.rotateRefreshToken('raw-token'),
+        service.rotateRefreshToken('raw-token'),
+      ]);
+
+      const exitosos = resultados.filter((r) => r.status === 'fulfilled');
+      const rechazados = resultados.filter((r) => r.status === 'rejected');
+      expect(exitosos).toHaveLength(1);
+      expect(rechazados).toHaveLength(1);
+      expect((rechazados[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
     });
 
     it('detecta reuso: token revocado revoca toda la cadena y rechaza', async () => {

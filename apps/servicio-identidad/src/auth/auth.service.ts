@@ -24,6 +24,11 @@ import { toUsuarioDto } from './usuarios.mapper';
 const SALT_ROUNDS = 12;
 const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7');
 
+// T-35: hash dummy precomputado al arrancar. Cuando el email no existe o el
+// usuario está inactivo/bloqueado se ejecuta igualmente un bcrypt.compare contra
+// este hash, para que la latencia del 401 no revele si la cuenta existe.
+const DUMMY_HASH = bcrypt.hashSync('dummy', SALT_ROUNDS);
+
 const MAX_FAILED_ATTEMPTS = 5;
 // Backoff exponencial: intento 5→1min, 6→5min, 7+→15min (tope)
 const LOCKOUT_DURATIONS_MS = [60_000, 300_000, 900_000];
@@ -45,11 +50,15 @@ export class AuthService {
     });
 
     if (!usuario?.activo) {
+      // T-35: igualar el timing con la rama de password incorrecta
+      await bcrypt.compare(command.password, DUMMY_HASH);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     // T-03: verificar bloqueo temporal
     if (usuario.lockedUntil && usuario.lockedUntil > new Date()) {
+      // T-35: igualar el timing con la rama de password incorrecta
+      await bcrypt.compare(command.password, DUMMY_HASH);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -169,11 +178,29 @@ export class AuthService {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: existing.userId } });
     if (!usuario?.activo) throw new UnauthorizedException('Usuario no disponible');
 
+    // T-34: compare-and-swap — solo un caller puede revocar el token presentado.
+    // La revocación condicional atómica reemplaza la secuencia leer→emitir→revocar:
+    // dos refresh concurrentes con el mismo token ya no emiten dos pares.
+    const revocados = await this.prisma.refreshToken.updateMany({
+      where: { id: existing.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (revocados.count !== 1) {
+      // Otro request rotó primero: tratar como reuso → revocar cadena y rechazar.
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: existing.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      this.logger.warn(`Rotación concurrente de refresh token para usuario ${existing.userId}; cadena revocada`);
+      throw new UnauthorizedException('Refresh token ya utilizado');
+    }
+
+    // Solo el ganador emite el token nuevo y enlaza replacedById.
     const nuevo = await this.issueRefreshToken(usuario.id);
     const nuevoReg = await this.prisma.refreshToken.findUnique({ where: { tokenHash: this.hashToken(nuevo.token) } });
     await this.prisma.refreshToken.update({
       where: { id: existing.id },
-      data: { revokedAt: new Date(), replacedById: nuevoReg?.id ?? null },
+      data: { replacedById: nuevoReg?.id ?? null },
     });
 
     return {
