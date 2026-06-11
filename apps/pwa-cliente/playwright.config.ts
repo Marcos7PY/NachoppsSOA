@@ -13,6 +13,15 @@ export default defineConfig({
     baseURL: process.env.PWA_BASE_URL ?? 'http://localhost:4200',
     trace: 'retain-on-failure',
   },
+  webServer: {
+    command: 'pnpm exec vite --config vite.config.e2e.ts',
+    url: 'http://localhost:4200',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: {
+      VITE_API_BASE_URL: '',
+    },
+  },
   projects: [
     {
       name: 'chromium',
