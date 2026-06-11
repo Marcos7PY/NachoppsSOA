@@ -109,6 +109,29 @@ function schedulePostCreateConsistencyRefetch(mesaId?: string) {
   });
 }
 
+function applyAvanceItem(
+  p: PedidoVM,
+  itemId: string,
+  estado: EstadoItem,
+): PedidoVM {
+  const items = p.items.map((it) =>
+    it.id === itemId
+      ? { ...it, estado, estadoClass: estadoClassOf(estado), estadoLabel: estadoLabelOf(estado) }
+      : it,
+  );
+  const derivado = ESTADOS_PRODUCCION.has(p.estado)
+    ? derivarEstadoProduccion(items.map((it) => it.estado))
+    : null;
+  const estadoPedido = derivado ?? p.estado;
+  return {
+    ...p,
+    items,
+    estado: estadoPedido,
+    estadoClass: estadoClassOf(estadoPedido),
+    estadoLabel: estadoLabelOf(estadoPedido),
+  };
+}
+
 export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}) {
   const query = useInfiniteQuery({
     queryKey: [...PEDIDOS_QUERY_KEY, mesaId].filter(Boolean),
@@ -198,25 +221,7 @@ export function usePedidosQuery(mesaId?: string, options: UsePedidosOptions = {}
         mapPedidoEnCache(
           old,
           (p) => p.items.some((it) => it.id === itemId),
-          (p) => {
-            const items = p.items.map((it) =>
-              it.id === itemId
-                ? { ...it, estado, estadoClass: estadoClassOf(estado), estadoLabel: estadoLabelOf(estado) }
-                : it,
-            );
-            // Solo derivamos si el pedido sigue en fase de producción.
-            const derivado = ESTADOS_PRODUCCION.has(p.estado)
-              ? derivarEstadoProduccion(items.map((it) => it.estado))
-              : null;
-            const estadoPedido = derivado ?? p.estado;
-            return {
-              ...p,
-              items,
-              estado: estadoPedido,
-              estadoClass: estadoClassOf(estadoPedido),
-              estadoLabel: estadoLabelOf(estadoPedido),
-            };
-          },
+          (p) => applyAvanceItem(p, itemId, estado),
         ),
       );
       return { prev };

@@ -14,6 +14,7 @@ import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
 import type { MesaVM, EstadoMesa } from '../../types/mesa.types';
 import type { CuentaVM } from '../../types/cuenta.types';
+import type { PedidoItemVM } from '../../types/pedido.types';
 
 const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }> = {
   LIBRE: { label: 'Libre', cls: 'libre', color: 'var(--ok)' },
@@ -143,6 +144,102 @@ interface MesaDrawerProps {
   onAgregar: () => void;
 }
 
+interface MesaDrawerBodyProps {
+  mesa: MesaVM;
+  ocupada: boolean;
+  loading: boolean;
+  cuentaActiva: CuentaVM | null | undefined;
+  items: PedidoItemVM[];
+  atencion: { label: string; title: string } | null;
+  now: Date;
+}
+
+function MesaDrawerBody({ mesa: m, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {
+  if (!ocupada) {
+    if (m.estado === 'RESERVADA') {
+      return <div className="banner info"><Icons.Reservas s={16} /><span>Mesa reservada.</span></div>;
+    }
+    return (
+      <div className="empty" style={{ padding: 28 }}>
+        <div className="e-ic"><Icons.Mesas s={24} /></div>
+        <h3>Mesa libre</h3>
+        <p>Toma un nuevo pedido para abrir la cuenta de esta mesa.</p>
+      </div>
+    );
+  }
+  if (loading) {
+    return <div className="muted" style={{ padding: 16, textAlign: 'center' }}>Cargando cuenta…</div>;
+  }
+  if (!cuentaActiva) {
+    return <div className="banner info"><Icons.Receipt s={16} /><span>Mesa ocupada sin cuenta cargada. Toma un pedido para abrirla.</span></div>;
+  }
+  return (
+    <>
+      <div className="mesa-open-meta">
+        <div>
+          <span className="k">Atiende</span>
+          <b>{atencion?.label ?? 'Sin asignar'}</b>
+        </div>
+        <div>
+          <span className="k">Abierta</span>
+          <b>{elapsedLabel(cuentaActiva.createdAt, now)}</b>
+        </div>
+      </div>
+      <div className="hint" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', margin: '4px 0 8px' }}>Cuenta actual · {cuentaActiva.cantidadItems} ítems</div>
+      <div className="panel" style={{ padding: '4px 14px' }}>
+        {items.length === 0 ? (
+          <div className="muted" style={{ padding: 12, fontSize: 13 }}>Sin ítems registrados.</div>
+        ) : items.map((it) => (
+          <div className="dish-line" key={it.id}>
+            <span className="dish-q">{it.cantidad}</span>
+            <span style={{ flex: 1, fontWeight: 600 }}>{it.nombre}</span>
+            <span className="mono muted">{fmt(it.subtotal)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="kv" style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+        <span className="k" style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Total</span>
+        <span className="v mono" style={{ fontSize: 20, fontWeight: 800 }}>{fmt(cuentaActiva.total)}</span>
+      </div>
+    </>
+  );
+}
+
+interface MesaDrawerFootProps {
+  ocupada: boolean;
+  estado: MesaVM['estado'];
+  onCobrar: () => void;
+  onTomar: () => void;
+  onAgregar: () => void;
+  onClose: () => void;
+}
+
+function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose }: Readonly<MesaDrawerFootProps>) {
+  if (ocupada) {
+    return (
+      <>
+        <button className="btn btn-ghost" onClick={onCobrar}><Icons.Caja s={15} /> Cobrar</button>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={onAgregar}><Icons.Plus s={15} /> Agregar a la cuenta</button>
+      </>
+    );
+  }
+  if (estado === 'LIBRE') {
+    return (
+      <>
+        <span className="spacer" />
+        <button className="btn btn-primary" onClick={onTomar}><Icons.Plus s={15} /> Tomar pedido</button>
+      </>
+    );
+  }
+  return (
+    <>
+      <span className="spacer" />
+      <button className="btn btn-soft" onClick={onClose}>Cerrar</button>
+    </>
+  );
+}
+
 function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly<MesaDrawerProps>) {
   const ocupada = m.estado === 'OCUPADA';
   const { cuentaActiva, loading } = useCuentasQuery(ocupada ? m.id : undefined);
@@ -173,69 +270,25 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
         <div className="drawer-body">
-          {ocupada ? (
-            loading ? (
-              <div className="muted" style={{ padding: 16, textAlign: 'center' }}>Cargando cuenta…</div>
-            ) : cuentaActiva ? (
-              <>
-                <div className="mesa-open-meta">
-                  <div>
-                    <span className="k">Atiende</span>
-                    <b>{atencion?.label ?? 'Sin asignar'}</b>
-                  </div>
-                  <div>
-                    <span className="k">Abierta</span>
-                    <b>{elapsedLabel(cuentaActiva.createdAt, now)}</b>
-                  </div>
-                </div>
-                <div className="hint" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', margin: '4px 0 8px' }}>Cuenta actual · {cuentaActiva.cantidadItems} ítems</div>
-                <div className="panel" style={{ padding: '4px 14px' }}>
-                  {items.length === 0 ? (
-                    <div className="muted" style={{ padding: 12, fontSize: 13 }}>Sin ítems registrados.</div>
-                  ) : items.map((it) => (
-                    <div className="dish-line" key={it.id}>
-                      <span className="dish-q">{it.cantidad}</span>
-                      <span style={{ flex: 1, fontWeight: 600 }}>{it.nombre}</span>
-                      <span className="mono muted">{fmt(it.subtotal)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="kv" style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <span className="k" style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>Total</span>
-                  <span className="v mono" style={{ fontSize: 20, fontWeight: 800 }}>{fmt(cuentaActiva.total)}</span>
-                </div>
-              </>
-            ) : (
-              <div className="banner info"><Icons.Receipt s={16} /><span>Mesa ocupada sin cuenta cargada. Toma un pedido para abrirla.</span></div>
-            )
-          ) : m.estado === 'RESERVADA' ? (
-            <div className="banner info"><Icons.Reservas s={16} /><span>Mesa reservada.</span></div>
-          ) : (
-            <div className="empty" style={{ padding: 28 }}>
-              <div className="e-ic"><Icons.Mesas s={24} /></div>
-              <h3>Mesa libre</h3>
-              <p>Toma un nuevo pedido para abrir la cuenta de esta mesa.</p>
-            </div>
-          )}
+          <MesaDrawerBody
+            mesa={m}
+            ocupada={ocupada}
+            loading={loading}
+            cuentaActiva={cuentaActiva}
+            items={items}
+            atencion={atencion}
+            now={now}
+          />
         </div>
         <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-          {ocupada ? (
-            <>
-              <button className="btn btn-ghost" onClick={onCobrar}><Icons.Caja s={15} /> Cobrar</button>
-              <span className="spacer" />
-              <button className="btn btn-primary" onClick={onAgregar}><Icons.Plus s={15} /> Agregar a la cuenta</button>
-            </>
-          ) : m.estado === 'LIBRE' ? (
-            <>
-              <span className="spacer" />
-              <button className="btn btn-primary" onClick={onTomar}><Icons.Plus s={15} /> Tomar pedido</button>
-            </>
-          ) : (
-            <>
-              <span className="spacer" />
-              <button className="btn btn-soft" onClick={onClose}>Cerrar</button>
-            </>
-          )}
+          <MesaDrawerFoot
+            ocupada={ocupada}
+            estado={m.estado}
+            onCobrar={onCobrar}
+            onTomar={onTomar}
+            onAgregar={onAgregar}
+            onClose={onClose}
+          />
         </div>
       </dialog>
     </div>

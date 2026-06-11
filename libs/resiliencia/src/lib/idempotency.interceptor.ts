@@ -65,28 +65,24 @@ export class IdempotencyInterceptor implements NestInterceptor {
     return from(this.handle(next, key, req.method, String(routePath), requestHash, res));
   }
 
-  private async handle(
-    next: CallHandler,
-    key: string,
-    method: string,
-    path: string,
+  private replayExistingResponse(
+    existing: IdempotencyRecord,
     requestHash: string,
     res: { statusCode?: number; status: (code: number) => unknown },
-  ): Promise<unknown> {
-    const existing = await this.db.idempotencyKey.findUnique({ where: { key } });
-    if (existing) {
-      // T-14: misma clave con un body distinto al original → 422 (no replay silencioso).
-      if (existing.requestHash != null && existing.requestHash !== requestHash) {
-        throw new UnprocessableEntityException(BODY_MISMATCH_MSG);
-      }
-      if (existing.completedAt && existing.statusCode != null) {
-        res.status(existing.statusCode);
-        return existing.body != null ? JSON.parse(existing.body) : undefined;
-      }
-      // Registro reclamado pero aún sin completar → duplicado concurrente.
-      throw new ConflictException(IN_PROGRESS_MSG);
+  ): unknown {
+    // T-14: misma clave con un body distinto al original → 422 (no replay silencioso).
+    if (existing.requestHash != null && existing.requestHash !== requestHash) {
+      throw new UnprocessableEntityException(BODY_MISMATCH_MSG);
     }
+    if (existing.completedAt && existing.statusCode != null) {
+      res.status(existing.statusCode);
+      return existing.body != null ? JSON.parse(existing.body) : undefined;
+    }
+    // Registro reclamado pero aún sin completar → duplicado concurrente.
+    throw new ConflictException(IN_PROGRESS_MSG);
+  }
 
+  private async claimKey(key: string, method: string, path: string, requestHash: string): Promise<void> {
     // Reclama la clave de forma atómica (el índice único resuelve la carrera).
     try {
       await this.db.idempotencyKey.create({ data: { key, method, path, requestHash } });
@@ -96,7 +92,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
       }
       throw e;
     }
+  }
 
+  private async executeAndPersist(
+    next: CallHandler,
+    key: string,
+    res: { statusCode?: number; status: (code: number) => unknown },
+  ): Promise<unknown> {
     try {
       const result = await lastValueFrom(next.handle());
       // En POST el status real (201) lo fija Nest tras el interceptor; aquí solo
@@ -112,5 +114,19 @@ export class IdempotencyInterceptor implements NestInterceptor {
       await this.db.idempotencyKey.delete({ where: { key } }).catch(() => undefined);
       throw err;
     }
+  }
+
+  private async handle(
+    next: CallHandler,
+    key: string,
+    method: string,
+    path: string,
+    requestHash: string,
+    res: { statusCode?: number; status: (code: number) => unknown },
+  ): Promise<unknown> {
+    const existing = await this.db.idempotencyKey.findUnique({ where: { key } });
+    if (existing) return this.replayExistingResponse(existing, requestHash, res);
+    await this.claimKey(key, method, path, requestHash);
+    return this.executeAndPersist(next, key, res);
   }
 }

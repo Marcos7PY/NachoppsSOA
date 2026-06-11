@@ -93,76 +93,75 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 // ─── Request interno ────────────────────────────────────────────
-async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+function buildUrl(path: string): string {
   const versionedPath =
     path.startsWith('/') && !path.startsWith(`${API_VERSION_PREFIX}/`)
       ? `${API_VERSION_PREFIX}${path}`
       : path;
-  const url = `${BASE_URL}${versionedPath}`;
+  return `${BASE_URL}${versionedPath}`;
+}
 
-  const headers = new Headers(init?.headers);
+function applyHeaders(headers: Headers, method: string): void {
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-
-  const method = (init?.method ?? 'GET').toUpperCase();
   const csrfToken = getCookie(CSRF_COOKIE_KEY);
-  if (
-    csrfToken &&
-    MUTATING_METHODS.has(method) &&
-    !headers.has(CSRF_HEADER_KEY)
-  ) {
+  if (csrfToken && MUTATING_METHODS.has(method) && !headers.has(CSRF_HEADER_KEY)) {
     headers.set(CSRF_HEADER_KEY, csrfToken);
   }
-
   // Idempotencia HTTP (plan 1.3): el backend deduplica POST con la misma clave,
   // así un retry de transporte no crea pedidos/pagos duplicados.
   if (method === 'POST' && !headers.has('Idempotency-Key')) {
     headers.set('Idempotency-Key', newIdempotencyKey());
   }
+}
 
-  const res = await fetch(url, {
-    ...init,
-    headers,
-    credentials: 'include',
-  });
+async function parseErrorBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return { message: res.statusText };
+  }
+}
 
-  if (!res.ok) {
-    let body: unknown;
-    try {
-      body = await res.json();
-    } catch {
-      body = { message: res.statusText };
+async function handleErrorResponse<T>(
+  res: Response,
+  path: string,
+  url: string,
+  init: RequestInit | undefined,
+  retried: boolean,
+): Promise<T> {
+  const body = await parseErrorBody(res);
+
+  if (res.status === 401) {
+    const isAuthPath = /\/auth\/(refresh|login|logout)$/.test(path);
+    if (!retried && !isAuthPath && (await tryRefresh())) {
+      return request<T>(path, init, true);
     }
-
-    // 401 → intentar refrescar el access token una vez; si falla, sesión expirada.
-    if (res.status === 401) {
-      const isAuthPath = /\/auth\/(refresh|login|logout)$/.test(path);
-      if (!retried && !isAuthPath && (await tryRefresh())) {
-        return request<T>(path, init, true);
-      }
-      clearAuthToken();
-      if (!url.endsWith('/logout')) {
-        window.dispatchEvent(new CustomEvent('auth:expired'));
-      }
-      throw new ApiError(res.status, res.statusText, body);
+    clearAuthToken();
+    if (!url.endsWith('/logout')) {
+      window.dispatchEvent(new CustomEvent('auth:expired'));
     }
-
-    // 429 → rate limit
-    if (res.status === 429) {
-      throw new ApiError(
-        res.status,
-        'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
-        body,
-      );
-    }
-
     throw new ApiError(res.status, res.statusText, body);
   }
 
-  // 204 No Content → no hay body
-  if (res.status === 204) return undefined as T;
+  if (res.status === 429) {
+    throw new ApiError(res.status, 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.', body);
+  }
 
+  throw new ApiError(res.status, res.statusText, body);
+}
+
+async function request<T>(path: string, init?: RequestInit, retried = false): Promise<T> {
+  const url = buildUrl(path);
+  const headers = new Headers(init?.headers);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  applyHeaders(headers, method);
+
+  const res = await fetch(url, { ...init, headers, credentials: 'include' });
+
+  if (!res.ok) return handleErrorResponse<T>(res, path, url, init, retried);
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
 

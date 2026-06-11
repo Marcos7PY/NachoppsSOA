@@ -28,6 +28,22 @@ const KIND_COLOR: Record<ToastKind, string> = {
   info: 'var(--info)',
 };
 
+function ToastItem({ t }: Readonly<{ t: ToastItem }>) {
+  const Ic = Icons[t.icon ?? 'Check'];
+  const kind = t.kind ?? 'ok';
+  return (
+    <div className={`toast ${kind}`}>
+      <span className="t-ic" style={{ color: KIND_COLOR[kind] }}>
+        <Ic s={18} />
+      </span>
+      <div>
+        <b>{t.title}</b>
+        {t.msg && <p>{t.msg}</p>}
+      </div>
+    </div>
+  );
+}
+
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error('useToast debe usarse dentro de <ToastProvider>');
@@ -49,21 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast }}>
       {children}
       <div className="toast-host">
-        {toasts.map((t) => {
-          const Ic = Icons[t.icon ?? 'Check'];
-          const kind = t.kind ?? 'ok';
-          return (
-            <div key={t.id} className={`toast ${kind}`}>
-              <span className="t-ic" style={{ color: KIND_COLOR[kind] }}>
-                <Ic s={18} />
-              </span>
-              <div>
-                <b>{t.title}</b>
-                {t.msg && <p>{t.msg}</p>}
-              </div>
-            </div>
-          );
-        })}
+        {toasts.map((t) => <ToastItem key={t.id} t={t} />)}
       </div>
     </ToastContext.Provider>
   );

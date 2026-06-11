@@ -24,6 +24,16 @@ const OC_META: Record<OCEstado, { label: string; cls: string }> = {
 
 const ocTotal = (oc: OrdenCompra) => oc.items.reduce((s, it) => s + it.q * it.costo, 0);
 
+function OcAccion({ oc, onRecepcionar, onEnviar }: Readonly<{ oc: OrdenCompra; onRecepcionar: () => void; onEnviar: () => void }>) {
+  if (oc.estado === 'ENVIADA' || oc.estado === 'PARCIAL') {
+    return <button className="btn btn-sm btn-primary" onClick={onRecepcionar}>Recepcionar</button>;
+  }
+  if (oc.estado === 'BORRADOR') {
+    return <button className="btn btn-sm btn-soft" onClick={onEnviar}>Enviar</button>;
+  }
+  return <span className="muted" style={{ fontSize: 12 }}>Completada</span>;
+}
+
 type Tab = 'ordenes' | 'insumos' | 'proveedores';
 
 export function ComprasScreen() {
@@ -99,13 +109,7 @@ export function ComprasScreen() {
                   <td><span className="muted">{oc.entrega}</span></td>
                   <td><span className={`badge dot ${OC_META[oc.estado].cls}`}>{OC_META[oc.estado].label}</span></td>
                   <td style={{ textAlign: 'right' }}>
-                    {oc.estado === 'ENVIADA' || oc.estado === 'PARCIAL' ? (
-                      <button className="btn btn-sm btn-primary" onClick={() => setRecibir(oc)}>Recepcionar</button>
-                    ) : oc.estado === 'BORRADOR' ? (
-                      <button className="btn btn-sm btn-soft" onClick={() => setOcs((xs) => xs.map((o) => (o.id === oc.id ? { ...o, estado: 'ENVIADA' } : o)))}>Enviar</button>
-                    ) : (
-                      <span className="muted" style={{ fontSize: 12 }}>Completada</span>
-                    )}
+                    <OcAccion oc={oc} onRecepcionar={() => setRecibir(oc)} onEnviar={() => setOcs((xs) => xs.map((o) => (o.id === oc.id ? { ...o, estado: 'ENVIADA' } : o)))} />
                   </td>
                 </tr>
               ))}

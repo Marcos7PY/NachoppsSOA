@@ -16,8 +16,44 @@ import { CierreDrawer } from './CierreDrawer';
 import { CobroMesaDrawer } from './CobroMesaDrawer';
 import { AperturaCajaModal } from './AperturaCajaModal';
 import type { MovimientoCajaDto } from '../../types/caja.types';
+import type { MesaVM } from '../../types/mesa.types';
 
 type Modal = null | 'apertura' | 'cierre' | 'egreso' | 'ingreso';
+
+interface MesaCobropickerProps {
+  mesas: MesaVM[];
+  onSelect: (mesaId: string, mesaNumero?: string) => void;
+  onClose: () => void;
+}
+
+function MesaCobroPicker({ mesas, onSelect, onClose }: Readonly<MesaCobropickerProps>) {
+  return (
+    <div className="modal-wrap">
+      <Scrim onClose={onClose} />
+      <div className="modal" style={{ width: 460, position: 'relative', zIndex: 1 }}>
+        <div className="panel-h" style={{ padding: '16px 20px' }}>
+          <h3 style={{ fontSize: 17 }}>Cobrar cuenta · elegir mesa</h3>
+          <span className="spacer" />
+          <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
+        </div>
+        <div style={{ padding: 20, display: 'grid', gap: 9, maxHeight: '60vh', overflowY: 'auto' }}>
+          {mesas.length === 0 ? (
+            <div className="muted" style={{ fontSize: 13, padding: 8 }}>No hay mesas ocupadas con cuenta para cobrar.</div>
+          ) : mesas.map((m) => (
+            <button key={m.id} className="rep-opt" onClick={() => onSelect(m.id, m.numero)}>
+              <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{m.numero}</span>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <b style={{ fontSize: 14 }}>Mesa {m.numero}</b>
+                <div className="muted" style={{ fontSize: 12 }}>{m.ubicacion} · {m.capacidad} pers</div>
+              </div>
+              <Icons.ArrowDown s={14} style={{ transform: 'rotate(-90deg)' }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface CobroState { mesaId: string; mesaNumero?: string }
 
@@ -192,27 +228,11 @@ export function CajaScreen() {
 
       {/* Selector de mesa para cobrar */}
       {cobroPicker && (
-        <div className="modal-wrap">
-          <Scrim onClose={() => setCobroPicker(false)} />
-          <div className="modal" style={{ width: 460, position: 'relative', zIndex: 1 }}>
-            <div className="panel-h" style={{ padding: '16px 20px' }}>
-              <h3 style={{ fontSize: 17 }}>Cobrar cuenta · elegir mesa</h3>
-              <span className="spacer" />
-              <button className="icon-btn" onClick={() => setCobroPicker(false)}><Icons.Close s={17} /></button>
-            </div>
-            <div style={{ padding: 20, display: 'grid', gap: 9, maxHeight: '60vh', overflowY: 'auto' }}>
-              {ocupadas.length === 0 ? (
-                <div className="muted" style={{ fontSize: 13, padding: 8 }}>No hay mesas ocupadas con cuenta para cobrar.</div>
-              ) : ocupadas.map((m) => (
-                <button key={m.id} className="rep-opt" onClick={() => { setCobro({ mesaId: m.id, mesaNumero: m.numero }); setCobroPicker(false); }}>
-                  <span className="prov-ava" style={{ width: 38, height: 38, fontSize: 13 }}>{m.numero}</span>
-                  <div style={{ flex: 1, textAlign: 'left' }}><b style={{ fontSize: 14 }}>Mesa {m.numero}</b><div className="muted" style={{ fontSize: 12 }}>{m.ubicacion} · {m.capacidad} pers</div></div>
-                  <Icons.ArrowDown s={14} style={{ transform: 'rotate(-90deg)' }} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        <MesaCobroPicker
+          mesas={ocupadas}
+          onSelect={(mesaId, mesaNumero) => { setCobro({ mesaId, mesaNumero }); setCobroPicker(false); }}
+          onClose={() => setCobroPicker(false)}
+        />
       )}
 
       {cobro && (
