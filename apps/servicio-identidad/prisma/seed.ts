@@ -18,7 +18,8 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 const SALT_ROUNDS = 10;
-const DEFAULT_PASSWORD = 'nachopps123';
+// Solo para datos demo locales; en entornos reales definir SEED_DEFAULT_PASSWORD.
+const DEFAULT_PASSWORD = process.env.SEED_DEFAULT_PASSWORD ?? 'nachopps123';
 
 const usuarios = [
   { nombre: 'Administrador',  email: 'admin@nachopps.pe',      rol: 'ADMIN' },
