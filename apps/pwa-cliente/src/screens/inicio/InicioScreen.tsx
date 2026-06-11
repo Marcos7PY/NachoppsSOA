@@ -1,127 +1,19 @@
-// screens/inicio/InicioScreen.tsx — Dashboard de turno.
-// Todo cableado a datos reales: ventas/top productos (useReportesQuery),
-// ocupación (useMesasQuery), cocina (usePedidosQuery), 86/stock (useInventarioQuery),
-// reservas (useReservasQuery) y caja (useCajaQuery). La actividad reciente se deriva
-// de pedidos + reservas reales.
-
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons, type IconName } from '../../components/ui/icons';
 import { HeroStat } from '../../components/ui/Stat';
-import { fmt, elapsedMin, fechaLocalISO } from '../../utils/format';
-import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
-import { usePedidosQuery } from '../../hooks/queries/usePedidosQuery';
-import { useCajaQuery } from '../../hooks/queries/useCajaQuery';
-import { useReportesQuery } from '../../hooks/queries/useReportesQuery';
-import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
-import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
-
-const COCINA_SLA_MIN = 15;
-const STOCK_BAJO = 5;
-const ESTADOS_ACTIVOS = new Set(['PENDIENTE', 'EN_PREPARACION']);
-
-interface Actividad {
-  key: string;
-  t: string;
-  d: string;
-  at: string;
-  ic: IconName;
-  c: string;
-}
+import { fmt, elapsedMin } from '../../utils/format';
+import { useInicioData } from '../../hooks/useInicioData';
 
 export function InicioScreen() {
   const navigate = useNavigate();
   const go = (key: string) => navigate(`/app/${key}`);
-
-  const hoy = fechaLocalISO();
-  const { mesas } = useMesasQuery();
-  const { pedidos } = usePedidosQuery();
-  const { resumen: caja } = useCajaQuery();
-  const { resumen: reporte } = useReportesQuery();
-  const { reservas } = useReservasQuery({ fecha: hoy });
-  const { productos } = useInventarioQuery();
-
-  // ─── Ventas: REAL (useReportesQuery) ──────────────────────────
-  const totalVentas = reporte?.ingresosTotales ?? 0;
-  const cuentas = reporte?.totalVentas ?? 0;
-  const ticketProm = reporte?.ticketPromedio ?? 0;
-  const ventasHora = useMemo(() => reporte?.ventasPorHora ?? [], [reporte]);
-  const topProductos = reporte?.topProductos ?? [];
-
-  // ─── Caja: REAL (useCajaQuery — turno) ────────────────────────
-  const propinas = caja?.propinas ?? 0;
-  const efectivo = caja?.efectivoEsperado ?? 0;
-  const turnoAbierto = !!caja?.turno;
-
-  // ─── Salón: REAL (useMesasQuery) ──────────────────────────────
-  const salon = useMemo(() => {
-    const total = mesas.length;
-    const ocupadas = mesas.filter((m) => m.estado === 'OCUPADA').length;
-    const reservadas = mesas.filter((m) => m.estado === 'RESERVADA').length;
-    const libres = mesas.filter((m) => m.estado === 'LIBRE').length;
-    return { total, ocupadas, reservadas, libres, limpieza: 0 };
-  }, [mesas]);
-  const ocupPct = salon.total ? Math.round((salon.ocupadas / salon.total) * 100) : 0;
-
-  // ─── Cocina: REAL (usePedidosQuery) ───────────────────────────
-  const cocina = useMemo(() => {
-    const now = Date.now();
-    const activos = pedidos.filter((p) => ESTADOS_ACTIVOS.has(p.estado));
-    const tiempos = activos.map((p) => elapsedMin(p.createdAt, now));
-    const prom = tiempos.length ? Math.round(tiempos.reduce((a, b) => a + b, 0) / tiempos.length) : 0;
-    const demora = activos.filter((p) => elapsedMin(p.createdAt, now) >= COCINA_SLA_MIN).length;
-    return { activos: activos.length, prom, demora };
-  }, [pedidos]);
-
-  // ─── 86 y stock bajo: REAL (useInventarioQuery) ───────────────
-  const items86 = useMemo(
-    () => productos.filter((p) => !p.disponible).map((p) => p.nombre),
-    [productos],
-  );
-  const stockAlerts = useMemo(
-    () => productos.filter((p) => p.stockActual != null && p.stockActual <= STOCK_BAJO),
-    [productos],
-  );
-
-  // ─── Próximas reservas del día: REAL (useReservasQuery) ───────
-  const reservasProx = useMemo(
-    () =>
-      reservas
-        .filter((r) => r.estado !== 'CANCELADA' && r.estado !== 'EXPIRADA')
-        .sort((a, b) => a.hora.localeCompare(b.hora))
-        .slice(0, 5),
-    [reservas],
-  );
-
-  // ─── Actividad reciente: derivada de pedidos + reservas ───────
-  const actividad = useMemo<Actividad[]>(() => {
-    const dePedidos: Actividad[] = pedidos.map((p) => {
-      const meta: { t: string; ic: IconName; c: string } =
-        p.estado === 'PAGADO' ? { t: 'Pago registrado', ic: 'Receipt', c: 'var(--ok)' }
-        : p.estado === 'LISTO' ? { t: 'Pedido listo', ic: 'Check', c: 'var(--ok)' }
-        : p.estado === 'ENTREGADO' ? { t: 'Pedido entregado', ic: 'Check', c: 'var(--info)' }
-        : p.estado === 'CANCELADO' ? { t: 'Pedido cancelado', ic: 'Alert', c: 'var(--danger)' }
-        : { t: 'Pedido a cocina', ic: 'Cocina', c: 'var(--accent)' };
-      const donde = p.cliente ? p.cliente : `Mesa ${p.mesaNumero}`;
-      return { key: `p-${p.id}`, t: meta.t, d: `${donde} · ${p.cantidadItems} ítem(s)`, at: p.createdAt, ic: meta.ic, c: meta.c };
-    });
-    const deReservas: Actividad[] = reservas
-      .filter((r) => r.estado === 'CONFIRMADA')
-      .map((r) => ({
-        key: `r-${r.id}`,
-        t: 'Reserva confirmada',
-        d: `${r.clienteNombre} · ${r.numComensales} pax · ${r.hora}`,
-        at: r.createdAt,
-        ic: 'Reservas' as IconName,
-        c: 'var(--info)',
-      }));
-    return [...dePedidos, ...deReservas]
-      .filter((a) => !Number.isNaN(Date.parse(a.at)))
-      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
-      .slice(0, 6);
-  }, [pedidos, reservas]);
-
-  const atencionCount = cocina.demora + items86.length + stockAlerts.length;
+  const {
+    totalVentas, cuentas, ticketProm, topProductos, ventasHora,
+    propinas, efectivo, turnoAbierto,
+    salon, ocupPct, cocina,
+    items86, stockAlerts, STOCK_BAJO,
+    reservasProx, actividad, atencionCount,
+  } = useInicioData();
 
   return (
     <div>
@@ -137,7 +29,6 @@ export function InicioScreen() {
         </div>
       </div>
 
-      {/* Hero KPIs */}
       <div className="grid-stats" style={{ marginBottom: 16 }}>
         <HeroStat icon="Trend" color="var(--accent)" soft="var(--accent-soft)" k="Ventas del día" v={fmt(totalVentas)} sub="acumulado del día">
           {ventasHora.length > 0 && <Spark data={ventasHora.map((x) => x.total)} />}
@@ -149,9 +40,7 @@ export function InicioScreen() {
       </div>
 
       <div className="module-grid">
-        {/* Columna principal */}
         <div style={{ display: 'grid', gap: 16 }}>
-          {/* Ventas por hora */}
           <section className="panel">
             <div className="panel-h"><h3>Ventas por hora</h3><span className="spacer" /><span className="pill-soft">Hoy</span></div>
             <div style={{ padding: '8px 16px 16px' }}>
@@ -162,11 +51,10 @@ export function InicioScreen() {
                   {ventasHora.map((x) => {
                     const max = Math.max(...ventasHora.map((y) => y.total)) || 1;
                     const peak = x.total === max && x.total > 0;
-                    const etiqueta = x.hora.split(':')[0];
                     return (
                       <div key={x.hora} className="bar-col" title={`${x.hora} · ${fmt(x.total)}`}>
                         <div className="bar tall" style={{ height: `${Math.max(3, (x.total / max) * 100)}%`, background: peak ? 'var(--accent)' : 'var(--accent-soft)' }} />
-                        <span className="bar-lbl">{etiqueta}h</span>
+                        <span className="bar-lbl">{x.hora.split(':')[0]}h</span>
                       </div>
                     );
                   })}
@@ -175,7 +63,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Top productos */}
           <section className="panel">
             <div className="panel-h"><h3>Top productos del día</h3></div>
             <div className="table-wrap table-wrap-flat">
@@ -186,12 +73,7 @@ export function InicioScreen() {
                     <tr><td colSpan={3} style={{ textAlign: 'center', padding: 20 }} className="muted">Aún no hay ventas en el turno.</td></tr>
                   ) : topProductos.map((p, i) => (
                     <tr key={p.productoId ?? p.nombre}>
-                      <td>
-                        <div className="row" style={{ gap: 10 }}>
-                          <span className="dish-q" style={{ background: 'var(--surface-3)', color: 'var(--text-2)' }}>{i + 1}</span>
-                          <strong>{p.nombre}</strong>
-                        </div>
-                      </td>
+                      <td><div className="row" style={{ gap: 10 }}><span className="dish-q" style={{ background: 'var(--surface-3)', color: 'var(--text-2)' }}>{i + 1}</span><strong>{p.nombre}</strong></div></td>
                       <td><span className="mono">{p.cantidad}</span></td>
                       <td style={{ textAlign: 'right' }} className="mono"><strong>{fmt(p.ingresos ?? 0)}</strong></td>
                     </tr>
@@ -201,7 +83,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Actividad reciente */}
           <section className="panel">
             <div className="panel-h"><h3>Actividad reciente</h3></div>
             <div style={{ padding: '14px 18px' }}>
@@ -231,9 +112,7 @@ export function InicioScreen() {
           </section>
         </div>
 
-        {/* Lateral */}
         <aside className="module-side">
-          {/* Requiere atención */}
           <section className="panel">
             <div className="panel-h"><h3>Requiere atención</h3><span className="spacer" /><span className="badge badge-danger dot">{atencionCount}</span></div>
             <div className="att-list">
@@ -244,7 +123,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Salón ahora (REAL) */}
           <section className="panel">
             <div className="panel-h"><h3>Salón ahora</h3><span className="spacer" /><span className="pill-soft">{ocupPct}% ocupado</span></div>
             <div style={{ padding: '14px 16px' }}>
@@ -262,7 +140,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Cocina ahora (REAL) */}
           <section className="panel">
             <div className="panel-h"><h3>Cocina ahora</h3></div>
             <div className="mini-stat">
@@ -276,7 +153,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Caja */}
           <section className="panel">
             <div className="panel-h"><h3>Caja</h3><span className="spacer" /><span className={`badge ${turnoAbierto ? 'badge-ok' : 'badge-muted'} dot`}>{turnoAbierto ? 'Abierta' : 'Sin turno'}</span></div>
             <div className="mini-stat">
@@ -290,7 +166,6 @@ export function InicioScreen() {
             </div>
           </section>
 
-          {/* Próximas reservas (REAL) */}
           <section className="panel">
             <div className="panel-h"><h3>Próximas reservas</h3><span className="spacer" /><span className="pill-soft">hoy</span></div>
             <div>
@@ -319,7 +194,7 @@ function Spark({ data }: { data: number[] }) {
   const max = Math.max(...data) || 1;
   const w = 100;
   const h = 38;
-  const denom = data.length > 1 ? data.length - 1 : 1; // evita /0 → NaN con un solo punto
+  const denom = data.length > 1 ? data.length - 1 : 1;
   const pts = data.map((v, i) => `${(i / denom) * w},${h - (v / max) * (h - 4) - 2}`).join(' ');
   const area = `0,${h} ${pts} ${w},${h}`;
   return (
@@ -330,14 +205,7 @@ function Spark({ data }: { data: number[] }) {
   );
 }
 
-interface AttProps {
-  ic: IconName;
-  c: 'danger' | 'warn' | 'ok' | 'info';
-  t: string;
-  s: string;
-  go: () => void;
-}
-
+interface AttProps { ic: IconName; c: 'danger' | 'warn' | 'ok' | 'info'; t: string; s: string; go: () => void }
 function Att({ ic, c, t, s, go }: AttProps) {
   const Ic = Icons[ic];
   return (
