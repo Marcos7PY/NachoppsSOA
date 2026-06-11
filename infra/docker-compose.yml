@@ -533,7 +533,7 @@ services:
     image: infra-pwa-cliente
     container_name: nachopps-pwa-cliente
     ports:
-      - '4200:80'
+      - '4200:8080'
     profiles: ['all']
 
 volumes:
