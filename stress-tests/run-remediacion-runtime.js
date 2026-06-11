@@ -311,7 +311,7 @@ async function P62_db_restart() {
   for (let i = 0; i < 40; i++) { const r = await createPedido(mesa.id, prod.id, 1); status = r.status; if (r.ok) { ok = true; break; } await sleep(1000); }
   await sleep(4000);
   let outbox = '';
-  try { outbox = psql('nachopps-db-pedidos', 'pedidos_db', "select coalesce(string_agg(status||':'||c,','),'vacio') from (select status, count(*) c from \"OutboxEvent\" group by status) t;"); } catch (e) { outbox = e.message; }
+  try { outbox = psql('nachopps-db-pedidos', 'pedidos_db', "select coalesce(string_agg(status||':'||c,','),'vacio') from (select status, count(*) c from outbox_events group by status) t;"); } catch (e) { outbox = e.message; }
   rec('P-62 restart db-pedidos bajo carga', ok, `pedido tras reconexión=${status}; outbox={${outbox}}`);
 }
 
