@@ -22,12 +22,15 @@ quedan para cuando el usuario provea credenciales reales.
 
 ## A — 4.2 Subir cobertura de tests · L (incremental) · 🟡
 
-### Estado actual
+### Estado actual (actualizado 2026-06-11)
 Umbrales en `vitest.config.mts` (no bajar, solo subir):
 ```
-branches: 32 · functions: 29 · lines: 35 · statements: 34
+branches: 45 · functions: 38 · lines: 53 · statements: 52
 ```
-La suite está en **200/200 verde** y corre con `TZ=America/Lima` fijo (determinista).
+Cobertura real en `4a2f6fe`: lines 53.06% · statements 52.03% · branches 50.65% · functions 46.06%.
+La suite está en **494/494 verde** y corre con `TZ=America/Lima` fijo (determinista).
+
+> D-1 (lint 25/25 verde) y D-2 (pisos 53/52 recuperados) del plan de cierre completados.
 
 ### Focos reales (medidos con `npx vitest run --coverage`)
 Clusters en **0%** que más mueven la aguja:

@@ -1,11 +1,14 @@
 # Plan de cierre de deuda técnica — próxima sesión
 
+> **Estado 2026-06-11:** D-0 ✅ · D-1 ✅ · D-2 ✅ | D-3 ⏳ (Docker) · D-4 ⏳ (Docker) · D-5 ⏳ (manual) · D-6 parcial
+
 > **Propósito.** Cerrar todo lo que quedó pendiente tras completar el plan SonarQube
 > (quality gate PASSED, 0 issues, 2026-06-11): publicar el trabajo, dejar el lint y la
 > cobertura verdes en CI, validar en runtime el refactor masivo, correr ZAP y encaminar
 > el sign-off manual.
 >
 > **HEAD de referencia:** `6d230d8` (rama `dev`, 10 commits sin push).
+> **HEAD actual:** `4a2f6fe` (rama `dev`, pushed — D-1 + D-2 incluidos).
 > **Duración estimada:** 1 sesión (~3-4 h); D-5 requiere además una ventana en staging.
 > **Orden:** D-0 → D-3 es secuencial (no publicar sin validar runtime sería razonable
 > invertirlo: si se prefiere prudencia, ejecutar D-3 antes de D-0). D-4/D-5/D-6 son
