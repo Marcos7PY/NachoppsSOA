@@ -52,7 +52,7 @@ export function useToast(): ToastContextValue {
   return ctx;
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const toast = useCallback((opts: ToastOptions) => {
