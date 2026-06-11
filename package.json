@@ -19,7 +19,10 @@
     "probar:alta-contencion": "node stress-tests/run-high-contention.js",
     "probar:caos": "node stress-tests/run-rabbitmq-chaos.js",
     "probar:replicas": "node stress-tests/run-outbox-replicas.js",
-    "drift": "bash scripts/check-migration-drift.sh"
+    "drift": "bash scripts/check-migration-drift.sh",
+    "seguridad:sonar": "pwsh scripts/sonar-scan.ps1",
+    "seguridad:zap": "pwsh scripts/zap-baseline.ps1",
+    "seguridad:deps": "npm audit --omit=dev --audit-level=high"
   },
   "private": true,
   "devDependencies": {

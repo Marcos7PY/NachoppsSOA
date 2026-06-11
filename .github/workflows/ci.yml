@@ -79,6 +79,18 @@ jobs:
           path: .ci-logs
           if-no-files-found: ignore
 
+  dependencias-vulnerables:
+    # OWASP A06: falla si hay vulnerabilidades high/critical en dependencias
+    # de producción. Ver docs/seguridad-owasp-top10.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm audit --omit=dev --audit-level=high
+
   migration-drift:
     # Falla el build si algún schema.prisma quedó desincronizado de sus
     # migraciones (plan 1.2). Usa un Postgres descartable como shadow DB.
