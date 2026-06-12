@@ -1,6 +1,9 @@
 /**
  * NachoPps — Población de datos de prueba
  *
+ * SOLO DESARROLLO. Usa credenciales debiles a proposito (admin `nachopps123`)
+ * y datos demo. NUNCA ejecutar contra un VPS/host publico ni datos reales.
+ *
  * Uso: npx tsx scripts/poblar-datos.ts
  * Requiere: Stack Docker corriendo (levantar-todo.ps1)
  *

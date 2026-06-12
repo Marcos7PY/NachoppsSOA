@@ -8,7 +8,6 @@ import type {
   ItemArea as ContractItemArea,
   EstadoItem as ContractEstadoItem,
   ListarPedidosQuery,
-  ModificadorItem as ContractModificadorDto,
   PedidoDto as ContractPedidoDto,
   PedidoEstado as ContractEstadoPedido,
   PedidoItemDto as ContractPedidoItemDto,
@@ -46,7 +45,6 @@ export const ItemArea = {
 export type ItemArea = ContractItemArea;
 
 // ─── DTO del backend ────────────────────────────────────────────
-export type ModificadorDto = ContractModificadorDto;
 export type PedidoItemDto = ContractPedidoItemDto;
 export type PedidoDto = ContractPedidoDto;
 export type PedidoListQuery = ListarPedidosQuery;
@@ -60,7 +58,6 @@ export interface PedidoItemVM {
   cantidad: number;
   precioUnitario: number;
   subtotal: number;
-  modificadores: ModificadorDto[];
   area: ItemArea;
   notas: string;
   estado: EstadoItem;

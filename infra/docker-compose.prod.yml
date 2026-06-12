@@ -472,9 +472,7 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: nachopps-jaeger
     restart: unless-stopped
-    # Sin exponer puertos en prod o exponer solo el de grafana
-    ports:
-      - '16686:16686'
+    # Sin puertos expuestos en prod. Acceso a la UI de Jaeger solo por tunel SSH/red interna.
 
   prometheus:
     image: prom/prometheus:latest
@@ -498,7 +496,7 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:?GRAFANA_PASS es obligatorio en produccion}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

@@ -15,19 +15,27 @@ export interface NotificacionEvento {
   data: unknown;
 }
 
+export function resolveWsCorsOrigins(): string[] {
+  if (process.env.CORS_ORIGIN) {
+    return process.env.CORS_ORIGIN.split(',').map((o) => o.trim());
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('CORS_ORIGIN environment variable is required in production');
+  }
+  return [
+    'http://localhost:3000',
+    'http://localhost:4200',
+    'http://localhost:4201',
+    'http://localhost:5173',
+    'http://127.0.0.1:4200',
+    'http://127.0.0.1:4201',
+    'http://127.0.0.1:5173',
+  ];
+}
+
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGIN
-      ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-      : [
-          'http://localhost:3000',
-          'http://localhost:4200',
-          'http://localhost:4201',
-          'http://localhost:5173',
-          'http://127.0.0.1:4200',
-          'http://127.0.0.1:4201',
-          'http://127.0.0.1:5173',
-        ],
+    origin: resolveWsCorsOrigins(),
     credentials: true,
   },
   // Kong enrutará `/notificaciones/socket.io` hacia este path base:

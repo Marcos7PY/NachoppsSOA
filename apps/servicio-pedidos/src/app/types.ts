@@ -7,7 +7,6 @@ export interface PedidoItemMapeado {
   area: string;
   notas?: string;
   comensal: number;
-  modificadores: Array<{ nombre: string; precioExtra?: number }>;
 }
 
 export interface MesaLocalEntity {
@@ -46,12 +45,4 @@ export interface PedidoItemEntity {
   comensal: number;
   meseroId?: string | null;
   meseroNombre?: string | null;
-  modificadores: ModificadorEntity[];
-}
-
-export interface ModificadorEntity {
-  id: string;
-  pedidoItemId: string;
-  nombre: string;
-  precioExtra: unknown;
 }

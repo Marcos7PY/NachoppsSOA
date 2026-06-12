@@ -80,6 +80,19 @@ export class PedidosSagaService {
     return PedidoEstado.Pendiente;
   }
 
+  private recalcularTotalCobrable(
+    items: Array<{ estado: string; precioUnitario: number | { toNumber(): number }; cantidad: number }>,
+  ): number {
+    return items
+      .filter((item) => item.estado !== EstadoItem.RechazadoSinStock)
+      .reduce((total, item) => {
+        const precio = typeof item.precioUnitario === 'number'
+          ? item.precioUnitario
+          : item.precioUnitario.toNumber();
+        return total + precio * item.cantidad;
+      }, 0);
+  }
+
   async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
     const pedido = await this.prisma.$transaction(async (prisma) => {
       const actual = await prisma.pedido.findUnique({ where: { id } });
@@ -91,7 +104,7 @@ export class PedidosSagaService {
       const p = await prisma.pedido.update({
         where: { id },
         data: { estado: command.estado },
-        include: { items: { include: { modificadores: true } } }
+        include: { items: true }
       });
 
       const pedidoDto = mapPedidoToDto(p);
@@ -132,7 +145,7 @@ export class PedidosSagaService {
       const pedidoId = item.pedidoId;
       const pedidoActual = await prisma.pedido.findUnique({
         where: { id: pedidoId },
-        include: { items: { include: { modificadores: true } } },
+        include: { items: true },
       });
       if (!pedidoActual) {
         return { message: 'Estado del ítem actualizado exitosamente' };
@@ -153,11 +166,11 @@ export class PedidosSagaService {
         enProduccion && derivado === PedidoEstado.Listo && estadoActual !== PedidoEstado.Listo;
 
       if (enProduccion && derivado && derivado !== estadoActual) {
-        pedidoFinal =
+          pedidoFinal =
           (await prisma.pedido.update({
             where: { id: pedidoId },
             data: { estado: derivado },
-            include: { items: { include: { modificadores: true } } },
+            include: { items: true },
           })) ?? pedidoActual;
       }
 
@@ -205,7 +218,7 @@ export class PedidosSagaService {
 
         const pedido = await prisma.pedido.findUnique({
           where: { id: pedidoId },
-          include: { items: { include: { modificadores: true } } },
+          include: { items: true },
         });
         if (!pedido) {
           this.logger.warn(`StockInsuficiente: pedido ${pedidoId} no encontrado`);
@@ -220,12 +233,19 @@ export class PedidosSagaService {
           pedido.items.length > 0 &&
           pedido.items.every((i) => i.estado === EstadoItem.RechazadoSinStock);
 
+        const nuevoTotal = this.recalcularTotalCobrable(pedido.items);
         let pedidoFinal = pedido;
         if (todosRechazados && !terminalComercial && pedido.estado !== PedidoEstado.RechazadoSinStock) {
           pedidoFinal = await prisma.pedido.update({
             where: { id: pedidoId },
-            data: { estado: PedidoEstado.RechazadoSinStock },
-            include: { items: { include: { modificadores: true } } },
+            data: { estado: PedidoEstado.RechazadoSinStock, total: nuevoTotal },
+            include: { items: true },
+          });
+        } else {
+          pedidoFinal = await prisma.pedido.update({
+            where: { id: pedidoId },
+            data: { total: nuevoTotal },
+            include: { items: true },
           });
         }
 

@@ -13,9 +13,18 @@ import {
   PedidoActualizadoPayload,
   PedidoCreadoPayload,
   PagoRegistradoPayload,
+  PedidoDto,
+  PedidoEstado,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 import { v4 as uuidv4 } from 'uuid';
+
+type PedidoSnapshot = PedidoDto;
+
+const ESTADOS_NO_COBRABLES = new Set<PedidoEstado>([
+  PedidoEstado.Cancelado,
+  PedidoEstado.RechazadoSinStock,
+]);
 
 @Injectable()
 export class AppService {
@@ -93,6 +102,7 @@ export class AppService {
 
     await this.prisma.$transaction(async (prisma) => {
       // M5: advisory lock por mesa (serializa pedidos concurrentes a la misma cuenta)
+      // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
 
       let cuenta = await prisma.cuenta.findFirst({
@@ -118,12 +128,12 @@ export class AppService {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
+      const snapshot: PedidoSnapshot[] = Array.isArray(cuenta.pedidos)
+        ? [...(cuenta.pedidos as unknown as PedidoSnapshot[])]
+        : [];
 
       // A2: dedup por pedido.id — una reentrega no duplica el cobro
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (snapshot.some((p: any) => p.id === pedidoDto.id)) {
+      if (snapshot.some((p) => p.id === pedidoDto.id)) {
         this.logger.warn(`Pedido ${pedidoDto.id} ya está en la cuenta ${cuenta.id} — ignorado (idempotente)`);
         return;
       }
@@ -131,9 +141,10 @@ export class AppService {
       snapshot.push(pedidoDto);
 
       // A3: recompute del total desde el array, con Decimal (no increment ciego)
-      const total = snapshot.reduce(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
+      const total = snapshot
+        .filter((p) => !ESTADOS_NO_COBRABLES.has(p.estado))
+        .reduce(
+        (acc: Prisma.Decimal, p) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
         new Prisma.Decimal(0),
       );
 
@@ -154,6 +165,7 @@ export class AppService {
 
     await this.prisma.$transaction(async (prisma) => {
       // M5: advisory lock por mesa
+      // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
 
       const cuenta = await prisma.cuenta.findFirst({
@@ -161,10 +173,10 @@ export class AppService {
       });
       if (!cuenta) return;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const snapshot = Array.isArray(cuenta.pedidos) ? [...(cuenta.pedidos as any[])] : [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const index = snapshot.findIndex((p: any) => p.id === pedidoDto.id);
+      const snapshot: PedidoSnapshot[] = Array.isArray(cuenta.pedidos)
+        ? [...(cuenta.pedidos as unknown as PedidoSnapshot[])]
+        : [];
+      const index = snapshot.findIndex((p) => p.id === pedidoDto.id);
 
       if (index >= 0) {
         snapshot[index] = pedidoDto;
@@ -173,9 +185,10 @@ export class AppService {
       }
 
       // A3: recompute total con Decimal desde el snapshot actualizado
-      const total = snapshot.reduce(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (acc: Prisma.Decimal, p: any) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
+      const total = snapshot
+        .filter((p) => !ESTADOS_NO_COBRABLES.has(p.estado))
+        .reduce(
+        (acc: Prisma.Decimal, p) => acc.plus(new Prisma.Decimal(p.total ?? 0)),
         new Prisma.Decimal(0),
       );
 

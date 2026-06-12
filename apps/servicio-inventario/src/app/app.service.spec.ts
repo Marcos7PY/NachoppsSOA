@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
+import { PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
   const mock = {
@@ -9,6 +10,24 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
     ...overrides,
   };
   return mock as any;
+}
+
+function pedidoDto(id: string, items: Array<Record<string, unknown>>) {
+  return {
+    id,
+    mesaId: 'mesa-1',
+    total: 0,
+    estado: PedidoEstado.Pendiente,
+    createdAt: new Date().toISOString(),
+    items: items.map((item, index) => ({
+      id: `item-${index + 1}`,
+      productoId: String(item.productoId),
+      nombre: String(item.nombre ?? item.productoId),
+      cantidad: Number(item.cantidad),
+      precioUnitario: Number(item.precioUnitario ?? 0),
+      notas: typeof item.notas === 'string' ? item.notas : undefined,
+    })),
+  };
 }
 
 describe('AppService — Inventario', () => {
@@ -224,10 +243,9 @@ describe('AppService — Inventario', () => {
   describe('procesarPedidoCreado', () => {
     it('debe fallar antes de registrar idempotencia con marcador QA de DLQ', async () => {
       await expect(
-        service.procesarPedidoCreado({
-          id: 'pedido-force-dlq',
-          items: [{ productoId: 'prod-003', cantidad: 1, notas: '__QA_INVENTARIO_FORCE_DLQ__' }],
-        }),
+        service.procesarPedidoCreado(pedidoDto('pedido-force-dlq', [
+          { productoId: 'prod-003', cantidad: 1, notas: '__QA_INVENTARIO_FORCE_DLQ__' },
+        ])),
       ).rejects.toThrow('Fallo QA controlado');
 
       expect(mockPrisma.idempotencyKey.create).not.toHaveBeenCalled();
@@ -256,10 +274,7 @@ describe('AppService — Inventario', () => {
         });
       mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
 
-      const pedido = {
-        id: 'pedido-redelivery-1',
-        items: [{ productoId: 'prod-003', cantidad: 3 }],
-      };
+      const pedido = pedidoDto('pedido-redelivery-1', [{ productoId: 'prod-003', cantidad: 3 }]);
 
       await service.procesarPedidoCreado(pedido);
       await service.procesarPedidoCreado(pedido);
@@ -290,10 +305,7 @@ describe('AppService — Inventario', () => {
       });
       mockPrisma.producto.updateMany.mockResolvedValue({ count: 0 });
 
-      await service.procesarPedidoCreado({
-        id: 'ped-77',
-        items: [{ productoId: 'prod-x', cantidad: 5 }],
-      });
+      await service.procesarPedidoCreado(pedidoDto('ped-77', [{ productoId: 'prod-x', cantidad: 5 }]));
 
       expect(mockPrisma.outboxEvent.create).toHaveBeenCalledTimes(1);
       const arg = mockPrisma.outboxEvent.create.mock.calls[0][0];
@@ -319,10 +331,7 @@ describe('AppService — Inventario', () => {
         .mockResolvedValueOnce({ id: 'prod-x', nombre: 'Limonada', stockActual: 5, disponible: true });
       mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
 
-      await service.procesarPedidoCreado({
-        id: 'ped-88',
-        items: [{ productoId: 'prod-x', cantidad: 5 }],
-      });
+      await service.procesarPedidoCreado(pedidoDto('ped-88', [{ productoId: 'prod-x', cantidad: 5 }]));
 
       const stockInsuf = mockPrisma.outboxEvent.create.mock.calls.find(
         (c: any) => c[0].data.routingKey === 'stock.insuficiente',

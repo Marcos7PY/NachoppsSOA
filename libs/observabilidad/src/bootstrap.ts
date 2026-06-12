@@ -48,6 +48,9 @@ export async function bootstrapNachoppsService(options: BootstrapOptions): Promi
   if (!process.env.RABBITMQ_URI) {
     throw new Error('RABBITMQ_URI environment variable is required');
   }
+  if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+    throw new Error('CORS_ORIGIN environment variable is required in production');
+  }
 
   const app = await NestFactory.create(module, { bufferLogs: true });
   // Logger JSON estructurado con trace_id/correlationId (plan 5.1).

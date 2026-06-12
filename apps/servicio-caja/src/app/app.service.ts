@@ -319,6 +319,7 @@ export class AppService {
     }
 
     const transaccion = await this.prisma.$transaction(async (prisma) => {
+      // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.cuentaId}), 1, 8))::bit(32)::int)`;
 
       const cuenta = await prisma.cuentaAbierta.upsert({

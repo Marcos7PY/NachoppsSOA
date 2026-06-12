@@ -1,7 +1,7 @@
 // screens/carta/CartaScreen.tsx — Gestión de Carta / Menú
 // Cableado a APIs reales: la Carta son los productos SIN control de stock
 // (useInventarioQuery con conStock=false). Los productos con stock viven en el
-// módulo Inventario. Sin food cost, happy hour ni modificadores.
+// módulo Inventario. Sin food cost ni happy hour.
 
 import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState } from 'react';

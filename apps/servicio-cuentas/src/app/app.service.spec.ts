@@ -240,6 +240,66 @@ describe('AppService — Cuentas', () => {
       });
     });
 
+    it('excluye pedidos CANCELADO del total pero conserva el snapshot', async () => {
+      const pedidoCancelado = { ...pedido, id: 'p-002', total: 30, estado: PedidoEstado.Cancelado };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [{ ...pedido, total: 50 }, { ...pedidoCancelado, estado: PedidoEstado.Pendiente }],
+        total: 80,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoCancelado });
+
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      expect(data.pedidos).toEqual([{ ...pedido, total: 50 }, pedidoCancelado]);
+      expect(data.total.toNumber()).toBe(50);
+    });
+
+    it('excluye pedidos RECHAZADO_SIN_STOCK del total', async () => {
+      const pedidoRechazado = { ...pedido, total: 30, estado: PedidoEstado.RechazadoSinStock };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [pedido],
+        total: 50,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoRechazado });
+
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      expect(data.total.toNumber()).toBe(0);
+    });
+
+    it('suma el total recomputado de un rechazo parcial', async () => {
+      const pedidoParcial = { ...pedido, total: 30, estado: PedidoEstado.Pendiente };
+      mockPrisma.cuenta.findFirst.mockResolvedValue({
+        id: 'c-001',
+        mesaId: 'm-001',
+        estado: CuentaEstado.Abierta,
+        pedidos: [],
+        total: 0,
+      });
+      mockPrisma.cuenta.update.mockResolvedValue({});
+
+      await service.procesarPedidoActualizado({ pedido: pedidoParcial });
+
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      expect(data.total.toNumber()).toBe(30);
+    });
+
+    it('ignora PedidoActualizado si la cuenta abierta ya no existe', async () => {
+      mockPrisma.cuenta.findFirst.mockResolvedValue(null);
+
+      await service.procesarPedidoActualizado({ pedido });
+
+      expect(mockPrisma.cuenta.update).not.toHaveBeenCalled();
+    });
+
     it('pago.registrado recibe payload directo y cierra cuenta', async () => {
       mockPrisma.cuenta.findUnique.mockResolvedValue({
         id: 'c-001',

@@ -949,7 +949,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .cuenta-prev-it { display: flex; gap: 8px; font-size: 12.5px; padding: 2px 0; color: var(--text-2); }
 .cuenta-prev-it .q { font-weight: 800; color: var(--text-2); }
 
-/* modal de modificadores */
+/* modal de opciones */
 .mod-group { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .mod-group:last-child { border-bottom: 0; }
 .mod-head { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; }

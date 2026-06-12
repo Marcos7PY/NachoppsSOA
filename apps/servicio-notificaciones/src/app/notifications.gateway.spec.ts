@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeAll, vi } from 'vitest';
+import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { JwtService } from '@nestjs/jwt';
-import { NotificationsGateway } from './notifications.gateway';
+import { NotificationsGateway, resolveWsCorsOrigins } from './notifications.gateway';
 
 // ── Claves de prueba (mismo modelo que producción) ──────────────────────────
 // RS256: par de claves; el privado firma tokens de USUARIO, el público verifica.
@@ -15,6 +15,11 @@ const { publicKey, privateKey } = generateKeyPairSync('rsa', {
 const SERVICE_SECRET = 'test-service-secret';
 
 beforeAll(() => {
+  process.env.JWT_PUBLIC_KEY = publicKey;
+  process.env.SERVICE_JWT_SECRET = SERVICE_SECRET;
+});
+
+beforeEach(() => {
   process.env.JWT_PUBLIC_KEY = publicKey;
   process.env.SERVICE_JWT_SECRET = SERVICE_SECRET;
 });
@@ -54,6 +59,38 @@ describe('NotificationsGateway', () => {
   // JwtService REAL (no mock): el módulo solo firma HS256, pero el gateway pasa
   // la clave/algoritmo por llamada. Así el test ejerce la verificación de verdad.
   const gateway = new NotificationsGateway(new JwtService({}));
+
+  describe('resolveWsCorsOrigins', () => {
+    const envSnapshot = { ...process.env };
+
+    afterEach(() => {
+      process.env = { ...envSnapshot };
+    });
+
+    it('falla rapido en produccion sin CORS_ORIGIN', () => {
+      delete process.env.CORS_ORIGIN;
+      process.env.NODE_ENV = 'production';
+
+      expect(() => resolveWsCorsOrigins()).toThrow(/CORS_ORIGIN/);
+    });
+
+    it('usa CORS_ORIGIN en produccion', () => {
+      process.env.NODE_ENV = 'production';
+      process.env.CORS_ORIGIN = 'https://app.example.com, https://admin.example.com';
+
+      expect(resolveWsCorsOrigins()).toEqual([
+        'https://app.example.com',
+        'https://admin.example.com',
+      ]);
+    });
+
+    it('mantiene fallback local fuera de produccion', () => {
+      delete process.env.CORS_ORIGIN;
+      process.env.NODE_ENV = 'test';
+
+      expect(resolveWsCorsOrigins()).toContain('http://localhost:4200');
+    });
+  });
 
   it('desconecta conexiones sin token', async () => {
     const client = createClient();

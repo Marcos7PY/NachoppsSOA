@@ -1,6 +1,6 @@
 # Plan de implementación atómico — Remediación de auditoría NachoPps SOA
 
-**Origen:** auditoría atómica (informe `auditoria-nachopps.md`). Cubre M-01, M-02, L-01, L-02, L-03 y H-01…H-07, más un hallazgo adicional (V-01) detectado al preparar este plan.
+**Origen:** auditoría atómica (informe `auditoria-nachopps.md`). Cubre M-01, M-02, L-01, L-02, L-03 y H-01…H-07.
 
 **Convención:** las tareas continúan la numeración del repo (la más alta existente es T-40). Cada tarea es atómica: un PR, un objetivo, criterios de aceptación verificables, rollback claro. El orden de las fases es el orden de ejecución recomendado; dentro de una fase las tareas son paralelizables salvo dependencia explícita.
 
@@ -18,23 +18,6 @@ Para las tareas de la Fase 1, además: `npm run probar:stock` y `npm run probar:
 
 ---
 
-## Fase 0 — Verificación previa (bloquea el diseño de la Fase 1)
-
-### T-41 · V-01: Confirmar la semántica de `modificadores.precioExtra` en el total
-
-**Hallazgo:** `calcularTotal` (`apps/servicio-pedidos/src/app/app.service.ts:167`) suma `precioUnitario × cantidad` e ignora `modificadores.precioExtra` (campo `Decimal @default(0)` en `schema.prisma:79`). Hoy, un modificador con precio > 0 no se cobraría.
-
-**Acción:**
-1. Decidir y documentar la regla de negocio en `docs/decisiones/` (ADR corto): ¿los modificadores son gratuitos (precioExtra siempre 0, campo reservado) o cobrables?
-2. **Si son cobrables:** corregir `calcularTotal` para sumar `(precioUnitario + Σ precioExtra) × cantidad` ANTES de implementar T-42, porque la fórmula de recompute de T-42 debe ser idéntica a la de creación. Añadir spec unitario con un ítem con modificador de precio.
-3. **Si son gratuitos:** dejar constancia en el ADR y en un comentario sobre `calcularTotal`; extraer la fórmula a una función exportada `calcularTotalItems(items)` en `pedido.mapper.ts` para que T-42 la reutilice y nunca diverjan.
-
-**Archivos:** `apps/servicio-pedidos/src/app/app.service.ts`, `apps/servicio-pedidos/src/app/pedido.mapper.ts`, `docs/decisiones/`, spec nuevo.
-
-**Aceptación:** existe una única función de cálculo de total, usada por creación y (tras T-42) por compensación; spec que fija la fórmula elegida.
-
----
-
 ## Fase 1 — Integridad contable (M-01) — *prioridad máxima*
 
 El defecto tiene dos mitades complementarias. Se corrigen ambas: pedidos como **fuente de verdad del importe cobrable de un pedido activo**, y cuentas como **defensa que excluye estados no cobrables**. Así, un fallo en una capa no reabre el agujero.
@@ -45,7 +28,7 @@ El defecto tiene dos mitades complementarias. Se corrigen ambas: pedidos como **
 
 **Cambio:** dentro de la misma `$transaction` existente, después del `updateMany` que marca ítems `RECHAZADO_SIN_STOCK` y del `findUnique` que recarga el pedido con ítems:
 
-1. Recalcular el total con la función única de T-41 sobre los ítems con `estado !== RECHAZADO_SIN_STOCK`.
+1. Recalcular el total con una función única sobre los ítems con `estado !== RECHAZADO_SIN_STOCK`.
 2. Persistirlo en el `update` del pedido (tanto en la rama "todos rechazados → pedido RECHAZADO_SIN_STOCK", donde el total resultante será 0, como en la rama de rechazo parcial, donde hoy **no hay ningún update del pedido** — habrá que añadirlo: `prisma.pedido.update({ where: { id: pedidoId }, data: { total: nuevoTotal } })`).
 3. No tocar el `outboxEvent` final: `mapPedidoToDto(pedidoFinal)` ya serializa `total` desde la entidad, así que el `PedidoActualizado` emitido llevará el total corregido automáticamente — siempre que `pedidoFinal` sea la entidad **releída tras el update del total**, no el snapshot previo. Cuidar ese orden.
 
@@ -212,16 +195,14 @@ Un solo `updateMany` es atómico por sí mismo (no necesita `$transaction`) e id
 ## Orden de ejecución y dependencias
 
 ```
-Fase 0:  T-41 (V-01) ──┐
-                        ├──► T-42 ──► T-44 ──► T-45 (opcional)
-Fase 1:        T-43 ───┘        (T-43 ∥ T-42; T-44 requiere ambos)
+Fase 1:  T-42 ∥ T-43 ──► T-44 ──► T-45 (opcional)
 Fase 2:  T-46 ∥ T-47            (independientes de todo)
 Fase 3:  T-48                   (independiente)
 Fase 4:  T-49 ∥ T-50            (independientes)
 Fase 5:  T-51…T-56              (independientes; T-52 idealmente antes o junto a T-43)
 ```
 
-Estimación gruesa por tarea (implementación + pruebas + PR): T-41 0.5-1 d (depende de la decisión de negocio) · T-42 1 d · T-43 0.5 d · T-44 1 d · T-45 0.5 d · T-46 0.5 d · T-47 0.25 d · T-48 0.5 d · T-49 0.5 d · T-50 0.25 d · Fase 5 completa 1-1.5 d. **Total: ~7-8 días de trabajo efectivo.**
+Estimación gruesa por tarea (implementación + pruebas + PR): T-42 1 d · T-43 0.5 d · T-44 1 d · T-45 0.5 d · T-46 0.5 d · T-47 0.25 d · T-48 0.5 d · T-49 0.5 d · T-50 0.25 d · Fase 5 completa 1-1.5 d. **Total: ~6-7 días de trabajo efectivo.**
 
 ## Definición de hecho (global)
 

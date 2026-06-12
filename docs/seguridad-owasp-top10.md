@@ -33,6 +33,7 @@ desechable, nunca a datos reales.
 
 ### A05 — Security Misconfiguration
 - **Cubierto:** `helmet` con opciones centralizadas (`libs/shared-auth/src/lib/helmet.config.ts`), CORS con allowlist explícita (Kong + Nest), Swagger deshabilitado en producción, `GlobalExceptionFilter` evita fugas de stack traces.
+- **Fail-fast prod:** `CORS_ORIGIN`, `GRAFANA_PASS` y secretos de infraestructura son obligatorios; Jaeger no publica UI sin autenticación en el compose productivo.
 - **Verificar:** reglas ZAP 10020/10021/10038/10055 (cabeceras) en FAIL.
 
 ### A06 — Vulnerable and Outdated Components
@@ -41,6 +42,7 @@ desechable, nunca a datos reales.
 
 ### A07 — Identification and Authentication Failures
 - **Cubierto:** login con bcrypt + comparación constante, refresh tokens rotados con detección de reuso (revocación de la familia), rate-limiting agresivo en rutas de auth (Kong), cookies con `httpOnly`/`SameSite`.
+- **JWT S2S:** `SERVICE_AUD_ENFORCE=true` es la configuración estándar. El modo tolerante queda solo como rollback temporal y debe retirarse en la siguiente release mayor (T-56b). Invariante de confusión de algoritmo: `docs/invariantes/jwt-confusion-algoritmo.md`.
 
 ### A08 — Software and Data Integrity Failures
 - **Cubierto:** patrón outbox + DLX en RabbitMQ garantiza integridad de eventos; lockfile (`package-lock.json`) versionado.

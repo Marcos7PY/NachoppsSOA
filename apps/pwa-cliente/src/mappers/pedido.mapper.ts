@@ -48,7 +48,6 @@ function mapItem(dto: PedidoItemDto, pedidoId: string): PedidoItemVM {
     cantidad: dto.cantidad,
     precioUnitario: dto.precioUnitario,
     subtotal: dto.cantidad * dto.precioUnitario,
-    modificadores: dto.modificadores ?? [],
     area: dto.area ?? 'COCINA',
     notas: dto.notas ?? '',
     estado,

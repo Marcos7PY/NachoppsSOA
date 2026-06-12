@@ -12,6 +12,7 @@ import {
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
   StockInsuficientePayload,
+  PedidoCreadoPayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
 
@@ -219,6 +220,7 @@ export class AppService {
 
   async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
     const actualizado = await this.prisma.$transaction(async (prisma) => {
+      // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${id}), 1, 8))::bit(32)::int)`;
 
       const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
@@ -265,9 +267,8 @@ export class AppService {
     await this.reducirStockAutomaticoConPrisma(this.prisma, id, cantidad);
   }
 
-  /* eslint-disable @typescript-eslint/no-explicit-any */
   private async reducirStockAutomaticoConPrisma(
-    prisma: any,
+    prisma: Prisma.TransactionClient,
     id: string,
     cantidad: number,
     pedidoId?: string,
@@ -344,17 +345,14 @@ export class AppService {
 
     this.logger.log(`Stock reducido para ${productoFinal?.nombre ?? id}: -> ${productoFinal?.stockActual}`);
   }
-  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async procesarPedidoCreado(pedido: any): Promise<void> {
+  async procesarPedidoCreado(pedido: PedidoCreadoPayload['pedido']): Promise<void> {
     if (!pedido?.id || !Array.isArray(pedido.items)) {
       this.logger.warn('PedidoCreado sin id/items — ignorado');
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (pedido.items.some((item: any) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
+    if (pedido.items.some((item) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
       throw new Error(`Fallo QA controlado para pedido ${pedido.id}`);
     }
     const key = `pedido.creado:${pedido.id}`;
