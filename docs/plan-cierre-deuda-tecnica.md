@@ -1,6 +1,6 @@
 # Plan de cierre de deuda técnica — próxima sesión
 
-> **Estado 2026-06-11:** D-0 ✅ · D-1 ✅ · D-2 ✅ | D-3 ⏳ (Docker) · D-4 ⏳ (Docker) · D-5 ⏳ (manual) · D-6 parcial
+> **Estado 2026-06-11:** D-0 ✅ · D-1 ✅ · D-2 ✅ · D-4 ✅ | D-3 ⏳ (Docker) · D-5 ⏳ (manual) · D-6 parcial
 
 > **Propósito.** Cerrar todo lo que quedó pendiente tras completar el plan SonarQube
 > (quality gate PASSED, 0 issues, 2026-06-11): publicar el trabajo, dejar el lint y la
@@ -120,6 +120,10 @@ login → `docker restart nachopps-kong`; P-62 imprime un error cosmético de ta
 
 ## D-4 · ZAP baseline · ~20 min (requiere stack de D-3 arriba)
 
+> **Cerrado en S-E:** Quality Gate PASSED sobre `12ba476`; ZAP sin FAIL documentado en
+> `docs/operacion/seguridad-interna-mtls-zap.md`; evidencia en
+> `logs/security-run-20260611-185423`.
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/zap-baseline.ps1
 ```
@@ -160,6 +164,6 @@ Ejecutar `docs/plan-sign-off-final.md` tal cual (no duplicar aquí):
 | D-1 | Lint 25/25 verde | `nx run-many -t lint` |
 | D-2 | Pisos de cobertura verdes | `npx vitest run` sin ERROR |
 | D-3 | Runtime sin regresiones del refactor | http 8/8 · smoke 4/4 · caos 3/3 · stock 12/12 · conc 5/5 |
-| D-4 | ZAP triado | 0 High; doc actualizado |
+| D-4 | ZAP triado | 0 High; `docs/operacion/seguridad-interna-mtls-zap.md` y OWASP actualizados |
 | D-5 | Sign-off manual | tabla §6 de plan-sign-off-final firmada |
 | D-6 | Sonar abajo + rutina anotada | `docker ps` sin contenedores sonar |

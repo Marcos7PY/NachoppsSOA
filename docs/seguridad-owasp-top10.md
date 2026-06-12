@@ -59,6 +59,7 @@ desechable, nunca a datos reales.
 - **Cabecera `Server` de Kong**: mitigado con `KONG_HEADERS: 'off'` en `infra/docker-compose.yml` (replicar en `docker-compose.prod.yml`).
 - **`typescript:S7764` (`globalThis` vs `window`)**: en una PWA que solo corre en navegador, `window` es el idioma natural. Desactivada en el Quality Profile clonado **"Nachopps way (TS)"**, asignado al proyecto (2026-06-11).
 - **`Web:S5725` (Google Fonts sin SRI)**: marcada como *aceptada* en SonarQube con comentario; misma justificación que arriba.
+- **ZAP `10049` y `90005` (2026-06-11)**: aceptados en `docs/operacion/seguridad-interna-mtls-zap.md`; `10049` aparece en rutas 404 cacheables y `90005` corresponde a headers `Sec-Fetch-*` ausentes en requests del scanner.
 
 ## Estado SonarQube (2026-06-11, cierre del plan de remediación)
 
@@ -67,6 +68,20 @@ desechable, nunca a datos reales.
 - La línea base de *New Code* se fijó en el análisis del cierre de la remediación
   (`SPECIFIC_ANALYSIS` 2026-06-11): la deuda de cobertura previa queda medida como
   cobertura global (~40%) y el gate exige cobertura solo al código nuevo.
+
+## Cierre S-E (2026-06-11)
+
+- `Math.random()` eliminado de la PWA para claves de idempotencia e ids efimeros; las claves `Idempotency-Key` usan Web Crypto.
+- Imagen Docker de la PWA migrada a `nginxinc/nginx-unprivileged` en puerto 8080, con `COPY` explicito y config nginx versionada.
+- Hotspots `http://` internos: dictamen registrado en Sonar como **Safe** con justificacion de red Docker interna, S2S HS256 con audiencia estricta y TLS en Kong; mTLS interno queda documentado como mejora futura.
+- Nota operativa de ZAP/cobertura/mTLS: `docs/operacion/seguridad-interna-mtls-zap.md`.
+- **Quality gate final:** PASSED sobre `12ba476` (`logs/security-run-20260611-185423`).
+  Valores auditados: `new_violations = 0`, `new_security_hotspots_reviewed = 100.0%`,
+  `new_coverage = 77.2%`, cobertura global Sonar `41.9%`, `0` bugs, `0`
+  vulnerabilidades y `0` code smells.
+- Hotspots revisados: los 3 `http://` internos quedaron `SAFE`; el hotspot historico
+  del Dockerfile quedo `SAFE` tras verificar imagen `nginx-unprivileged` y smoke
+  `whoami=nginx`.
 
 ## Rutina recomendada
 
