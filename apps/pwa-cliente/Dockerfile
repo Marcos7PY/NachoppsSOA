@@ -16,7 +16,7 @@ COPY apps/pwa-cliente ./apps/pwa-cliente
 # Vite hornea import.meta.env.VITE_* desde .env.production (root = apps/pwa-cliente).
 # Lo reescribimos con la URL del gateway de este entorno antes de compilar.
 RUN printf 'VITE_API_BASE_URL=%s\nVITE_WS_PATH=/notificaciones/socket.io\n' "$VITE_API_BASE_URL" > apps/pwa-cliente/.env.production
-RUN npx nx build pwa-cliente --configuration=production
+RUN cd apps/pwa-cliente && npx vite build
 
 FROM nginxinc/nginx-unprivileged@sha256:0c79d56aee561a1d81c63f00eee5fb5fe29279560cdc55e91425133104c7fbe6
 COPY --from=builder /usr/src/app/apps/pwa-cliente/dist /usr/share/nginx/html

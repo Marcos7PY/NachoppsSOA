@@ -2,7 +2,8 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import * as mesasApi from '../../api/mesas.api';
 import { mapMesas, mapMesa } from '../../mappers/mesa.mapper';
 import { queryClient } from '../../api/queryClient';
-import type { EstadoMesa, MesaVM } from '../../types/mesa.types';
+import { primerMensaje } from '../../utils/feedback';
+import type { CrearMesaPayload, EstadoMesa, MesaVM } from '../../types/mesa.types';
 
 export const MESAS_QUERY_KEY = ['mesas'];
 
@@ -44,13 +45,41 @@ export function useMesasQuery() {
     },
   });
 
+  const mutationCrear = useMutation({
+    mutationFn: async (payload: CrearMesaPayload) => {
+      const dto = await mesasApi.crear(payload);
+      return mapMesa(dto);
+    },
+    onSuccess: (mesa) => {
+      queryClient.setQueryData<MesaVM[]>(MESAS_QUERY_KEY, (old) =>
+        [...(old ?? []), mesa].sort((a, b) => a.numeroRaw - b.numeroRaw)
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+    },
+  });
+
   return {
     mesas: query.data ?? [],
     loading: query.isLoading,
-    error: query.isError ? query.error.message : null,
+    saving: mutationCrear.isPending || mutationEstado.isPending,
+    loadError: query.isError ? query.error.message : null,
+    error: query.isError ? query.error.message : mutationCrear.error?.message || mutationEstado.error?.message || null,
+    success: primerMensaje(
+      [mutationCrear.isSuccess, 'Mesa creada.'],
+      [mutationEstado.isSuccess, 'Estado actualizado.'],
+    ),
     fetch: query.refetch,
+    crearMesa: async (payload: CrearMesaPayload) => {
+      return mutationCrear.mutateAsync(payload);
+    },
     optimisticCambiarEstado: async (id: string, estado: EstadoMesa) => {
       return mutationEstado.mutateAsync({ id, estado });
+    },
+    clearFeedback: () => {
+      mutationCrear.reset();
+      mutationEstado.reset();
     },
   };
 }

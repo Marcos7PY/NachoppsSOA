@@ -57,9 +57,26 @@ function RutaPorRol({ ruta, children }: Readonly<{ ruta: RutaApp; children: Reac
 
 function ScreenLoading() {
   return (
-    <div style={{ display: 'flex', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{ width: '40px', height: '40px', border: '4px solid var(--surface-hover)', borderTop: '4px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+    <div className="screen-loading" role="status" aria-label="Cargando módulo">
+      <div className="loading-head">
+        <div className="skel loading-title" />
+        <div className="skel loading-action" />
+      </div>
+      <div className="loading-grid">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div className="stat" key={index}>
+            <div className="skel stat-skel-title" />
+            <div className="skel stat-skel-value" />
+          </div>
+        ))}
+      </div>
+      <div className="panel loading-panel">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div className="skeleton-row" key={index}>
+            <div className="skel" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
