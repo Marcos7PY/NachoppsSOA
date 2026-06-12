@@ -12,14 +12,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './api/queryClient';
 import { ToastProvider } from './components/ui/ToastProvider';
-import { applyThemeColor } from './utils/theme';
+import { applyThemeColor, type Theme } from './utils/theme';
 import './styles.css';
 
 // ─── Restaurar preferencias de vista persistidas ────────────────
 // Tema: preferencia guardada, o la del sistema operativo en el primer arranque.
 const savedTheme = localStorage.getItem('nachopps-theme');
 const systemPrefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-let initialTheme: string;
+let initialTheme: Theme;
 if (savedTheme === 'dark' || savedTheme === 'light') {
   initialTheme = savedTheme;
 } else {

@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-identidad-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-identidad:build",
-          "servicio-identidad:serve"
-        ]
+          "jestConfig": "apps/servicio-identidad-e2e/jest.config.cts"
+        }
       }
     }
   }

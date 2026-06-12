@@ -9,6 +9,12 @@
       "pwa"
     ],
     "targets": {
+      "build": {
+        "dependsOn": [
+          "typecheck",
+          "^build"
+        ]
+      },
       "e2e": {
         "executor": "nx:run-commands",
         "options": {

@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-notificaciones-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-notificaciones:build",
-          "servicio-notificaciones:serve"
-        ]
+          "jestConfig": "apps/servicio-notificaciones-e2e/jest.config.cts"
+        }
       }
     }
   }

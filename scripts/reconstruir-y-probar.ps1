@@ -36,6 +36,7 @@ docker image rm infra-servicio-notificaciones 2>&1 | Out-Null
 docker image rm infra-servicio-caja     2>&1 | Out-Null
 docker image rm infra-servicio-reportes 2>&1 | Out-Null
 docker image rm infra-kong              2>&1 | Out-Null
+docker image rm infra-pwa-cliente       2>&1 | Out-Null
 Write-Host "   Imágenes limpiadas" -ForegroundColor Green
 
 # 4. Reconstruir todas las imágenes (entrypoint fix ya aplicado en entrypoint.sh)
@@ -68,6 +69,17 @@ foreach ($svc in $services) {
 
 Write-Host "`n   Construyendo Kong..." -NoNewline
 $buildOutput = docker compose -f infra/docker-compose.yml --profile all build kong 2>&1
+$exitCode = $LASTEXITCODE
+if ($exitCode -eq 0) {
+    Write-Host " OK" -ForegroundColor Green
+} else {
+    Write-Host " FAIL" -ForegroundColor Red
+    Write-Host $buildOutput -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "`n   Construyendo PWA cliente..." -NoNewline
+$buildOutput = docker build -t infra-pwa-cliente -f apps/pwa-cliente/Dockerfile . 2>&1
 $exitCode = $LASTEXITCODE
 if ($exitCode -eq 0) {
     Write-Host " OK" -ForegroundColor Green

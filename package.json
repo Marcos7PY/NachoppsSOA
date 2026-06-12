@@ -5,7 +5,7 @@
   "nx": {
     "targets": {
       "typecheck": {
-        "command": "echo solution typecheck delegado a build por app y a typecheck por lib"
+        "command": "npm exec nx run-many -- --target=typecheck --all --exclude=@org/source"
       }
     }
   },

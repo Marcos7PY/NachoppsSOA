@@ -64,14 +64,19 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 docker compose -f infra/docker-compose.yml --profile infra up -d
 
 # Servicio individual
-pnpm nx serve servicio-pedidos
-pnpm nx serve pwa-cliente
+npm exec nx serve servicio-pedidos
+npm exec nx serve pwa-cliente
 
 # Calidad (lo que valida CI)
-pnpm nx run-many --target=lint --all
-pnpm nx run-many --target=build --all
-pnpm nx run-many --target=test --all   # vitest raíz: recoge *.spec de servicios + pwa + shared-auth
+npm exec nx run-many -- --target=lint --all
+npm exec nx run-many -- --target=typecheck --all
+npm exec nx run-many -- --target=build --all
+npm exec nx run @org/source:test   # vitest raíz: recoge *.spec de servicios + pwa + shared-auth
+npm exec nx run-many -- --target=e2e --all --parallel=1   # contra stack Docker/Kong levantado
 ```
+
+> `build` empaqueta artefactos, pero no reemplaza `typecheck`. CI ejecuta `typecheck build test`; localmente corre ambos antes de cerrar cambios.
+> Los e2e locales validan la pila Docker/Kong existente; levanta primero `docker compose -f infra/docker-compose.yml --profile infra up -d`.
 
 > La cobertura tiene **pisos anti-regresión** en `vitest.config.mts` (objetivo: subir hacia 80%, nunca bajar).
 

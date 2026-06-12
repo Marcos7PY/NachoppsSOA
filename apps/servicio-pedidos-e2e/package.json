@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-pedidos-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-pedidos:build",
-          "servicio-pedidos:serve"
-        ]
+          "jestConfig": "apps/servicio-pedidos-e2e/jest.config.cts"
+        }
       }
     }
   }

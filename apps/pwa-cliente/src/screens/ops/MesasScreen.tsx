@@ -153,7 +153,7 @@ interface MesaDrawerBodyProps {
   cuentaActiva: CuentaVM | null | undefined;
   items: PedidoItemVM[];
   atencion: { label: string; title: string } | null;
-  now: Date;
+  now: number;
 }
 
 function MesaDrawerBody({ mesa: m, ocupada, loading, cuentaActiva, items, atencion, now }: Readonly<MesaDrawerBodyProps>) {

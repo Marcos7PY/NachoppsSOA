@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════
-# Build All Docker Services (excl. PWA) + Stress Tests
+# Build All Docker Services + PWA + Stress Tests
 # ═══════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Continue"
@@ -51,9 +51,13 @@ Push-Location (Join-Path $infraDir "kong")
 docker build -t infra-kong . 2>&1 | Tee-Object -FilePath (Join-Path $logDir "build-kong.log")
 Pop-Location
 
+# Build PWA
+Write-Host ">>> Building infra-pwa-cliente ..." -ForegroundColor Yellow
+docker build -t infra-pwa-cliente -f apps/pwa-cliente/Dockerfile . 2>&1 | Tee-Object -FilePath (Join-Path $logDir "build-pwa-cliente.log")
+
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "  PHASE 2: Docker Compose Up (no PWA)" -ForegroundColor Cyan
+Write-Host "  PHASE 2: Docker Compose Up" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -71,7 +75,7 @@ Start-Sleep -Seconds 15
 
 Write-Host "Starting microservices..." -ForegroundColor Yellow
 $serviceArgs = $services | ForEach-Object { $_ }
-docker compose --profile all up -d $serviceArgs 2>&1 | Tee-Object -FilePath (Join-Path $logDir "compose-services.log")
+docker compose --profile all up -d $serviceArgs pwa-cliente 2>&1 | Tee-Object -FilePath (Join-Path $logDir "compose-services.log")
 
 Write-Host "Waiting 30s for services to start and run migrations..." -ForegroundColor Yellow
 Start-Sleep -Seconds 30

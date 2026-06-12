@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Build all microservices (excluding PWA)
+# Build all microservices
 SERVICES=(
   "servicio-identidad"
   "servicio-mesas"
@@ -15,7 +15,7 @@ SERVICES=(
 )
 
 echo "=========================================="
-echo "  Docker Build — All Services (no PWA)"
+echo "  Docker Build — All Services"
 echo "=========================================="
 echo ""
 

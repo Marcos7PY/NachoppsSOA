@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-reportes-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-reportes:build",
-          "servicio-reportes:serve"
-        ]
+          "jestConfig": "apps/servicio-reportes-e2e/jest.config.cts"
+        }
       }
     }
   }
