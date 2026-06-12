@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { BottomNav } from './BottomNav';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 interface ShellProps {
@@ -27,6 +28,7 @@ export function Shell({ children }: Readonly<ShellProps>) {
         <main id="contenido" className="content" tabIndex={-1}>
           {children}
         </main>
+        <BottomNav />
       </div>
     </div>
   );

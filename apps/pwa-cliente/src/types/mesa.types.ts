@@ -3,6 +3,7 @@
 
 import type {
   ActualizarEstadoMesaCommand,
+  CrearMesaCommand,
   MesaDto as ContractMesaDto,
   MesaEstado as ContractEstadoMesa,
 } from '@org/contracts';
@@ -36,3 +37,6 @@ export interface MesaVM {
 
 // ─── Comando para actualizar estado ─────────────────────────────
 export type ActualizarEstadoMesaPayload = ActualizarEstadoMesaCommand;
+
+// ─── Comando para crear mesa ────────────────────────────────────
+export type CrearMesaPayload = CrearMesaCommand;

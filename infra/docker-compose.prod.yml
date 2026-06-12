@@ -454,8 +454,7 @@ services:
       KONG_CORS_ORIGINS: ${KONG_CORS_ORIGINS:?KONG_CORS_ORIGINS es obligatorio, p.ej. ["https://app.tudominio.com"]}
       KONG_NGINX_HTTP_LUA_SHARED_DICT: 'jwt_cache 12m'
     ports:
-      - '80:8000'
-      - '443:8443'
+      - '8000:8000'
       # La Admin API (8001) NO se publica en prod: queda en loopback interno.
     volumes:
       - ./kong/kong.yml.template:/tmp/kong.yml.template:ro

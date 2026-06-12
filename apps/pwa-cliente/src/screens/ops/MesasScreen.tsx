@@ -3,7 +3,7 @@
 // mesa seleccionada). Lanza el Comandero para tomar/agregar pedido.
 
 import { Scrim } from '../../components/ui/Scrim';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icons } from '../../components/ui/icons';
 import { fmt, elapsedLabel } from '../../utils/format';
@@ -12,7 +12,9 @@ import { useCuentasQuery } from '../../hooks/queries/useCuentasQuery';
 import { Comandero } from '../../components/comandero/Comandero';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useNow } from '../../hooks/useNow';
-import type { MesaVM, EstadoMesa } from '../../types/mesa.types';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useAuthStore } from '../../store/auth.store';
+import type { MesaVM, EstadoMesa, CrearMesaPayload } from '../../types/mesa.types';
 import type { CuentaVM } from '../../types/cuenta.types';
 import type { PedidoItemVM } from '../../types/pedido.types';
 
@@ -24,15 +26,25 @@ const EST_META: Record<EstadoMesa, { label: string; cls: string; color: string }
 
 const SKEL_KEYS = Array.from({ length: 12 }, (_, i) => `skel-${i}`);
 
+const INITIAL_MESA_FORM: CrearMesaPayload = {
+  numero: 1,
+  capacidad: 4,
+  ubicacion: 'Salon Principal',
+};
+
 type ComanderoState =
   | { open: true; mesaId?: string; mesaNumero?: string; mesaUbicacion?: string; modoAgregar: boolean }
   | { open: false };
 
 export function MesasScreen() {
   const navigate = useNavigate();
-  const { mesas, loading, error, fetch } = useMesasQuery();
+  const online = useOnlineStatus();
+  const rol = useAuthStore((s) => s.user?.rol);
+  const puedeCrearMesa = rol === 'ADMIN' || rol === 'SISTEMA';
+  const { mesas, loading, saving, loadError, error, success, fetch, crearMesa, clearFeedback } = useMesasQuery();
   const [ubicacion, setUbicacion] = useState('TODAS');
   const [sel, setSel] = useState<MesaVM | null>(null);
+  const [mesaForm, setMesaForm] = useState<CrearMesaPayload>(INITIAL_MESA_FORM);
   const [comandero, setComandero] = useState<ComanderoState>({ open: false });
 
   // Sólo mesas físicas (excluir virtuales 98/99 de delivery/llevar)
@@ -50,6 +62,37 @@ export function MesasScreen() {
     return r;
   }, [fisicas]);
 
+  const siguienteNumero = useMemo(() => {
+    const usados = new Set(fisicas.map((m) => m.numeroRaw));
+    let numero = 1;
+    while (usados.has(numero)) numero += 1;
+    return numero;
+  }, [fisicas]);
+
+  useEffect(() => {
+    setMesaForm((current) => (
+      current.numero === INITIAL_MESA_FORM.numero && siguienteNumero !== INITIAL_MESA_FORM.numero
+        ? { ...current, numero: siguienteNumero }
+        : current
+    ));
+  }, [siguienteNumero]);
+
+  const handleCrearMesa = async (event: SubmitEvent) => {
+    event.preventDefault();
+    if (!online || !puedeCrearMesa) return;
+
+    await crearMesa({
+      numero: Number(mesaForm.numero),
+      capacidad: Number(mesaForm.capacidad),
+      ubicacion: mesaForm.ubicacion?.trim() || 'Salon Principal',
+    });
+    setMesaForm({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1 });
+  };
+
+  const updateMesaForm = (key: keyof CrearMesaPayload, value: string | number) => {
+    setMesaForm((current) => ({ ...current, [key]: value }));
+  };
+
   // ─── Loading ────────────────────────────────────────────────
   if (loading && mesas.length === 0) {
     return (
@@ -65,13 +108,13 @@ export function MesasScreen() {
   }
 
   // ─── Error ──────────────────────────────────────────────────
-  if (error) {
+  if (loadError) {
     return (
       <div>
         <div className="page-h"><div><h1>Mesas</h1></div></div>
         <div className="banner err" style={{ marginBottom: 16 }}>
           <Icons.Alert s={17} />
-          <span>{error}</span>
+          <span>{loadError}</span>
           <span className="spacer" />
           <button className="btn btn-sm btn-ghost" onClick={() => fetch()}>Reintentar</button>
         </div>
@@ -91,26 +134,113 @@ export function MesasScreen() {
         <button className="btn btn-primary" onClick={() => setComandero({ open: true, modoAgregar: false })}><Icons.Plus s={16} /> Nuevo pedido</button>
       </div>
 
-      {/* Resumen de estados + filtro de ubicación (la UI la llama "zona") */}
-      <div className="mesa-summary">
-        {(Object.keys(EST_META) as EstadoMesa[]).map((k) => (
-          <div className="ms-chip" key={k}>
-            <span className="ms-dot" style={{ background: EST_META[k].color }} />
-            {EST_META[k].label}<b>{resumen[k]}</b>
-          </div>
-        ))}
-        <span className="spacer" />
-        <div className="seg sm">
-          {ubicaciones.map((z) => (
-            <button key={z} className={ubicacion === z ? 'on' : ''} onClick={() => setUbicacion(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
-          ))}
-        </div>
-      </div>
+      {!online && (
+        <output className="banner warn module-feedback">
+          <Icons.Alert s={17} />
+          <span>Sin conexión. La creación de mesas está deshabilitada.</span>
+        </output>
+      )}
 
-      <div className="mesa-floor">
-        {visibles.map((m) => (
-          <MesaTile key={m.id} mesa={m} onSelect={() => setSel(m)} />
-        ))}
+      {(error || success) && (
+        <div className={`banner ${error ? 'err' : 'ok'} module-feedback`} role="alert">
+          {error ? <Icons.Alert s={17} /> : <Icons.Check s={16} />}
+          <span>{error ?? success}</span>
+          <span className="spacer" />
+          <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
+        </div>
+      )}
+
+      <div className="module-grid mesas-layout">
+        <section className="mesas-main">
+          {/* Resumen de estados + filtro de ubicación (la UI la llama "zona") */}
+          <div className="mesa-summary">
+            {(Object.keys(EST_META) as EstadoMesa[]).map((k) => (
+              <div className="ms-chip" key={k}>
+                <span className="ms-dot" style={{ background: EST_META[k].color }} />
+                {EST_META[k].label}<b>{resumen[k]}</b>
+              </div>
+            ))}
+            <span className="spacer" />
+            <div className="seg sm mesa-zone-filter" role="group" aria-label="Filtrar mesas por zona">
+              {ubicaciones.map((z) => (
+                <button key={z} className={ubicacion === z ? 'on' : ''} onClick={() => setUbicacion(z)}>{z === 'TODAS' ? 'Todas' : z}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mesa-floor">
+            {visibles.map((m) => (
+              <MesaTile key={m.id} mesa={m} onSelect={() => setSel(m)} />
+            ))}
+            {visibles.length === 0 && (
+              <div className="empty mesas-empty">
+                <div className="e-ic"><Icons.Mesas s={24} /></div>
+                <h3>Sin mesas en esta zona</h3>
+                <p>Cambia el filtro o crea una mesa para esta ubicación.</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {puedeCrearMesa && (
+          <aside className="module-side mesas-side">
+            <section className="panel">
+              <div className="panel-h">
+                <Icons.Plus s={16} />
+                <h3>Nueva mesa</h3>
+              </div>
+              <form className="form-stack" onSubmit={handleCrearMesa}>
+                <div className="field">
+                  <label htmlFor="mesa-numero">Número</label>
+                  <div className="input">
+                    <input
+                      id="mesa-numero"
+                      required
+                      min={1}
+                      max={89}
+                      type="number"
+                      inputMode="numeric"
+                      value={mesaForm.numero}
+                      onChange={(event) => updateMesaForm('numero', Number(event.target.value))}
+                    />
+                  </div>
+                  <span className="hint">Sugerido: {siguienteNumero}. Las mesas 90+ se reservan para canales virtuales.</span>
+                </div>
+                <div className="field">
+                  <label htmlFor="mesa-capacidad">Capacidad</label>
+                  <div className="input">
+                    <input
+                      id="mesa-capacidad"
+                      required
+                      min={1}
+                      max={30}
+                      type="number"
+                      inputMode="numeric"
+                      value={mesaForm.capacidad}
+                      onChange={(event) => updateMesaForm('capacidad', Number(event.target.value))}
+                    />
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="mesa-ubicacion">Ubicación</label>
+                  <div className="input">
+                    <input
+                      id="mesa-ubicacion"
+                      required
+                      value={mesaForm.ubicacion ?? ''}
+                      onChange={(event) => updateMesaForm('ubicacion', event.target.value)}
+                      placeholder="Salon Principal"
+                    />
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-block" disabled={saving || !online} type="submit">
+                  {saving ? <span className="spinner" /> : <Icons.Plus s={16} />}
+                  Crear mesa
+                </button>
+              </form>
+            </section>
+          </aside>
+        )}
       </div>
 
       {sel && (

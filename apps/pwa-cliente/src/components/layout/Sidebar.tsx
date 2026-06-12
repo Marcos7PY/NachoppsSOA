@@ -4,42 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../config';
 import { useAuthStore } from '../../store/auth.store';
 import { puedeAcceder } from '../../auth/permisos';
-import { Icons, type IconName } from '../ui/icons';
-
-interface NavItem {
-  key: string;
-  label: string;
-  icon: IconName;
-}
-
-interface NavGroup {
-  group: string;
-  items: NavItem[];
-}
-
-const NAV: NavGroup[] = [
-  {
-    group: 'Operación',
-    items: [
-      { key: 'inicio', label: 'Inicio', icon: 'Inicio' },
-      { key: 'mesas', label: 'Mesas', icon: 'Mesas' },
-      { key: 'pedidos', label: 'Pedidos', icon: 'Pedidos' },
-      { key: 'cocina', label: 'Cocina', icon: 'Cocina' },
-      { key: 'caja', label: 'Caja', icon: 'Caja' },
-      { key: 'reservas', label: 'Reservas', icon: 'Reservas' },
-    ],
-  },
-  {
-    group: 'Administración',
-    items: [
-      { key: 'carta', label: 'Carta / Menú', icon: 'Pedidos' },
-      { key: 'compras', label: 'Compras', icon: 'Bag' },
-      { key: 'inventario', label: 'Inventario', icon: 'Inventario' },
-      { key: 'reportes', label: 'Reportes', icon: 'Reportes' },
-      { key: 'usuarios', label: 'Usuarios', icon: 'Usuarios' },
-    ],
-  },
-];
+import { Icons } from '../ui/icons';
+import { NAV_GROUPS } from './navigation';
 
 export function Sidebar() {
   const location = useLocation();
@@ -53,7 +19,7 @@ export function Sidebar() {
 
   // Solo se muestran las entradas que el rol puede abrir; los grupos que
   // quedan vacíos se ocultan por completo.
-  const navVisible = NAV
+  const navVisible = NAV_GROUPS
     .map((g) => ({ ...g, items: g.items.filter((it) => puedeAcceder(rol, it.key)) }))
     .filter((g) => g.items.length > 0);
 

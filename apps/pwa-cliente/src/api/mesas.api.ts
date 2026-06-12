@@ -2,7 +2,7 @@
 
 import { client } from './client';
 import { unwrapArray, unwrapEntity } from './response';
-import type { MesaDto, ActualizarEstadoMesaPayload } from '../types/mesa.types';
+import type { MesaDto, ActualizarEstadoMesaPayload, CrearMesaPayload } from '../types/mesa.types';
 
 /** GET /mesas — Listar todas las mesas */
 export async function getAll(): Promise<MesaDto[]> {
@@ -13,6 +13,12 @@ export async function getAll(): Promise<MesaDto[]> {
 /** GET /mesas/:id — Obtener mesa por ID */
 export async function getById(id: string): Promise<MesaDto> {
   const response = await client.get<MesaDto | { mesa: MesaDto }>(`/mesas/${id}`);
+  return unwrapEntity<MesaDto>(response, 'mesa');
+}
+
+/** POST /mesas — Crear mesa física del salón */
+export async function crear(payload: CrearMesaPayload): Promise<MesaDto> {
+  const response = await client.post<MesaDto | { mesa: MesaDto }>('/mesas', payload);
   return unwrapEntity<MesaDto>(response, 'mesa');
 }
 

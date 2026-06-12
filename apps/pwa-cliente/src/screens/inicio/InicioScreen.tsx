@@ -29,6 +29,19 @@ export function InicioScreen() {
         </div>
       </div>
 
+      <section className={`ops-strip ${atencionCount > 0 ? 'needs-attention' : ''}`} aria-label="Estado operativo del turno">
+        <div className="ops-strip-main">
+          <span className="ops-strip-ic"><Icons.Alert s={18} /></span>
+          <div>
+            <b>{atencionCount > 0 ? `${atencionCount} punto(s) requieren atención` : 'Operación sin alertas críticas'}</b>
+            <span>{cocina.activos} pedido(s) activos · {salon.ocupadas} mesa(s) ocupadas · caja {turnoAbierto ? 'abierta' : 'sin turno'}</span>
+          </div>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={() => go(atencionCount > 0 ? 'cocina' : 'mesas')}>
+          {atencionCount > 0 ? 'Revisar ahora' : 'Ver salón'}
+        </button>
+      </section>
+
       <div className="grid-stats" style={{ marginBottom: 16 }}>
         <HeroStat icon="Trend" color="var(--accent)" soft="var(--accent-soft)" k="Ventas del día" v={fmt(totalVentas)} sub="acumulado del día">
           {ventasHora.length > 0 && <Spark data={ventasHora.map((x) => x.total)} />}

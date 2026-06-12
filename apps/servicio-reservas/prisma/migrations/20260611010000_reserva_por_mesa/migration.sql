@@ -11,8 +11,8 @@ WHERE "mesaPreferida" IS NULL OR btrim("mesaPreferida") = '';
 ALTER TABLE "Reserva"
 ALTER COLUMN "mesaPreferida" SET NOT NULL;
 
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "Reserva_fecha_hora_mesa_active_unique"
+CREATE UNIQUE INDEX IF NOT EXISTS "Reserva_fecha_hora_mesa_active_unique"
 ON "Reserva"("fecha", "hora", "mesaPreferida")
 WHERE estado IN ('PENDIENTE', 'CONFIRMADA');
 
-DROP INDEX CONCURRENTLY IF EXISTS "Reserva_fecha_hora_active_unique";
+DROP INDEX IF EXISTS "Reserva_fecha_hora_active_unique";
