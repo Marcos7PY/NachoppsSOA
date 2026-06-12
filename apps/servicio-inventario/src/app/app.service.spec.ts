@@ -34,10 +34,76 @@ describe('AppService — Inventario', () => {
       idempotencyKey: {
         create: vi.fn().mockResolvedValue({}),
       },
+      $executeRaw: vi.fn(),
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
 
     service = new AppService(mockPrisma as any);
+  });
+
+  describe('listarProductos', () => {
+    const productoBase = {
+      id: 'prod-001',
+      categoriaId: 'cat-001',
+      categoria: { id: 'cat-001', nombre: 'Bebidas', descripcion: null },
+      nombre: 'Cerveza',
+      descripcion: null,
+      precio: 8.5,
+      disponible: true,
+      stockActual: 10,
+    };
+
+    it('devuelve data y nextCursor cuando hay mas productos', async () => {
+      mockPrisma.producto.findMany.mockResolvedValue([
+        { ...productoBase, id: 'prod-001' },
+        { ...productoBase, id: 'prod-002' },
+        { ...productoBase, id: 'prod-003' },
+      ]);
+
+      const result = await service.listarProductos({ limit: 2 });
+
+      expect(result.data.map((producto) => producto.id)).toEqual([
+        'prod-001',
+        'prod-002',
+      ]);
+      expect(result.nextCursor).toBe('prod-002');
+      expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 3,
+          orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('aplica cursor, categoria, disponible, search, updatedSince y tope maximo de limit', async () => {
+      mockPrisma.producto.findMany.mockResolvedValue([]);
+
+      await service.listarProductos({
+        categoriaId: 'cat-001',
+        disponible: false as any,
+        search: 'limon',
+        cursor: 'prod-010',
+        updatedSince: '2026-01-01T00:00:00.000Z',
+        limit: 500,
+      });
+
+      expect(mockPrisma.producto.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            categoriaId: 'cat-001',
+            disponible: false,
+            updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
+            OR: [
+              { nombre: { contains: 'limon', mode: 'insensitive' } },
+              { descripcion: { contains: 'limon', mode: 'insensitive' } },
+            ],
+          },
+          cursor: { id: 'prod-010' },
+          skip: 1,
+          take: 101,
+        }),
+      );
+    });
   });
 
   describe('reducirStockAutomatico', () => {
@@ -88,6 +154,70 @@ describe('AppService — Inventario', () => {
       await service.reducirStockAutomatico('prod-002', 5);
 
       expect(mockPrisma.producto.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('publica disponibilidad final false cuando el stock llega a cero', async () => {
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-004',
+          nombre: 'Limonada',
+          precio: { toNumber: () => 9 },
+          stockActual: 1,
+          disponible: true,
+          categoria: { nombre: 'Bebidas' },
+        })
+        .mockResolvedValueOnce({
+          id: 'prod-004',
+          nombre: 'Limonada',
+          stockActual: 0,
+          disponible: true,
+        });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.producto.update.mockResolvedValue({
+        id: 'prod-004',
+        nombre: 'Limonada',
+        stockActual: 0,
+        disponible: false,
+      });
+
+      await service.reducirStockAutomatico('prod-004', 1);
+
+      const payload = JSON.parse(mockPrisma.outboxEvent.create.mock.calls[0][0].data.payload);
+      expect(payload).toMatchObject({
+        stockActual: 0,
+        disponible: false,
+      });
+    });
+  });
+
+  describe('actualizarStock', () => {
+    it('serializa por producto y publica el stock final calculado dentro de la transacción', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({
+        id: 'prod-005',
+        nombre: 'Agua',
+        precio: { toNumber: () => 5 },
+        stockActual: 10,
+        disponible: true,
+        categoria: { nombre: 'Bebidas' },
+      });
+      mockPrisma.producto.update.mockResolvedValue({
+        id: 'prod-005',
+        nombre: 'Agua',
+        precio: { toNumber: () => 5 },
+        stockActual: 15,
+        disponible: true,
+      });
+
+      await service.actualizarStock('prod-005', 5);
+
+      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      expect(mockPrisma.producto.update).toHaveBeenCalledWith({
+        where: { id: 'prod-005' },
+        data: {
+          stockActual: 15,
+          disponible: true,
+        },
+      });
     });
   });
 
@@ -145,6 +275,59 @@ describe('AppService — Inventario', () => {
           stockActual: { decrement: 3 },
         },
       });
+    });
+  });
+
+  describe('compensación de saga — StockInsuficiente', () => {
+    it('emite StockInsuficiente cuando el descuento real falla (count===0)', async () => {
+      mockPrisma.producto.findUnique.mockResolvedValue({
+        id: 'prod-x',
+        nombre: 'Limonada',
+        precio: { toNumber: () => 5 },
+        stockActual: 1,
+        disponible: true,
+        categoria: { nombre: 'Bebidas' },
+      });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.procesarPedidoCreado({
+        id: 'ped-77',
+        items: [{ productoId: 'prod-x', cantidad: 5 }],
+      });
+
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledTimes(1);
+      const arg = mockPrisma.outboxEvent.create.mock.calls[0][0];
+      expect(arg.data.routingKey).toBe('stock.insuficiente');
+      expect(JSON.parse(arg.data.payload)).toMatchObject({
+        pedidoId: 'ped-77',
+        productoId: 'prod-x',
+        solicitado: 5,
+        disponible: 1,
+      });
+    });
+
+    it('NO emite StockInsuficiente cuando el descuento tiene éxito', async () => {
+      mockPrisma.producto.findUnique
+        .mockResolvedValueOnce({
+          id: 'prod-x',
+          nombre: 'Limonada',
+          precio: { toNumber: () => 5 },
+          stockActual: 10,
+          disponible: true,
+          categoria: { nombre: 'Bebidas' },
+        })
+        .mockResolvedValueOnce({ id: 'prod-x', nombre: 'Limonada', stockActual: 5, disponible: true });
+      mockPrisma.producto.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.procesarPedidoCreado({
+        id: 'ped-88',
+        items: [{ productoId: 'prod-x', cantidad: 5 }],
+      });
+
+      const stockInsuf = mockPrisma.outboxEvent.create.mock.calls.find(
+        (c: any) => c[0].data.routingKey === 'stock.insuficiente',
+      );
+      expect(stockInsuf).toBeUndefined();
     });
   });
 });

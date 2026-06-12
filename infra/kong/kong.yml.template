@@ -2,7 +2,7 @@
 # Proxy: http://localhost:8000  |  Admin: http://localhost:8001
 #
 # ESTE ES UN TEMPLATE — se genera kong.yml en el entrypoint vía envsubst
-# Variable inyectada: ${KONG_JWT_SECRET}
+# Variable inyectada: ${KONG_JWT_PUBLIC_KEY} (PEM RS256, \n literales)
 #
 # Rutas: http://localhost:8000/{servicio}/...  →  microservicio en host:PORT/api/...
 # Ejemplo: POST http://localhost:8000/pedidos/pedidos  →  localhost:3004/api/pedidos
@@ -21,11 +21,10 @@ _transform: true
 plugins:
   - name: cors
     config:
-      origins:
-        - http://localhost:4200
-        - http://localhost:5173
-        - http://127.0.0.1:4200
-        - http://127.0.0.1:5173
+      # Orígenes permitidos inyectados por entorno (envsubst). En producción debe
+      # contener el/los dominio(s) https reales de la PWA. Formato: secuencia YAML
+      # en línea, p.ej.  KONG_CORS_ORIGINS='["https://app.tudominio.com"]'
+      origins: ${KONG_CORS_ORIGINS}
       methods:
         - GET
         - POST
@@ -37,6 +36,8 @@ plugins:
         - Accept
         - Authorization
         - Content-Type
+        - Idempotency-Key
+        - X-CSRF-Token
         - X-Requested-With
       exposed_headers:
         - X-Request-Id
@@ -62,34 +63,98 @@ plugins:
 consumers:
   - username: nachopps-app
     jwt_secrets:
+      # RS256 (plan 2.1): Kong sólo verifica con la clave pública. El `\n` literal
+      # de ${KONG_JWT_PUBLIC_KEY} se interpreta como salto de línea al estar en una
+      # cadena YAML entre comillas dobles.
       - key: nachopps-identidad
-        secret: ${KONG_JWT_SECRET}
-        algorithm: HS256
+        algorithm: RS256
+        rsa_public_key: "${KONG_JWT_PUBLIC_KEY}"
 
 # ── Servicios ────────────────────────────────────────────────────
 
 services:
-  # ── Identidad (ruta pública para login, protegida para el resto) ──
-  - name: servicio-identidad-public
-    url: http://host.docker.internal:3001/api/auth
+  # ── T-16: bloquear /telemetry/metrics para todos los servicios ──
+  - name: bloqueo-metrics
+    url: http://localhost:1  # nunca alcanzado; request-termination responde antes
+    routes:
+      - name: block-telemetry-metrics
+        paths:
+          - ~/.*\/telemetry\/metrics$
+        strip_path: false
+        plugins:
+          - name: request-termination
+            config:
+              status_code: 404
+              message: "Not found"
+
+  # ── Identidad (rutas separadas por función — T-01) ──
+  - name: servicio-identidad-login
+    url: http://servicio-identidad:3000/api/auth/login
     routes:
       - name: identidad-login
         paths:
-          - /identidad/auth
+          - /identidad/auth/login
+          - /v1/identidad/auth/login
         strip_path: true
         methods:
           - POST
         plugins:
           - name: rate-limiting
             config:
-              minute: 5          # 5 intentos/min por IP en login
+              minute: 5          # 5 intentos/min por IP
+              policy: local
+              limit_by: ip
+              fault_tolerant: true
+              hide_client_headers: false
+
+  - name: servicio-identidad-refresh
+    url: http://servicio-identidad:3000/api/auth/refresh
+    routes:
+      - name: identidad-refresh
+        paths:
+          - /identidad/auth/refresh
+          - /v1/identidad/auth/refresh
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 60         # 20 dispositivos × refresh cada 15min ≈ 2/min + margen
+              policy: local
+              limit_by: ip
+              fault_tolerant: true
+              hide_client_headers: false
+
+  - name: servicio-identidad-logout
+    url: http://servicio-identidad:3000/api/auth/logout
+    plugins:
+      - name: jwt
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+          cookie_names:
+            - access_token
+    routes:
+      - name: identidad-logout
+        paths:
+          - /identidad/auth/logout
+          - /v1/identidad/auth/logout
+        strip_path: true
+        methods:
+          - POST
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
               policy: local
               limit_by: ip
               fault_tolerant: true
               hide_client_headers: false
 
   - name: servicio-identidad
-    url: http://host.docker.internal:3001/api
+    url: http://servicio-identidad:3000/api
     plugins:
       - name: jwt
         config:
@@ -100,12 +165,12 @@ services:
             - access_token
     routes:
       - name: identidad
-        paths: [/identidad]
+        paths: [/identidad, /v1/identidad]
         strip_path: true
 
   # ── Mesas ──
   - name: servicio-mesas
-    url: http://host.docker.internal:3002/api
+    url: http://servicio-mesas:3000/api
     plugins:
       - name: jwt
         config:
@@ -116,12 +181,12 @@ services:
             - access_token
     routes:
       - name: mesas
-        paths: [/mesas]
+        paths: [/mesas, /v1/mesas]
         strip_path: true
 
   # ── Pedidos ──
   - name: servicio-pedidos
-    url: http://host.docker.internal:3004/api
+    url: http://servicio-pedidos:3000/api
     plugins:
       - name: jwt
         config:
@@ -132,12 +197,12 @@ services:
             - access_token
     routes:
       - name: pedidos
-        paths: [/pedidos]
+        paths: [/pedidos, /v1/pedidos]
         strip_path: true
 
   # ── Cuentas ──
   - name: servicio-cuentas
-    url: http://host.docker.internal:3005/api
+    url: http://servicio-cuentas:3000/api
     plugins:
       - name: jwt
         config:
@@ -148,12 +213,12 @@ services:
             - access_token
     routes:
       - name: cuentas
-        paths: [/cuentas]
+        paths: [/cuentas, /v1/cuentas]
         strip_path: true
 
   # ── Reservas ──
   - name: servicio-reservas
-    url: http://host.docker.internal:3006/api
+    url: http://servicio-reservas:3000/api
     plugins:
       - name: jwt
         config:
@@ -164,12 +229,12 @@ services:
             - access_token
     routes:
       - name: reservas
-        paths: [/reservas]
+        paths: [/reservas, /v1/reservas]
         strip_path: true
 
   # ── Inventario ──
   - name: servicio-inventario
-    url: http://host.docker.internal:3007/api
+    url: http://servicio-inventario:3000/api
     plugins:
       - name: jwt
         config:
@@ -180,12 +245,12 @@ services:
             - access_token
     routes:
       - name: inventario
-        paths: [/inventario]
+        paths: [/inventario, /v1/inventario]
         strip_path: true
 
   # ── Notificaciones ──
   - name: servicio-notificaciones
-    url: http://host.docker.internal:3008/api
+    url: http://servicio-notificaciones:3000/api
     plugins:
       - name: jwt
         config:
@@ -196,12 +261,12 @@ services:
             - access_token
     routes:
       - name: notificaciones
-        paths: [/notificaciones]
+        paths: [/notificaciones, /v1/notificaciones]
         strip_path: true
 
   # ── Caja ──
   - name: servicio-caja
-    url: http://host.docker.internal:3009/api
+    url: http://servicio-caja:3000/api
     plugins:
       - name: jwt
         config:
@@ -212,12 +277,12 @@ services:
             - access_token
     routes:
       - name: caja
-        paths: [/caja]
+        paths: [/caja, /v1/caja]
         strip_path: true
 
   # ── Reportes ──
   - name: servicio-reportes
-    url: http://host.docker.internal:3010/api
+    url: http://servicio-reportes:3000/api
     plugins:
       - name: jwt
         config:
@@ -228,5 +293,5 @@ services:
             - access_token
     routes:
       - name: reportes
-        paths: [/reportes]
+        paths: [/reportes, /v1/reportes]
         strip_path: true

@@ -59,5 +59,5 @@ export class ActualizarEstadoMesaCommand {
   estado: MesaEstado;
   @IsOptional()
   @IsString()
-  cuentaAsociada?: string;
+  cuentaAsociada?: string | null;
 }

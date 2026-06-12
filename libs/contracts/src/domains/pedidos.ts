@@ -1,4 +1,17 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsEnum, ValidateNested, ArrayMinSize, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  ValidateNested,
+  ArrayMinSize,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export const PedidoEstado = {
@@ -8,6 +21,8 @@ export const PedidoEstado = {
   Entregado: 'ENTREGADO',
   Pagado: 'PAGADO',
   Cancelado: 'CANCELADO',
+  /** Compensación de la saga de stock: el descuento real falló en Inventario. */
+  RechazadoSinStock: 'RECHAZADO_SIN_STOCK',
 } as const;
 
 export type PedidoEstado = (typeof PedidoEstado)[keyof typeof PedidoEstado];
@@ -19,6 +34,21 @@ export const ItemArea = {
 
 export type ItemArea = (typeof ItemArea)[keyof typeof ItemArea];
 
+/**
+ * Estados válidos de un ítem individual (producción en cocina).
+ * Subconjunto de PedidoEstado: un ítem nunca está PAGADO ni CANCELADO.
+ */
+export const EstadoItem = {
+  Pendiente: 'PENDIENTE',
+  EnPreparacion: 'EN_PREPARACION',
+  Listo: 'LISTO',
+  Entregado: 'ENTREGADO',
+  /** El ítem no pudo descontarse del stock real (compensación de saga). */
+  RechazadoSinStock: 'RECHAZADO_SIN_STOCK',
+} as const;
+
+export type EstadoItem = (typeof EstadoItem)[keyof typeof EstadoItem];
+
 export class ModificadorItem {
   @IsString()
   @IsNotEmpty()
@@ -29,9 +59,8 @@ export class ModificadorItem {
 }
 
 export class PedidoItemDto {
-  @IsOptional()
   @IsString()
-  id?: string;
+  id: string;
   @IsString()
   productoId: string;
   @IsString()
@@ -52,8 +81,14 @@ export class PedidoItemDto {
   @IsString()
   notas?: string;
   @IsOptional()
-  @IsEnum(PedidoEstado)
-  estado?: PedidoEstado;
+  @IsEnum(EstadoItem)
+  estado?: EstadoItem;
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
 }
 
 export class PedidoDto {
@@ -72,8 +107,60 @@ export class PedidoDto {
   total: number;
   @IsEnum(PedidoEstado)
   estado: PedidoEstado;
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
+  @IsOptional()
+  @IsString()
+  meseroId?: string;
+  @IsOptional()
+  @IsString()
+  meseroNombre?: string;
   @IsString()
   createdAt: string;
+}
+
+export class ListarPedidosQuery {
+  @IsOptional()
+  @IsString()
+  mesaId?: string;
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+  @IsOptional()
+  @IsEnum(PedidoEstado)
+  estado?: PedidoEstado;
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+export class PedidoListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PedidoDto)
+  data: PedidoDto[];
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }
 
 export class PedidoItemInput {
@@ -97,8 +184,8 @@ export class PedidoItemInput {
   @IsString()
   notas?: string;
   @IsOptional()
-  @IsEnum(PedidoEstado)
-  estado?: PedidoEstado;
+  @IsEnum(EstadoItem)
+  estado?: EstadoItem;
   @IsOptional()
   @IsNumber()
   identificadorComensal?: number;
@@ -113,11 +200,31 @@ export class CrearPedidoCommand {
   @ValidateNested({ each: true })
   @Type(() => PedidoItemInput)
   items: PedidoItemInput[];
+  @IsOptional()
+  @IsString()
+  cliente?: string;
+  @IsOptional()
+  @IsString()
+  telefono?: string;
+  @IsOptional()
+  @IsString()
+  direccion?: string;
+  @IsOptional()
+  @IsString()
+  proveedor?: string;
+  @IsOptional()
+  @IsString()
+  modalidad?: string;
 }
 
 export class ActualizarEstadoPedidoCommand {
   @IsEnum(PedidoEstado)
   estado: PedidoEstado;
+}
+
+export class ActualizarEstadoItemCommand {
+  @IsEnum(EstadoItem)
+  estado: EstadoItem;
 }
 
 export class PedidoCreadoPayload {

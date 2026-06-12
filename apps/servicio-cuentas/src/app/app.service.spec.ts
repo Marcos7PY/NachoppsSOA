@@ -24,9 +24,11 @@ describe('AppService — Cuentas', () => {
         findFirst: vi.fn(),
         create: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
       },
       outboxEvent: {
         create: vi.fn(),
+        createMany: vi.fn(),
       },
       $executeRaw: vi.fn(),
     });
@@ -111,6 +113,76 @@ describe('AppService — Cuentas', () => {
       expect(result.metodo).toBe('IGUALES');
       expect(result.partes).toHaveLength(3);
       expect(result.partes[0].monto).toBe(50);
+    });
+  });
+
+  describe('cerrarCuenta', () => {
+    const cuentaAbierta = {
+      id: 'c-001',
+      mesaId: 'm-001',
+      estado: CuentaEstado.Abierta,
+      total: 50,
+      pedidos: [
+        { id: 'p-001', total: 50, items: [{ productoId: 'prod-1', precioUnitario: 25, cantidad: 2 }] },
+      ],
+      ticket: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('cierra con updateMany condicional y emite outbox solo si cambió el estado', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.createMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.cerrarCuenta('c-001', {});
+
+      expect(result.ticket.total).toBe(50);
+      expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledWith({
+        where: { id: 'c-001', estado: CuentaEstado.Abierta },
+        data: expect.objectContaining({
+          estado: CuentaEstado.Cerrada,
+          total: expect.anything(),
+          ticket: expect.any(String),
+        }),
+      });
+      expect(mockPrisma.outboxEvent.createMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('propaga el mesero del pedido al evento cuenta.cerrada', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue({
+        ...cuentaAbierta,
+        pedidos: [
+          {
+            id: 'p-001',
+            total: 50,
+            meseroId: 'u-mesero-1',
+            meseroNombre: 'Ana Mesa',
+            items: [{ productoId: 'prod-1', precioUnitario: 25, cantidad: 2 }],
+          },
+        ],
+      });
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.outboxEvent.createMany.mockResolvedValue({ count: 2 });
+
+      await service.cerrarCuenta('c-001', {});
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
+      const cuentaCerrada = eventos.find((e: any) => e.routingKey === 'cuenta.cerrada');
+      const payload = JSON.parse(cuentaCerrada.payload);
+      expect(payload).toEqual(expect.objectContaining({
+        meseroId: 'u-mesero-1',
+        meseroNombre: 'Ana Mesa',
+      }));
+    });
+
+    it('rechaza cierre concurrente sin emitir eventos duplicados', async () => {
+      mockPrisma.cuenta.findUnique.mockResolvedValue(cuentaAbierta);
+      mockPrisma.cuenta.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.cerrarCuenta('c-001', {})).rejects.toThrow('ya fue cerrada');
+
+      expect(mockPrisma.outboxEvent.createMany).not.toHaveBeenCalled();
     });
   });
 

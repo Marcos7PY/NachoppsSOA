@@ -3,12 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { 
   CategoriaDto, 
   ProductoDto, 
-  CrearCategoriaCommand, 
+  CrearCategoriaCommand,
   CrearProductoCommand,
+  ActualizarProductoCommand,
+  ListarProductosQuery,
+  ProductoListResponse,
   RoutingKeys,
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
+  StockInsuficientePayload,
 } from '@org/contracts';
+import { Prisma } from '../generated/prisma';
 
 @Injectable()
 export class AppService {
@@ -41,14 +46,70 @@ export class AppService {
 
   // --- PRODUCTOS ---
 
-  async listarProductos(categoriaId?: string): Promise<{ productos: ProductoDto[] }> {
-    const where = categoriaId ? { categoriaId } : {};
+  async listarProductos(query: ListarProductosQuery = {}): Promise<ProductoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const disponible = this.normalizeBoolean(query.disponible);
+    const conStock = this.normalizeBoolean(query.conStock);
+    const where: Prisma.ProductoWhereInput = {
+      ...(query.categoriaId ? { categoriaId: query.categoriaId } : {}),
+      ...(disponible == null ? {} : { disponible }),
+      ...(conStock === true ? { stockActual: { not: null } } : {}),
+      ...(conStock === false ? { stockActual: null } : {}),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { nombre: { contains: query.search, mode: 'insensitive' } },
+              { descripcion: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
     const productos = await this.prisma.producto.findMany({
       where,
       include: { categoria: true },
-      orderBy: { nombre: 'asc' }
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ nombre: 'asc' }, { id: 'asc' }],
     });
-    return { productos: productos as unknown as ProductoDto[] };
+
+    const hasMore = productos.length > limit;
+    const data = productos.slice(0, limit);
+
+    return {
+      data: data.map((producto) => this.toProductoDto(producto)),
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
+    };
+  }
+
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+  }
+
+  private normalizeBoolean(value?: boolean): boolean | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'boolean') return value;
+    if (String(value).toLowerCase() === 'true') return true;
+    if (String(value).toLowerCase() === 'false') return false;
+    return undefined;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toProductoDto(producto: any): ProductoDto {
+    return {
+      id: producto.id,
+      categoriaId: producto.categoriaId,
+      categoria: producto.categoria ?? undefined,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion ?? null,
+      precio: Number(producto.precio),
+      disponible: producto.disponible,
+      stockActual: producto.stockActual ?? null,
+    };
   }
 
   async obtenerProducto(id: string): Promise<ProductoDto> {
@@ -57,7 +118,7 @@ export class AppService {
       include: { categoria: true }
     });
     if (!producto) throw new NotFoundException('Producto no encontrado');
-    return { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto;
+    return this.toProductoDto(producto);
   }
 
   async obtenerProductosLote(ids: string[]): Promise<{ productos: ProductoDto[] }> {
@@ -65,7 +126,7 @@ export class AppService {
       where: { id: { in: ids } },
       include: { categoria: true },
     });
-    return { productos: productos as unknown as ProductoDto[] };
+    return { productos: productos.map((producto) => this.toProductoDto(producto)) };
   }
 
   async crearProducto(command: CrearProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
@@ -106,20 +167,73 @@ export class AppService {
       return p;
     });
     
-    return { message: 'Producto creado exitosamente', producto: { ...producto, precio: producto.precio.toNumber() } as unknown as ProductoDto };
+    return { message: 'Producto creado exitosamente', producto: this.toProductoDto({ ...producto, categoria }) };
+  }
+
+  async actualizarProducto(id: string, command: ActualizarProductoCommand): Promise<{ message: string; producto: ProductoDto }> {
+    if (command.categoriaId) {
+      const categoria = await this.prisma.categoria.findUnique({ where: { id: command.categoriaId } });
+      if (!categoria) {
+        throw new NotFoundException(`Categoría con ID ${command.categoriaId} no encontrada`);
+      }
+    }
+
+    const actualizado = await this.prisma.$transaction(async (prisma) => {
+      const existente = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
+      if (!existente) throw new NotFoundException('Producto no encontrado');
+
+      const p = await prisma.producto.update({
+        where: { id },
+        data: {
+          ...(command.categoriaId == null ? {} : { categoriaId: command.categoriaId }),
+          ...(command.nombre == null ? {} : { nombre: command.nombre }),
+          ...(command.descripcion === undefined ? {} : { descripcion: command.descripcion }),
+          ...(command.precio == null ? {} : { precio: command.precio }),
+          ...(command.disponible == null ? {} : { disponible: command.disponible }),
+        },
+        include: { categoria: true },
+      });
+
+      const payload: ProductoActualizadoPayload = {
+        id: p.id,
+        nombre: p.nombre,
+        precio: p.precio.toNumber(),
+        stockActual: p.stockActual,
+        categoriaNombre: p.categoria?.nombre,
+        disponible: p.disponible,
+      };
+
+      await prisma.outboxEvent.create({
+        data: {
+          routingKey: RoutingKeys.ProductoActualizado,
+          payload: JSON.stringify(payload),
+          status: 'PENDING',
+        }
+      });
+
+      return p;
+    });
+
+    return { message: 'Producto actualizado', producto: this.toProductoDto(actualizado) };
   }
 
   async actualizarStock(id: string, cantidad: number): Promise<{ message: string; producto: ProductoDto }> {
-    const producto = await this.prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
-    if (!producto) throw new NotFoundException('Producto no encontrado');
-
-    const stockBase = producto.stockActual ?? 0;
-    const nuevoStock = Math.max(0, stockBase + cantidad);
-
     const actualizado = await this.prisma.$transaction(async (prisma) => {
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${id}), 1, 8))::bit(32)::int)`;
+
+      const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
+      if (!producto) throw new NotFoundException('Producto no encontrado');
+
+      const stockBase = producto.stockActual ?? 0;
+      const nuevoStock = Math.max(0, stockBase + cantidad);
+      const disponibleFinal = nuevoStock === 0 ? false : producto.disponible;
+
       const p = await prisma.producto.update({
         where: { id },
-        data: { stockActual: nuevoStock }
+        data: {
+          stockActual: nuevoStock,
+          disponible: disponibleFinal,
+        }
       });
 
       const payload: ProductoActualizadoPayload = {
@@ -128,7 +242,7 @@ export class AppService {
         precio: p.precio.toNumber(),
         stockActual: p.stockActual,
         categoriaNombre: producto.categoria?.nombre,
-        disponible: p.disponible,
+        disponible: disponibleFinal,
         stockSyncMode: cantidad > 0 ? 'REPOSICION' : 'CONSUMO_PEDIDO',
         stockDelta: cantidad,
       };
@@ -144,16 +258,22 @@ export class AppService {
       return p;
     });
 
-    return { message: 'Stock actualizado', producto: { ...actualizado, precio: actualizado.precio.toNumber() } as unknown as ProductoDto };
+    return { message: 'Stock actualizado', producto: this.toProductoDto({ ...actualizado, categoria: undefined }) };
   }
 
   async reducirStockAutomatico(id: string, cantidad: number): Promise<void> {
     await this.reducirStockAutomaticoConPrisma(this.prisma, id, cantidad);
   }
 
-  private async reducirStockAutomaticoConPrisma(prisma: any, id: string, cantidad: number): Promise<void> {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  private async reducirStockAutomaticoConPrisma(
+    prisma: any,
+    id: string,
+    cantidad: number,
+    pedidoId?: string,
+  ): Promise<void> {
     const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
-    
+
     if (!producto) {
       this.logger.warn(`Producto ${id} no encontrado para reducción de stock`);
       return;
@@ -168,19 +288,38 @@ export class AppService {
         id,
         stockActual: { gte: cantidad }
       },
-      data: { 
+      data: {
         stockActual: { decrement: cantidad }
       }
     });
 
     if (actualizado.count === 0) {
       this.logger.warn(`Stock insuficiente para producto ${id} — no se pudo decrementar ${cantidad}`);
+      // Compensación de saga: la proyección de pedidos quedó por delante del stock
+      // real (lag de ProductoActualizado), así que el pedido se creó sobre stock
+      // inexistente. Emitimos StockInsuficiente en el MISMO $transaction que el
+      // resto del consumo para que Pedidos marque el ítem/pedido como rechazado.
+      if (pedidoId) {
+        await prisma.outboxEvent.create({
+          data: {
+            routingKey: RoutingKeys.StockInsuficiente,
+            payload: JSON.stringify({
+              pedidoId,
+              productoId: id,
+              solicitado: cantidad,
+              disponible: producto.stockActual,
+            } satisfies StockInsuficientePayload),
+            status: 'PENDING',
+          },
+        });
+      }
       return;
     }
 
     const productoDespues = await prisma.producto.findUnique({ where: { id } });
-    if (productoDespues && productoDespues.stockActual === 0 && productoDespues.disponible) {
-      await prisma.producto.update({
+    let productoFinal = productoDespues;
+    if (productoDespues?.stockActual === 0 && productoDespues.disponible) {
+      productoFinal = await prisma.producto.update({
         where: { id },
         data: { disponible: false }
       });
@@ -193,9 +332,9 @@ export class AppService {
           id: producto.id,
           nombre: producto.nombre,
           precio: producto.precio.toNumber(),
-          stockActual: productoDespues?.stockActual,
+          stockActual: productoFinal?.stockActual,
           categoriaNombre: producto.categoria?.nombre,
-          disponible: productoDespues?.disponible ?? producto.disponible,
+          disponible: productoFinal?.disponible ?? producto.disponible,
           stockSyncMode: 'CONSUMO_PEDIDO',
           stockDelta: -cantidad,
         } satisfies ProductoActualizadoPayload),
@@ -203,15 +342,18 @@ export class AppService {
       }
     });
 
-    this.logger.log(`Stock reducido para ${productoDespues?.nombre ?? id}: -> ${productoDespues?.stockActual}`);
+    this.logger.log(`Stock reducido para ${productoFinal?.nombre ?? id}: -> ${productoFinal?.stockActual}`);
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   // A2: idempotencia por pedido.id — reclama la clave atómicamente
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async procesarPedidoCreado(pedido: any): Promise<void> {
     if (!pedido?.id || !Array.isArray(pedido.items)) {
       this.logger.warn('PedidoCreado sin id/items — ignorado');
       return;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (pedido.items.some((item: any) => item?.notas === '__QA_INVENTARIO_FORCE_DLQ__')) {
       throw new Error(`Fallo QA controlado para pedido ${pedido.id}`);
     }
@@ -223,12 +365,12 @@ export class AppService {
 
         for (const item of pedido.items) {
           if (item.productoId && item.cantidad) {
-            await this.reducirStockAutomaticoConPrisma(prisma, item.productoId, item.cantidad);
+            await this.reducirStockAutomaticoConPrisma(prisma, item.productoId, item.cantidad, pedido.id);
           }
         }
       });
-    } catch (e: any) {
-      if (e?.code === 'P2002') {
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
         this.logger.warn(`Pedido ${pedido.id} ya procesado — stock no se reduce de nuevo`);
         return;
       }

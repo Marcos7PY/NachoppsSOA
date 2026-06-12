@@ -2,63 +2,12 @@ import { initTracing } from '@org/observabilidad';
 initTracing('servicio-notificaciones');
 
 import { config } from 'dotenv';
-import { join } from 'path';
-
+import { join } from 'node:path';
 config({ path: join(__dirname, '../.env') });
-
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import cookieParser = require('cookie-parser');
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { bootstrapNachoppsService } from '@org/observabilidad/bootstrap';
 import { AppModule } from './app/app.module';
 
-async function bootstrap() {
-  const RABBITMQ_URI = process.env.RABBITMQ_URI ?? 'amqp://nachopps:nachopps_secret@localhost:5672';
-
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  app.use(cookieParser());
-
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [RABBITMQ_URI],
-      queue: 'notificaciones_queue',
-      queueOptions: { 
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': 'NACHOPPS_DLX',
-          'x-dead-letter-routing-key': 'dlq.notificaciones_queue'
-        }
-      },
-      exchange: 'nachopps_exchange',
-      exchangeType: 'topic',
-      noAck: false,
-    },
-  });
-
-  const config = new DocumentBuilder()
-    .setTitle('Nachopps Restobar — API Notificaciones')
-    .setDescription('WebSockets, push notifications y auditoría de eventos')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  await app.startAllMicroservices();
-  const port = process.env.PORT ?? 3008;
-  await app.listen(port);
-  Logger.log(`🚀 Servicio Notificaciones corriendo en: http://localhost:${port}/api`);
-  Logger.log(`📡 Microservicio RabbitMQ iniciado`);
-  Logger.log(`📄 Swagger: http://localhost:${port}/api/docs`);
-}
-
-bootstrap();
+void bootstrapNachoppsService({
+  serviceName: 'servicio-notificaciones', module: AppModule, queue: 'notificaciones_queue', defaultPort: 3008,
+  swagger: { title: 'Nachopps Restobar — API Notificaciones', description: 'WebSockets, push notifications y auditoría de eventos' },
+});

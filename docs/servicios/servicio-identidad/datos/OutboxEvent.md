@@ -1,33 +1,28 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-identidad
-tabla: outbox_events
 modelo: OutboxEvent
-fuente: [apps/servicio-identidad/prisma/schema.prisma:33, apps/servicio-identidad/prisma/migrations/20260523215428_add_refresh_tokens/migration.sql:1, apps/servicio-identidad/prisma/migrations/20260525022039_init/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-identidad/prisma/schema.prisma:33]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # OutboxEvent
 
-**Campos.**
+**Fuente.** Modelo Prisma `OutboxEvent` definido en [apps/servicio-identidad/prisma/schema.prisma:33].
 
-- `id         String   @id @default(uuid())`. [apps/servicio-identidad/prisma/schema.prisma:34]
-- `routingKey String`. [apps/servicio-identidad/prisma/schema.prisma:35]
-- `payload    String`. [apps/servicio-identidad/prisma/schema.prisma:36]
-- `status     String   @default("PENDING")`. [apps/servicio-identidad/prisma/schema.prisma:37]
-- `attempts   Int      @default(0)`. [apps/servicio-identidad/prisma/schema.prisma:38]
-- `createdAt  DateTime @default(now())`. [apps/servicio-identidad/prisma/schema.prisma:39]
-- `updatedAt  DateTime @updatedAt`. [apps/servicio-identidad/prisma/schema.prisma:40]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-identidad/prisma/schema.prisma:34 | `id         String   @id @default(uuid())` |
+| apps/servicio-identidad/prisma/schema.prisma:35 | `routingKey String` |
+| apps/servicio-identidad/prisma/schema.prisma:36 | `payload    String` |
+| apps/servicio-identidad/prisma/schema.prisma:37 | `status     String   @default("PENDING")` |
+| apps/servicio-identidad/prisma/schema.prisma:38 | `attempts   Int      @default(0)` |
+| apps/servicio-identidad/prisma/schema.prisma:39 | `createdAt  DateTime @default(now())` |
+| apps/servicio-identidad/prisma/schema.prisma:40 | `updatedAt  DateTime @updatedAt` |
+| apps/servicio-identidad/prisma/schema.prisma:42 | `@@index([status, createdAt])` |
+| apps/servicio-identidad/prisma/schema.prisma:43 | `@@map("outbox_events")` |
 
-- `id         String   @id @default(uuid())`. [apps/servicio-identidad/prisma/schema.prisma:34]
-- `@@index([status, createdAt])`. [apps/servicio-identidad/prisma/schema.prisma:42]
-- `@@map("outbox_events")`. [apps/servicio-identidad/prisma/schema.prisma:43]
-
-**Migraciones.** [apps/servicio-identidad/prisma/migrations/20260523215428_add_refresh_tokens/migration.sql:1], [apps/servicio-identidad/prisma/migrations/20260525022039_init/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `OutboxEvent` en el servicio `servicio-identidad`; este atomo fija la estructura declarada por Prisma. [apps/servicio-identidad/prisma/schema.prisma:33]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-identidad/prisma/schema.prisma:33]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

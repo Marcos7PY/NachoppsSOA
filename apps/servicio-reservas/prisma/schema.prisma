@@ -14,7 +14,7 @@ model Reserva {
   clienteTelefono String?
   fecha           DateTime @db.Date
   hora            String
-  mesaPreferida   String?
+  mesaPreferida   String
   numComensales   Int      @default(2)
   estado          String   @default("PENDIENTE")
   createdAt       DateTime @default(now())
@@ -30,6 +30,7 @@ model OutboxEvent {
   payload    String
   status     String   @default("PENDING")
   attempts   Int      @default(0)
+  claimedAt  DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

@@ -58,12 +58,6 @@
       "path": "./apps/servicio-identidad"
     },
     {
-      "path": "./apps/pwa-cliente-e2e"
-    },
-    {
-      "path": "./apps/pwa-cliente"
-    },
-    {
       "path": "./libs/contracts"
     },
     {
@@ -71,6 +65,18 @@
     },
     {
       "path": "./libs/shared-prisma"
+    },
+    {
+      "path": "./apps/pwa-cliente"
+    },
+    {
+      "path": "./libs/observabilidad"
+    },
+    {
+      "path": "./libs/resiliencia"
+    },
+    {
+      "path": "./libs/shared-auth"
     }
   ]
 }

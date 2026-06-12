@@ -107,7 +107,7 @@ async function ensureRoleUser(role, email) {
   return retry.data.access_token;
 }
 
-function record(label, responses, invariant, details = {}) {
+function record(label, responses, invariant, details = {}, options = {}) {
   const latencies = responses.map((r) => r.ms).filter(Number.isFinite);
   const statuses = responses.reduce((acc, r) => {
     acc[r.status] = (acc[r.status] || 0) + 1;
@@ -124,9 +124,10 @@ function record(label, responses, invariant, details = {}) {
       max: latencies.length ? Math.max(...latencies) : 0,
     },
     details,
+    skipped: Boolean(options.skipped),
   };
   results.push(result);
-  console.log(`${invariant ? 'OK' : 'FAIL'} ${label}: ${JSON.stringify(statuses)}`);
+  console.log(`${result.skipped ? 'SKIP' : invariant ? 'OK' : 'FAIL'} ${label}: ${JSON.stringify(statuses)}`);
 }
 
 async function scenarioCookieAuth() {
@@ -144,7 +145,7 @@ async function scenarioCookieAttributes() {
   const expected =
     /access_token=/.test(setCookie) &&
     /HttpOnly/i.test(setCookie) &&
-    /SameSite=Lax/i.test(setCookie) &&
+    /SameSite=Strict/i.test(setCookie) &&
     /Path=\//i.test(setCookie);
   record('Cookie de login segura en dev', [res], expected, { setCookie: redactToken(setCookie) });
 }
@@ -190,10 +191,15 @@ async function scenarioDirectPortsBypass() {
     await req('GET', 'http://localhost:3005/api', undefined),
     await req('GET', 'http://localhost:3007/api/productos', undefined),
   ];
-  const allProtected = probes.every((r) => r.status === 401);
+  const allowClosedPorts = process.env.ALLOW_CLOSED_DIRECT_PORTS === 'true';
+  const allClosed = probes.every((r) => r.status === 0);
+  const allProtected = probes.every((r) => r.status === 401 || (allowClosedPorts && r.status === 0));
   record('Puertos directos sin token', probes, allProtected, {
-    expected: '401 en todos; si falla, hay exposicion por puertos host en dev',
-  });
+    expected: allowClosedPorts
+      ? '401 en puertos publicados o conexion rechazada si prod no publica puertos directos'
+      : '401 en todos; si falla, hay exposicion por puertos host en dev',
+    mode: allowClosedPorts && allClosed ? 'skipped: compose prod no publica puertos directos 3001-3010' : 'asserted',
+  }, { skipped: allowClosedPorts && allClosed });
 }
 
 async function scenarioMalformedPayloads() {
@@ -224,23 +230,25 @@ async function scenarioRateLimitLogin() {
 function renderReport() {
   const commit = execSync('git log -1 --oneline', { encoding: 'utf8' }).trim();
   const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
-  const passed = results.filter((r) => r.invariant).length;
+  const passed = results.filter((r) => r.invariant && !r.skipped).length;
+  const skipped = results.filter((r) => r.skipped).length;
+  const failed = results.filter((r) => !r.invariant && !r.skipped).length;
   let md = `# Informe de seguridad y limites\n\n`;
   md += `- Fecha: ${new Date().toISOString()}\n`;
   md += `- Base URL: ${BASE}\n`;
   md += `- Rama: ${branch}\n`;
   md += `- Commit: ${commit}\n`;
-  md += `- Resultado: ${passed}/${results.length} invariantes OK\n\n`;
+  md += `- Resultado: ${passed} OK / ${skipped} SKIP / ${failed} FALLA\n\n`;
   md += `## Resumen\n\n`;
   md += `| Escenario | Invariante | Requests | Status | p95 |\n`;
   md += `|---|---:|---:|---|---:|\n`;
   for (const r of results) {
-    md += `| ${r.label} | ${r.invariant ? 'OK' : 'FALLA'} | ${r.total} | ${JSON.stringify(r.statuses)} | ${r.latency.p95}ms |\n`;
+    md += `| ${r.label} | ${r.skipped ? 'SKIP' : r.invariant ? 'OK' : 'FALLA'} | ${r.total} | ${JSON.stringify(r.statuses)} | ${r.latency.p95}ms |\n`;
   }
   md += `\n## Detalle\n\n`;
   for (const r of results) {
     md += `### ${r.label}\n\n`;
-    md += `- Invariante: ${r.invariant ? 'OK' : 'FALLA'}\n`;
+    md += `- Invariante: ${r.skipped ? 'SKIP' : r.invariant ? 'OK' : 'FALLA'}\n`;
     md += `- Status: \`${JSON.stringify(r.statuses)}\`\n`;
     md += `- Latencia: p50=${r.latency.p50}ms, p95=${r.latency.p95}ms, max=${r.latency.max}ms\n`;
     md += `- Detalle: \`${JSON.stringify(r.details || {})}\`\n\n`;

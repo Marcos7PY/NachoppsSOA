@@ -1,5 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import axios from 'axios';
+
+// T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
+// el comportamiento del breaker se prueba aparte en http-clients.breaker.spec.ts.
+vi.mock('@org/resiliencia', async () => {
+  const actual = await vi.importActual('@org/resiliencia');
+  return {
+    ...actual,
+    CircuitBreakerOptions: () => (_target: any, _key: string, descriptor: PropertyDescriptor) => descriptor,
+  };
+});
+
 import { AppService } from './app.service';
+import { MesasHttpClient } from './mesas-http.client';
+import { InventarioHttpClient } from './inventario-http.client';
+import { PedidosSagaService } from './pedidos-saga.service';
 import { PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
@@ -12,7 +27,21 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
 }
 
 function createMockPublisher() {
-  return { publish: vi.fn().mockResolvedValue(undefined) };
+  return {
+    publish: vi.fn().mockResolvedValue(undefined),
+    generateServiceToken: vi.fn().mockReturnValue('service-token'),
+  };
+}
+
+// T-33: los clientes HTTP reales con el token service mockeado, para que los
+// specs sigan espiando axios de extremo a extremo.
+function createService(prisma: any, tokenService: any) {
+  return new AppService(
+    prisma,
+    new MesasHttpClient(tokenService),
+    new InventarioHttpClient(tokenService),
+    new PedidosSagaService(prisma),
+  );
 }
 
 describe('AppService — Pedidos', () => {
@@ -37,22 +66,70 @@ describe('AppService — Pedidos', () => {
       $executeRaw: vi.fn().mockResolvedValue(1),
       $queryRaw: vi.fn().mockResolvedValue([{ stockActual: 1 }]),
       pedido: {
+        create: vi.fn(),
         findUnique: vi.fn(),
         findMany: vi.fn(),
         update: vi.fn(),
       },
+      pedidoItem: {
+        update: vi.fn(),
+        findMany: vi.fn(),
+      },
       productoLocal: {
+        findUnique: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn(),
+      },
+      mesaLocal: {
         findUnique: vi.fn(),
         upsert: vi.fn(),
       },
       idempotencyKey: {
         create: vi.fn().mockResolvedValue({}),
       },
+      outboxEvent: {
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
+      },
       $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
     });
     mockPublisher = createMockPublisher();
 
-    service = new AppService(mockPrisma as any, mockPublisher as any);
+    service = createService(mockPrisma as any, mockPublisher as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  describe('validarMesa', () => {
+    it('usa la proyección local cuando la mesa ya está sincronizada', async () => {
+      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocal);
+      const getSpy = vi.spyOn(axios, 'get');
+
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      expect(getSpy).not.toHaveBeenCalled();
+    });
+
+    it('sincroniza la mesa desde servicio-mesas cuando falta en pedidos', async () => {
+      const mesaLocal = { id: 'mesa-1', numero: 1, updatedAt: new Date() };
+      mockPrisma.mesaLocal.findUnique.mockResolvedValue(null);
+      mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocal);
+      vi.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
+
+      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.stringContaining('/mesas/mesa-1'),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer service-token' },
+        }),
+      );
+      expect(mockPrisma.mesaLocal.upsert).toHaveBeenCalledWith({
+        where: { id: 'mesa-1' },
+        create: { id: 'mesa-1', numero: 1 },
+        update: { numero: 1 },
+      });
+    });
   });
 
   describe('procesarPagoRecibido', () => {
@@ -95,6 +172,63 @@ describe('AppService — Pedidos', () => {
     it('no debe lanzar error si no hay pedidos para la mesa', async () => {
       vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
       await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+    });
+  });
+
+  // T-40: los specs de transiciones y derivación viven ahora en
+  // pedidos-saga.service.spec.ts, junto a la clase extraída.
+
+  describe('listarPedidos', () => {
+    it('debe listar solo pedidos activos por mesa', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+
+      await service.listarPedidos({ mesaId: 'mesa-1' });
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          mesaId: 'mesa-1',
+          estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] },
+        },
+        take: 21,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      }));
+    });
+
+    it('devuelve data y nextCursor cuando hay mas resultados', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([
+        { ...basePedido, id: 'p-001' },
+        { ...basePedido, id: 'p-002' },
+        { ...basePedido, id: 'p-003' },
+      ] as any);
+
+      const result = await service.listarPedidos({ limit: 2 });
+
+      expect(result.data.map((pedido) => pedido.id)).toEqual(['p-001', 'p-002']);
+      expect(result.nextCursor).toBe('p-002');
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        take: 3,
+      }));
+    });
+
+    it('aplica cursor, estado, updatedSince y tope maximo de limit', async () => {
+      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+
+      await service.listarPedidos({
+        cursor: 'p-010',
+        estado: PedidoEstado.Listo,
+        updatedSince: '2026-01-01T00:00:00.000Z',
+        limit: 500,
+      });
+
+      expect(mockPrisma.pedido.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          estado: PedidoEstado.Listo,
+          updatedAt: { gte: new Date('2026-01-01T00:00:00.000Z') },
+        },
+        cursor: { id: 'p-010' },
+        skip: 1,
+        take: 101,
+      }));
     });
   });
 
@@ -150,6 +284,123 @@ describe('AppService — Pedidos', () => {
 
       expect(mockPrisma.productoLocal.upsert).toHaveBeenCalledWith(expect.objectContaining({
         update: expect.objectContaining({ stockActual: 12 }),
+      }));
+    });
+  });
+
+  describe('persistirPedido', () => {
+    it('no debe reservar stock local para productos sin control de stock', async () => {
+      mockPrisma.pedido.create.mockResolvedValue({
+        ...basePedido,
+        items: [
+          {
+            id: 'item-1',
+            pedidoId: 'p-001',
+            productoId: 'prod-libre',
+            nombre: 'Ceviche',
+            cantidad: 2,
+            precioUnitario: 25,
+            area: 'COCINA',
+            notas: null,
+            estado: PedidoEstado.Pendiente,
+            comensal: 1,
+            modificadores: [],
+          },
+        ],
+      } as any);
+
+      await (service as any).persistirPedido({
+        mesaId: 'mesa-1',
+        numeroMesa: 1,
+        items: [
+          {
+            productoId: 'prod-libre',
+            nombre: 'Ceviche',
+            cantidad: 2,
+            precioUnitario: 25,
+            stockActual: null,
+            area: 'COCINA',
+            comensal: 1,
+            modificadores: [],
+          },
+        ],
+        total: 50,
+      });
+
+      expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
+      expect(mockPrisma.$queryRaw).not.toHaveBeenCalled();
+      expect(mockPrisma.pedido.create).toHaveBeenCalled();
+    });
+
+    it('persiste y expone el mesero en pedido, items y eventos', async () => {
+      mockPrisma.pedido.create.mockResolvedValue({
+        ...basePedido,
+        meseroId: 'u-mesero-1',
+        meseroNombre: 'Ana Mesa',
+        items: [
+          {
+            id: 'item-1',
+            pedidoId: 'p-001',
+            productoId: 'prod-1',
+            nombre: 'Nachos',
+            cantidad: 1,
+            precioUnitario: 25,
+            area: 'COCINA',
+            notas: null,
+            estado: PedidoEstado.Pendiente,
+            comensal: 1,
+            meseroId: 'u-mesero-1',
+            meseroNombre: 'Ana Mesa',
+            modificadores: [],
+          },
+        ],
+      } as any);
+
+      await (service as any).persistirPedido({
+        mesaId: 'mesa-1',
+        numeroMesa: 1,
+        items: [
+          {
+            productoId: 'prod-1',
+            nombre: 'Nachos',
+            cantidad: 1,
+            precioUnitario: 25,
+            stockActual: null,
+            area: 'COCINA',
+            comensal: 1,
+            modificadores: [],
+          },
+        ],
+        total: 25,
+        modalidad: 'MESA',
+        mesero: { id: 'u-mesero-1', nombre: 'Ana Mesa' },
+      });
+
+      expect(mockPrisma.pedido.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          meseroId: 'u-mesero-1',
+          meseroNombre: 'Ana Mesa',
+          items: expect.objectContaining({
+            create: [
+              expect.objectContaining({
+                meseroId: 'u-mesero-1',
+                meseroNombre: 'Ana Mesa',
+              }),
+            ],
+          }),
+        }),
+      }));
+
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
+      const pedidoCreado = eventos.find((e: any) => e.routingKey === 'pedido.creado');
+      const payload = JSON.parse(pedidoCreado.payload);
+      expect(payload.pedido).toEqual(expect.objectContaining({
+        meseroId: 'u-mesero-1',
+        meseroNombre: 'Ana Mesa',
+      }));
+      expect(payload.pedido.items[0]).toEqual(expect.objectContaining({
+        meseroId: 'u-mesero-1',
+        meseroNombre: 'Ana Mesa',
       }));
     });
   });
@@ -275,4 +526,7 @@ describe('AppService — Pedidos', () => {
       }));
     });
   });
+
+  // T-40: los specs de procesarStockInsuficiente viven ahora en
+  // pedidos-saga.service.spec.ts, junto a la clase extraída.
 });

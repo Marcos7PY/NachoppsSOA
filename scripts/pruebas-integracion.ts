@@ -16,7 +16,7 @@ import * as path from 'path';
 // Config
 // ═══════════════════════════════════════════════════════════
 
-const BASE = 'http://localhost:8000';
+const BASE = process.env.NACHOPPS_BASE_URL || process.env.BASE_URL || 'http://localhost:8000';
 const SLEEP_MS = 4000; // Tiempo máximo de cortesía entre flujos principales
 
 interface TestResult {
@@ -119,7 +119,7 @@ function errMsg(e: unknown): string {
 async function servirPedidosDeMesa(mesaId: string) {
   try {
     const res = await axios.get(`${BASE}/pedidos?mesaId=${mesaId}`, { headers: authHeaders() });
-    const pedidos = res.data.pedidos || [];
+    const pedidos = res.data.data ?? res.data.pedidos ?? [];
     for (const p of pedidos) {
       if (p.estado === 'PENDIENTE' || p.estado === 'EN_PREPARACION') {
         await axios.patch(`${BASE}/pedidos/${p.id}/estado`, { estado: 'ENTREGADO' }, { headers: authHeaders() });
@@ -153,7 +153,7 @@ async function main() {
   // ── Obtener datos base ───────────────────────────
   console.log('\n📋 Cargando datos de referencia...');
   const prodRes = await axios.get(`${BASE}/inventario/productos`, { headers: authHeaders() });
-  const productos: any[] = prodRes.data.productos || [];
+  const productos: any[] = prodRes.data.data ?? prodRes.data.productos ?? [];
   const mesasRes = await axios.get(`${BASE}/mesas`, { headers: authHeaders() });
   const mesas: any[] = Array.isArray(mesasRes.data) ? mesasRes.data : mesasRes.data.mesas || [];
 
@@ -189,6 +189,24 @@ async function main() {
 
   if (!ceviche || !incaKola || !lomo) {
     console.warn('⚠️  Faltan productos de referencia — algunos tests pueden fallar');
+  }
+
+  // ── Abrir turno de caja (requerido para registrar pagos) ──
+  console.log('\n🧾 Abriendo turno de caja...');
+  try {
+    await axios.post(
+      `${BASE}/caja/turnos/abrir`,
+      { cajaNombre: 'Caja QA', cajeroNombre: 'QA Integración', fondoInicial: 200 },
+      { headers: authHeaders() },
+    );
+    console.log('   ✅ Turno de caja abierto');
+  } catch (e: any) {
+    const msg = String(e?.response?.data?.message ?? '');
+    if (e?.response?.status === 409 || /ya|abierto/i.test(msg)) {
+      console.log('   ℹ️  Ya había un turno de caja abierto');
+    } else {
+      console.warn('   ⚠️  No se pudo abrir turno:', e?.response?.status, msg);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -268,7 +286,7 @@ async function main() {
 
   await test('1.7 Verificar transacción registrada en caja', async () => {
     const res = await axios.get(`${BASE}/caja`, { headers: authHeaders() });
-    const transacciones = res.data.transacciones || res.data || [];
+    const transacciones = res.data.data ?? res.data.transacciones ?? (Array.isArray(res.data) ? res.data : []);
     const encontrada = transacciones.find((t: any) => t.cuentaId === cuenta1Id);
     if (!encontrada) throw new Error('Transacción no encontrada para la cuenta');
     if (encontrada.metodo !== 'EFECTIVO') throw new Error(`Método: ${encontrada.metodo}`);
@@ -507,6 +525,7 @@ async function main() {
     { mesa: 8, metodo: 'TARJETA' },
     { mesa: 9, metodo: 'YAPE' },
     { mesa: 10, metodo: 'TRANSFERENCIA' },
+    { mesa: 11, metodo: 'PLIN' },
   ];
 
   for (const { mesa, metodo } of metodos) {
@@ -541,7 +560,7 @@ async function main() {
       await expectWithRetry(
         async () => {
           const transRes = await axios.get(`${BASE}/caja`, { headers: authHeaders() });
-          const transacciones = transRes.data.transacciones || transRes.data || [];
+          const transacciones = transRes.data.data ?? transRes.data.transacciones ?? (Array.isArray(transRes.data) ? transRes.data : []);
           return transacciones.find((tx: any) => tx.cuentaId === cuentaData.id);
         },
         (t) => t && t.metodo === metodo
@@ -914,7 +933,7 @@ ${servicesChecked?.map(s => `| ${s.name} | ✅ |`).join('\n') || ''}
 | TARJETA | ✅ |
 | YAPE | ✅ |
 | TRANSFERENCIA | ✅ |
-| PLIN | ❌ (no probado) |
+| PLIN | ✅ |
 
 `;
 

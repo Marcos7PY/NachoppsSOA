@@ -4,21 +4,26 @@ import { RABBITMQ_CONNECTION } from './rabbitmq.constants';
 import { RabbitMQPublisherService } from './rabbitmq-publisher.service';
 
 export interface RabbitMQModuleOptions {
-  uri: string;
+  uri?: string;
   queue?: string;
   bindings?: string[];
 }
 
 @Module({})
 export class RabbitMQModule {
-  static forRoot(options: RabbitMQModuleOptions | string): DynamicModule {
-    const uri = typeof options === 'string' ? options : options.uri;
-    const queue = typeof options === 'string' ? undefined : options.queue;
-    const bindings = typeof options === 'string' ? [] : (options.bindings || []);
+  static forRoot(options: RabbitMQModuleOptions | string | undefined): DynamicModule {
+    const moduleOptions = typeof options === 'string' ? { uri: options } : (options || {});
+    const { uri, queue, bindings = [] } = moduleOptions;
 
     const connectionProvider = {
       provide: RABBITMQ_CONNECTION,
-      useFactory: () => amqp.connect([uri]),
+      useFactory: () => {
+        if (!uri) {
+          throw new Error('RABBITMQ_URI environment variable is required');
+        }
+
+        return amqp.connect([uri]);
+      },
     };
 
     const optionsProvider = {

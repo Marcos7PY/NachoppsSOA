@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-mesas-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-mesas:build",
-          "servicio-mesas:serve"
-        ]
+          "jestConfig": "apps/servicio-mesas-e2e/jest.config.cts"
+        }
       }
     }
   }

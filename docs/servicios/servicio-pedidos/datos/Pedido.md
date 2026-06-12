@@ -1,36 +1,36 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-pedidos
-tabla: pedidos
 modelo: Pedido
-fuente: [apps/servicio-pedidos/prisma/schema.prisma:20, apps/servicio-pedidos/prisma/migrations/20260525022137_init/migration.sql:1, apps/servicio-pedidos/prisma/migrations/20260528000000_add_productos_locales/migration.sql:1, apps/servicio-pedidos/prisma/migrations/20260529001000_add_idempotency_keys/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-pedidos/prisma/schema.prisma:20]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Pedido
 
-**Campos.**
+**Fuente.** Modelo Prisma `Pedido` definido en [apps/servicio-pedidos/prisma/schema.prisma:20].
 
-- `id             String       @id @default(uuid())`. [apps/servicio-pedidos/prisma/schema.prisma:21]
-- `mesaId         String`. [apps/servicio-pedidos/prisma/schema.prisma:22]
-- `numeroMesa     Int?`. [apps/servicio-pedidos/prisma/schema.prisma:23]
-- `estado         PedidoEstado @default(PENDIENTE)`. [apps/servicio-pedidos/prisma/schema.prisma:24]
-- `total          Decimal      @default(0) @db.Decimal(10, 2)`. [apps/servicio-pedidos/prisma/schema.prisma:25]
-- `items          PedidoItem[]`. [apps/servicio-pedidos/prisma/schema.prisma:26]
-- `comensales     Int          @default(1)`. [apps/servicio-pedidos/prisma/schema.prisma:27]
-- `createdAt      DateTime     @default(now())`. [apps/servicio-pedidos/prisma/schema.prisma:28]
-- `updatedAt      DateTime     @updatedAt`. [apps/servicio-pedidos/prisma/schema.prisma:29]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-pedidos/prisma/schema.prisma:21 | `id             String       @id @default(uuid())` |
+| apps/servicio-pedidos/prisma/schema.prisma:22 | `mesaId         String` |
+| apps/servicio-pedidos/prisma/schema.prisma:23 | `numeroMesa     Int?` |
+| apps/servicio-pedidos/prisma/schema.prisma:24 | `estado         PedidoEstado @default(PENDIENTE)` |
+| apps/servicio-pedidos/prisma/schema.prisma:25 | `total          Decimal      @default(0) @db.Decimal(10, 2)` |
+| apps/servicio-pedidos/prisma/schema.prisma:26 | `items          PedidoItem[]` |
+| apps/servicio-pedidos/prisma/schema.prisma:27 | `comensales     Int          @default(1)` |
+| apps/servicio-pedidos/prisma/schema.prisma:28 | `cliente        String?` |
+| apps/servicio-pedidos/prisma/schema.prisma:29 | `telefono       String?` |
+| apps/servicio-pedidos/prisma/schema.prisma:30 | `direccion      String?` |
+| apps/servicio-pedidos/prisma/schema.prisma:31 | `proveedor      String?` |
+| apps/servicio-pedidos/prisma/schema.prisma:32 | `modalidad      String?      @default("MESA")` |
+| apps/servicio-pedidos/prisma/schema.prisma:33 | `createdAt      DateTime     @default(now())` |
+| apps/servicio-pedidos/prisma/schema.prisma:34 | `updatedAt      DateTime     @updatedAt` |
+| apps/servicio-pedidos/prisma/schema.prisma:36 | `@@index([mesaId])` |
+| apps/servicio-pedidos/prisma/schema.prisma:37 | `@@index([estado])` |
+| apps/servicio-pedidos/prisma/schema.prisma:38 | `@@map("pedidos")` |
 
-- `id             String       @id @default(uuid())`. [apps/servicio-pedidos/prisma/schema.prisma:21]
-- `@@index([mesaId])`. [apps/servicio-pedidos/prisma/schema.prisma:31]
-- `@@index([estado])`. [apps/servicio-pedidos/prisma/schema.prisma:32]
-- `@@map("pedidos")`. [apps/servicio-pedidos/prisma/schema.prisma:33]
-
-**Migraciones.** [apps/servicio-pedidos/prisma/migrations/20260525022137_init/migration.sql:1], [apps/servicio-pedidos/prisma/migrations/20260528000000_add_productos_locales/migration.sql:1], [apps/servicio-pedidos/prisma/migrations/20260529001000_add_idempotency_keys/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `Pedido` en el servicio `servicio-pedidos`; este atomo fija la estructura declarada por Prisma. [apps/servicio-pedidos/prisma/schema.prisma:20]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-pedidos/prisma/schema.prisma:20]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

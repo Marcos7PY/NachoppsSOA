@@ -1,66 +1,100 @@
-import { Injectable, NotFoundException, BadRequestException, Logger, ServiceUnavailableException, InternalServerErrorException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
-  PedidoDto, 
+  PedidoDto,
   CrearPedidoCommand,
   ActualizarEstadoPedidoCommand,
+  ActualizarEstadoItemCommand,
   PedidoItemInput,
   PedidoEstado,
-  ItemArea,
+  ListarPedidosQuery,
+  PedidoListResponse,
   RoutingKeys,
   PagoRegistradoPayload,
   ProductoCreadoPayload,
   ProductoActualizadoPayload,
+  StockInsuficientePayload,
 } from '@org/contracts';
 import { Prisma } from '../generated/prisma';
-import axios from 'axios';
+import { getOrCreateCounter } from '@org/observabilidad';
+import { MesasHttpClient } from './mesas-http.client';
+import { InventarioHttpClient } from './inventario-http.client';
+import { PedidosSagaService } from './pedidos-saga.service';
+import { mapPedidoToDto } from './pedido.mapper';
 import {
   PedidoItemMapeado,
   MesaLocalEntity,
   PedidoEntity,
 } from './types';
 
-interface ProductoRemotoLote {
+interface MeseroPedido {
   id: string;
-  nombre: string;
-  precio: number;
-  stockActual: number | null;
-  categoria?: { nombre: string } | null;
-  disponible: boolean;
+  nombre?: string | null;
 }
 
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
-  private readonly HTTP_TIMEOUT_MS = 5000;
-  private readonly INVENTARIO_URL =
-    process.env['INVENTARIO_SERVICE_URL'] ?? 'http://servicio-inventario:3000/api';
-
+  // Métricas de negocio (plan 5.2): pedidos/min vía rate(pedidos_creados_total).
+  private readonly pedidosCreadosCounter = getOrCreateCounter(
+    'pedidos_creados_total', 'Pedidos creados', ['modalidad'],
+  );
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
+    private readonly mesasHttp: MesasHttpClient,
+    private readonly inventarioHttp: InventarioHttpClient,
+    private readonly saga: PedidosSagaService,
   ) {}
 
-  async crearPedido(command: CrearPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
+  async crearPedido(command: CrearPedidoCommand, mesero?: MeseroPedido | null): Promise<{ message: string; pedido: PedidoDto }> {
     const mesaLocal = await this.validarMesa(command.mesaId);
     const itemsProcesados = await this.validarYMapearItems(command.items);
     const total = this.calcularTotal(itemsProcesados);
-    const pedido = await this.persistirPedido(command.mesaId, mesaLocal.numero, itemsProcesados, total);
+    const pedido = await this.persistirPedido({
+      mesaId: command.mesaId,
+      numeroMesa: mesaLocal.numero,
+      items: itemsProcesados,
+      total,
+      cliente: command.cliente,
+      telefono: command.telefono,
+      direccion: command.direccion,
+      proveedor: command.proveedor,
+      modalidad: command.modalidad,
+      mesero,
+    });
 
     this.logger.log(`Pedido ${pedido.id} creado con eventos en Outbox`);
-    return { 
-      message: 'Pedido creado exitosamente', 
-      pedido: this.mapToDto(pedido) 
+    this.pedidosCreadosCounter.inc({ modalidad: command.modalidad ?? 'MESA' });
+    return {
+      message: 'Pedido creado exitosamente',
+      pedido: this.mapToDto(pedido)
     };
   }
 
   private async validarMesa(mesaId: string): Promise<MesaLocalEntity> {
     const mesa = await this.prisma.mesaLocal.findUnique({ where: { id: mesaId } });
-    if (!mesa) {
-      throw new NotFoundException(`La mesa con ID ${mesaId} no existe o no está sincronizada.`);
+    if (mesa) {
+      return mesa;
     }
-    return mesa;
+
+    return this.sincronizarMesaLocal(mesaId);
+  }
+
+  private async sincronizarMesaLocal(mesaId: string): Promise<MesaLocalEntity> {
+    // T-33: la llamada remota (token + axios + breaker + mapeo de errores) vive
+    // en MesasHttpClient; aquí solo queda la proyección local.
+    const data = await this.mesasHttp.obtenerMesa(mesaId);
+
+    return this.prisma.mesaLocal.upsert({
+      where: { id: data.id },
+      create: {
+        id: data.id,
+        numero: data.numero,
+      },
+      update: {
+        numero: data.numero,
+      },
+    });
   }
 
   private async asegurarProductosLocales(productoIds: string[]): Promise<void> {
@@ -72,57 +106,27 @@ export class AppService {
 
     if (faltantes.length > 0) {
       this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
-      let token: string;
-      try {
-        token = this.jwtService.sign(
-          { sub: 'servicio-pedidos', email: 'pedidos@internal', rol: 'SISTEMA' },
-          { expiresIn: '1h' },
-        );
-      } catch {
-        throw new ServiceUnavailableException('No se pudo generar token para inventario. Reintente.');
-      }
-
-      try {
-        const { data } = await axios.post<ProductoRemotoLote[]>(
-          `${this.INVENTARIO_URL}/productos/lote`,
-          { ids: faltantes },
-          {
-            timeout: this.HTTP_TIMEOUT_MS,
-            headers: { Authorization: `Bearer ${token}` },
+      // T-33: la llamada remota vive en InventarioHttpClient (breaker incluido).
+      const productos = await this.inventarioHttp.obtenerProductosLote(faltantes);
+      for (const p of productos) {
+        await this.prisma.productoLocal.upsert({
+          where: { id: p.id },
+          create: {
+            id: p.id,
+            nombre: p.nombre,
+            precio: p.precio,
+            stockActual: p.stockActual ?? null,
+            categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            disponible: p.disponible ?? true,
           },
-        );
-
-        const productos = Array.isArray(data) ? data : (data as any).productos ?? [];
-        for (const p of productos) {
-          await this.prisma.productoLocal.upsert({
-            where: { id: p.id },
-            create: {
-              id: p.id,
-              nombre: p.nombre,
-              precio: p.precio,
-              stockActual: p.stockActual ?? null,
-              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
-              disponible: p.disponible ?? true,
-            },
-            update: {
-              nombre: p.nombre,
-              precio: p.precio,
-              stockActual: p.stockActual ?? null,
-              categoriaNombre: p.categoria?.nombre ?? 'COCINA',
-              disponible: p.disponible ?? true,
-            },
-          });
-        }
-      } catch (error: unknown) {
-        const axiosError = error as { response?: { status: number }; code?: string; message?: string };
-        if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
-          throw new ServiceUnavailableException('El servicio de inventario no responde. Reintente.');
-        }
-        if (axiosError.code === 'ECONNREFUSED') {
-          throw new ServiceUnavailableException('El servicio de inventario no está disponible.');
-        }
-        this.logger.error(`Error en cold-start de productos: ${axiosError.message}`);
-        throw new InternalServerErrorException('No se pudieron cargar productos desde inventario. Reintente.');
+          update: {
+            nombre: p.nombre,
+            precio: p.precio,
+            stockActual: p.stockActual ?? null,
+            categoriaNombre: p.categoria?.nombre ?? 'COCINA',
+            disponible: p.disponible ?? true,
+          },
+        });
       }
     }
   }
@@ -167,9 +171,32 @@ export class AppService {
     );
   }
 
-  private async persistirPedido(mesaId: string, numeroMesa: number, items: PedidoItemMapeado[], total: Prisma.Decimal): Promise<PedidoEntity> {
+  private async persistirPedido({
+    mesaId,
+    numeroMesa,
+    items,
+    total,
+    cliente,
+    telefono,
+    direccion,
+    proveedor,
+    modalidad,
+    mesero,
+  }: {
+    mesaId: string;
+    numeroMesa: number;
+    items: PedidoItemMapeado[];
+    total: Prisma.Decimal;
+    cliente?: string;
+    telefono?: string;
+    direccion?: string;
+    proveedor?: string;
+    modalidad?: string;
+    mesero?: MeseroPedido | null;
+  }): Promise<PedidoEntity> {
     return this.prisma.$transaction(async (prisma) => {
-      const cantidadesPorProducto = items.reduce((acc, item) => {
+      const itemsConStockControlado = items.filter((item) => typeof item.stockActual === 'number');
+      const cantidadesPorProducto = itemsConStockControlado.reduce((acc, item) => {
         acc.set(item.productoId, (acc.get(item.productoId) ?? 0) + item.cantidad);
         return acc;
       }, new Map<string, number>());
@@ -197,6 +224,13 @@ export class AppService {
           numeroMesa,
           estado: PedidoEstado.Pendiente,
           total,
+          cliente,
+          telefono,
+          direccion,
+          proveedor,
+          modalidad: modalidad ?? 'MESA',
+          meseroId: mesero?.id,
+          meseroNombre: mesero?.nombre ?? mesero?.id,
           items: {
             create: items.map(item => ({
               productoId: item.productoId,
@@ -206,6 +240,8 @@ export class AppService {
               area: item.area,
               notas: item.notas,
               comensal: item.comensal,
+              meseroId: mesero?.id,
+              meseroNombre: mesero?.nombre ?? mesero?.id,
               modificadores: {
                 create: item.modificadores.map(m => ({
                   nombre: m.nombre,
@@ -244,8 +280,17 @@ export class AppService {
   }
 
 
-  async listarPedidos(mesaId?: string): Promise<{ pedidos: PedidoDto[] }> {
-    const where = mesaId ? { mesaId } : {};
+  async listarPedidos(query: ListarPedidosQuery = {}): Promise<PedidoListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const where: Prisma.PedidoWhereInput = {
+      ...(query.mesaId ? { mesaId: query.mesaId } : {}),
+      ...(query.estado
+        ? { estado: query.estado }
+        : { estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+    };
     const pedidos = await this.prisma.pedido.findMany({
       where,
       include: {
@@ -253,108 +298,33 @@ export class AppService {
           include: { modificadores: true }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }]
     });
 
-    return { pedidos: pedidos.map(p => this.mapToDto(p)) };
+    const hasMore = pedidos.length > limit;
+    const data = pedidos.slice(0, limit);
+
+    return {
+      data: data.map(p => this.mapToDto(p)),
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
+    };
   }
 
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+  }
+
+  // T-40: transiciones de estado y saga delegadas en PedidosSagaService.
   async actualizarEstado(id: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string; pedido: PedidoDto }> {
-    const pedido = await this.prisma.$transaction(async (prisma) => {
-      const p = await prisma.pedido.update({
-        where: { id },
-        data: { estado: command.estado },
-        include: { items: { include: { modificadores: true } } }
-      });
-
-      const pedidoDto = this.mapToDto(p);
-      const outboxData: Array<{ routingKey: string; payload: string; status: string }> = [];
-
-      if (command.estado === PedidoEstado.Listo) {
-        outboxData.push({
-          routingKey: RoutingKeys.PedidoListo,
-          payload: JSON.stringify({
-            pedidoId: p.id,
-            mesaId: p.mesaId,
-          }),
-          status: 'PENDING',
-        });
-      }
-
-      outboxData.push({
-        routingKey: RoutingKeys.PedidoActualizado,
-        payload: JSON.stringify({ pedido: pedidoDto }),
-        status: 'PENDING',
-      });
-
-      await prisma.outboxEvent.createMany({ data: outboxData });
-
-      return p;
-    });
-
-    return { message: 'Estado del pedido actualizado', pedido: this.mapToDto(pedido) };
+    return this.saga.actualizarEstado(id, command);
   }
 
-  async actualizarEstadoItem(itemId: string, command: ActualizarEstadoPedidoCommand): Promise<{ message: string }> {
-    return this.prisma.$transaction(async (prisma) => {
-      const item = await prisma.pedidoItem.update({
-        where: { id: itemId },
-        data: { estado: command.estado }
-      });
-
-      const pedidoId = item.pedidoId;
-      const allItems = await prisma.pedidoItem.findMany({ where: { pedidoId } });
-      
-      const isOrderReady = allItems.every(i => i.estado === PedidoEstado.Listo || i.estado === PedidoEstado.Entregado);
-      
-      if (isOrderReady) {
-        await prisma.pedido.update({
-          where: { id: pedidoId },
-          data: { estado: PedidoEstado.Listo }
-        });
-
-        const pedidoCompleto = await prisma.pedido.findUnique({
-          where: { id: pedidoId },
-          include: { items: { include: { modificadores: true } } }
-        });
-
-        if (pedidoCompleto) {
-          await prisma.outboxEvent.createMany({
-            data: [
-              {
-                routingKey: RoutingKeys.PedidoListo,
-                payload: JSON.stringify({
-                  pedidoId: pedidoId,
-                  mesaId: pedidoCompleto.mesaId,
-                }),
-                status: 'PENDING',
-              },
-              {
-                routingKey: RoutingKeys.PedidoActualizado,
-                payload: JSON.stringify({ pedido: this.mapToDto(pedidoCompleto) }),
-                status: 'PENDING',
-              }
-            ]
-          });
-        }
-      } else {
-        const pedido = await prisma.pedido.findUnique({
-          where: { id: pedidoId },
-          include: { items: { include: { modificadores: true } } }
-        });
-        if (pedido) {
-          await prisma.outboxEvent.create({
-            data: {
-              routingKey: RoutingKeys.PedidoActualizado,
-              payload: JSON.stringify({ pedido: this.mapToDto(pedido) }),
-              status: 'PENDING',
-            }
-          });
-        }
-      }
-
-      return { message: 'Estado del ítem actualizado exitosamente' };
-    });
+  async actualizarEstadoItem(itemId: string, command: ActualizarEstadoItemCommand): Promise<{ message: string }> {
+    return this.saga.actualizarEstadoItem(itemId, command);
   }
 
   async upsertMesaLocal(mesa: { id: string; numero: number }): Promise<void> {
@@ -413,9 +383,15 @@ export class AppService {
     );
   }
 
+  /** T-40: compensación de la saga de stock delegada en PedidosSagaService. */
+  async procesarStockInsuficiente(payload: StockInsuficientePayload): Promise<void> {
+    return this.saga.procesarStockInsuficiente(payload);
+  }
+
   private async procesarEventoProducto(
     routingKey: string,
     payload: { id: string; eventId?: string; stockSyncMode?: string; stockDelta?: number; stockActual?: number | null },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     apply: (prisma: any) => Promise<void>,
   ): Promise<void> {
     const fallbackKey = routingKey === RoutingKeys.ProductoActualizado
@@ -427,8 +403,8 @@ export class AppService {
         await prisma.idempotencyKey.create({ data: { key: idempotencyKey } });
         await apply(prisma);
       });
-    } catch (error: any) {
-      if (error?.code === 'P2002') {
+    } catch (error: unknown) {
+      if ((error as { code?: string })?.code === 'P2002') {
         this.logger.warn(`Evento ${idempotencyKey} ya procesado — proyeccion de productos no se aplica de nuevo`);
         return;
       }
@@ -436,6 +412,7 @@ export class AppService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async upsertProductoLocalConPrisma(prisma: any, producto: {
     id: string;
     nombre: string;
@@ -486,28 +463,7 @@ export class AppService {
   }
 
   private mapToDto(p: PedidoEntity): PedidoDto {
-    return {
-      id: p.id,
-      mesaId: p.mesaId,
-      numeroMesa: p.numeroMesa ?? undefined,
-      estado: p.estado as PedidoEstado,
-      total: Number(p.total),
-      createdAt: p.createdAt.toISOString(),
-      items: p.items.map(i => ({
-        id: i.id,
-        productoId: i.productoId,
-        nombre: i.nombre,
-        cantidad: i.cantidad,
-        precioUnitario: Number(i.precioUnitario),
-        area: (i.area as ItemArea) ?? undefined,
-        notas: i.notas ?? undefined,
-        estado: i.estado as PedidoEstado,
-        modificadores: i.modificadores.map(m => ({
-          nombre: m.nombre,
-          precioExtra: Number(m.precioExtra)
-        }))
-      }))
-    };
+    return mapPedidoToDto(p);
   }
 
   async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {

@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-notificaciones/apps/servicio-notificaciones/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [
@@ -41,6 +42,7 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
     "tslib": "^2.3.0",
+    "@nestjs/jwt": "^11.0.0",
     "@org/resiliencia": "*",
     "@org/contracts": "*",
     "@org/shared-prisma": "*",

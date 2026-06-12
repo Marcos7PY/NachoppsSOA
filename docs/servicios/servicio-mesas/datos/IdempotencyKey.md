@@ -1,27 +1,22 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-mesas
-tabla: idempotency_keys
 modelo: IdempotencyKey
-fuente: [apps/servicio-mesas/prisma/schema.prisma:44, apps/servicio-mesas/prisma/migrations/20260525022052_init/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-mesas/prisma/schema.prisma:44]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # IdempotencyKey
 
-**Campos.**
+**Fuente.** Modelo Prisma `IdempotencyKey` definido en [apps/servicio-mesas/prisma/schema.prisma:44].
 
-- `key       String   @id`. [apps/servicio-mesas/prisma/schema.prisma:45]
-- `createdAt DateTime @default(now())`. [apps/servicio-mesas/prisma/schema.prisma:46]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-mesas/prisma/schema.prisma:45 | `key       String   @id` |
+| apps/servicio-mesas/prisma/schema.prisma:46 | `createdAt DateTime @default(now())` |
+| apps/servicio-mesas/prisma/schema.prisma:48 | `@@map("idempotency_keys")` |
 
-- `key       String   @id`. [apps/servicio-mesas/prisma/schema.prisma:45]
-- `@@map("idempotency_keys")`. [apps/servicio-mesas/prisma/schema.prisma:48]
-
-**Migraciones.** [apps/servicio-mesas/prisma/migrations/20260525022052_init/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `IdempotencyKey` en el servicio `servicio-mesas`; este atomo fija la estructura declarada por Prisma. [apps/servicio-mesas/prisma/schema.prisma:44]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-mesas/prisma/schema.prisma:44]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

@@ -1,33 +1,28 @@
 ---
-tipo: modelo
+tipo: modelo-datos
 servicio: servicio-caja
-tabla: transacciones
 modelo: Transaccion
-fuente: [apps/servicio-caja/prisma/schema.prisma:11, apps/servicio-caja/prisma/migrations/20260525022555_init/migration.sql:1, apps/servicio-caja/prisma/migrations/20260528000000_add_cuentas_abiertas/migration.sql:1]
-revisado: 2026-05-30
-commit: 4c186bb
+fuente: [apps/servicio-caja/prisma/schema.prisma:11]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Transaccion
 
-**Campos.**
+**Fuente.** Modelo Prisma `Transaccion` definido en [apps/servicio-caja/prisma/schema.prisma:11].
 
-- `id          String   @id @default(uuid())`. [apps/servicio-caja/prisma/schema.prisma:12]
-- `cuentaId    String`. [apps/servicio-caja/prisma/schema.prisma:13]
-- `monto       Decimal  @db.Decimal(10, 2)`. [apps/servicio-caja/prisma/schema.prisma:14]
-- `metodo      String   // EFECTIVO, TARJETA, etc.`. [apps/servicio-caja/prisma/schema.prisma:15]
-- `referencia  String?`. [apps/servicio-caja/prisma/schema.prisma:16]
-- `notas       String?`. [apps/servicio-caja/prisma/schema.prisma:17]
-- `createdAt   DateTime @default(now())`. [apps/servicio-caja/prisma/schema.prisma:18]
+**Campos e indices declarados.**
 
-**Indices.**
+| Linea | Declaracion |
+|---|---|
+| apps/servicio-caja/prisma/schema.prisma:12 | `id          String   @id @default(uuid())` |
+| apps/servicio-caja/prisma/schema.prisma:13 | `cuentaId    String` |
+| apps/servicio-caja/prisma/schema.prisma:14 | `monto       Decimal  @db.Decimal(10, 2)` |
+| apps/servicio-caja/prisma/schema.prisma:15 | `metodo      String   // EFECTIVO, TARJETA, etc.` |
+| apps/servicio-caja/prisma/schema.prisma:16 | `referencia  String?` |
+| apps/servicio-caja/prisma/schema.prisma:17 | `notas       String?` |
+| apps/servicio-caja/prisma/schema.prisma:18 | `createdAt   DateTime @default(now())` |
+| apps/servicio-caja/prisma/schema.prisma:20 | `@@index([cuentaId])` |
+| apps/servicio-caja/prisma/schema.prisma:21 | `@@map("transacciones")` |
 
-- `id          String   @id @default(uuid())`. [apps/servicio-caja/prisma/schema.prisma:12]
-- `@@index([cuentaId])`. [apps/servicio-caja/prisma/schema.prisma:20]
-- `@@map("transacciones")`. [apps/servicio-caja/prisma/schema.prisma:21]
-
-**Migraciones.** [apps/servicio-caja/prisma/migrations/20260525022555_init/migration.sql:1], [apps/servicio-caja/prisma/migrations/20260528000000_add_cuentas_abiertas/migration.sql:1]
-
-**Escritores / lectores.** Buscar usos de `Transaccion` en el servicio `servicio-caja`; este atomo fija la estructura declarada por Prisma. [apps/servicio-caja/prisma/schema.prisma:11]
-
-**Invariantes garantizadas por la BD.** Las restricciones declaradas arriba son las invariantes verificables a nivel de schema y migracion. [apps/servicio-caja/prisma/schema.prisma:11]
+**Notas de sincronizacion.** Esta ficha se genera desde el schema Prisma actual; restricciones, defaults, relaciones e indices se listan tal como aparecen en el modelo.

@@ -2,20 +2,21 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RabbitMQModule } from '@org/shared-rabbitmq';
 import { PrismaModule } from '../prisma/prisma.module';
+import { OutboxAdminModule, OutboxModule } from '@org/resiliencia';
+import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from '../auth/auth.module';
 import { ObservabilidadModule } from '@org/observabilidad';
-import { OutboxProcessor } from './outbox.processor';
 
 @Module({
   imports: [
     ObservabilidadModule,
     PrismaModule,
+    OutboxAdminModule.forRoot(PrismaService),
+    OutboxModule.forService(PrismaService, { producer: 'servicio-identidad' }),
     ScheduleModule.forRoot(),
-    RabbitMQModule.forRoot(
-      process.env['RABBITMQ_URI'] ?? 'amqp://nachopps:nachopps_secret@rabbitmq:5672',
-    ),
+    RabbitMQModule.forRoot(process.env['RABBITMQ_URI']),
     AuthModule,
   ],
-  providers: [OutboxProcessor],
+  providers: [],
 })
 export class AppModule {}

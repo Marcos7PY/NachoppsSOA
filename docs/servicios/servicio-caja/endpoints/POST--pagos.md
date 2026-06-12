@@ -4,27 +4,27 @@ servicio: servicio-caja
 metodo: POST
 ruta: /pagos
 handler: apps/servicio-caja/src/app/app.controller.ts:14
-fuente: [apps/servicio-caja/src/app/app.controller.ts:14, apps/servicio-caja/src/app/app.controller.ts:15, apps/servicio-caja/src/app/app.service.ts:40, libs/contracts/src/domains/caja.ts:38]
-revisado: 2026-05-31
-commit: c5c7891
+fuente: [apps/servicio-caja/src/app/app.controller.ts:14, apps/servicio-caja/src/app/app.service.ts:41]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # POST /pagos
 
-**Proposito.** Registra un pago de cuenta y publica el evento de pago. [apps/servicio-caja/src/app/app.controller.ts:14]
+**Proposito.** registrarPago atiende POST /pagos en servicio-caja. [apps/servicio-caja/src/app/app.controller.ts:14]
 
-**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-caja/src/app/app.module.ts:2, apps/servicio-caja/src/app/app.controller.ts:14]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-caja/src/app/app.controller.ts:14]
 
-**Entrada.** DTO `PagarPedidoCommand` con campos: `cuentaId: string` (@IsString() @IsNotEmpty()). [libs/contracts/src/domains/caja.ts:41] `montoRecibido: number` (@IsString() @IsNotEmpty() @IsNumber()). [libs/contracts/src/domains/caja.ts:44] `metodo: string` (@IsNumber() @IsString() @IsNotEmpty()). [libs/contracts/src/domains/caja.ts:48]
+**Entrada.** body `PagarPedidoCommand` (cuentaId: string, montoRecibido: number, metodo: string). [apps/servicio-caja/src/app/app.controller.ts:15]
 
-**Salida.** Respuesta derivada del handler `registrarPago` y del servicio `registrarPago`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-caja/src/app/app.controller.ts:15]
+**Salida.** Codigo esperado: 201 por defecto de Nest para POST si el handler completa. [apps/servicio-caja/src/app/app.controller.ts:14]
 
-**Efectos.** Usa `cuentaAbierta.findUnique`, `cuentaAbierta.upsert`, `transaccion.create`, `outboxEvent.create`, `executeRaw`. La operacion incluye una transaccion Prisma. [apps/servicio-caja/src/app/app.service.ts:40] Emite o consume eventos `RoutingKeys.PagoRegistrado`. [apps/servicio-caja/src/app/app.service.ts:113]
+**Efectos.** llama `registrarPago`; Prisma: `cuentaAbierta.upsert`, `transaccion.aggregate`, `transaccion.create`, `outboxEvent.create`; eventos: `RoutingKeys.PagoRegistrado`. [apps/servicio-caja/src/app/app.service.ts:41]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 400 por `BadRequestException`: throw new BadRequestException(La cuenta ya está ${cuenta.estado.toLowerCase()}.);. [apps/servicio-caja/src/app/app.service.ts:74]
-- 404 por `NotFoundException`: throw new NotFoundException(Cuenta ${command.cuentaId} no encontrada.);. [apps/servicio-caja/src/app/app.service.ts:54]
-- 503 por `ServiceUnavailableException`: throw new ServiceUnavailableException('No se pudo obtener la cuenta. Reintente.');. [apps/servicio-caja/src/app/app.service.ts:56]
+- NotFound por `NotFoundException` declarado en el camino de servicio.
+- ServiceUnavailable por `ServiceUnavailableException` declarado en el camino de servicio.
+- BadRequest por `BadRequestException` declarado en el camino de servicio.

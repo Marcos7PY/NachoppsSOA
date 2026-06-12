@@ -1,0 +1,111 @@
+import { useQuery, useMutation } from '@tanstack/react-query';
+import * as cuentasApi from '../../api/cuentas.api';
+import { mapCuenta } from '../../mappers/cuenta.mapper';
+import { queryClient } from '../../api/queryClient';
+import { MESAS_QUERY_KEY } from './useMesasQuery';
+import { PEDIDOS_QUERY_KEY } from './usePedidosQuery';
+import { CAJA_QUERY_KEY } from './useCajaQuery';
+import type { DividirCuentaPayload, RegistrarPagoPayload } from '../../types/cuenta.types';
+import { primerMensaje } from '../../utils/feedback';
+
+export const CUENTAS_QUERY_KEY = ['cuentas'];
+
+export function useCuentasQuery(mesaId?: string) {
+  const query = useQuery({
+    queryKey: [...CUENTAS_QUERY_KEY, 'mesa', mesaId].filter(Boolean),
+    queryFn: async () => {
+      if (!mesaId) return null;
+      try {
+        const dto = await cuentasApi.getByMesa(mesaId);
+        return mapCuenta(dto);
+      } catch (err: unknown) {
+        if ((err as { status?: number }).status === 404) return null; // Si no hay cuenta, no es un error duro
+        throw err;
+      }
+    },
+    enabled: !!mesaId,
+    retry: false, // No reintentar si da 404 (cuenta no existe)
+  });
+
+  const mutationAbrir = useMutation({
+    mutationFn: async (idMesa: string) => {
+      const dto = await cuentasApi.abrir(idMesa);
+      return mapCuenta(dto);
+    },
+    onSuccess: (data, idMesa) => {
+      queryClient.setQueryData([...CUENTAS_QUERY_KEY, 'mesa', idMesa], data);
+      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+    },
+  });
+
+  const mutationRegistrarPago = useMutation({
+    mutationFn: async (payload: RegistrarPagoPayload) => {
+      return cuentasApi.registrarPago(payload);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
+    },
+  });
+
+  const mutationCerrar = useMutation({
+    mutationFn: async ({ id, descuento }: { id: string; descuento?: number }) => {
+      return cuentasApi.cerrar(id, { descuento });
+    },
+    onSuccess: (response, variables) => {
+      // Limpiar caché de la cuenta
+      queryClient.setQueryData([...CUENTAS_QUERY_KEY, 'mesa', mesaId], null);
+      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+    },
+  });
+
+  const mutationDividir = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: DividirCuentaPayload }) => {
+      return cuentasApi.dividir(id, payload);
+    },
+  });
+
+  return {
+    cuentaActiva: query.data ?? null,
+    loading: query.isLoading || mutationAbrir.isPending || mutationRegistrarPago.isPending || mutationCerrar.isPending,
+    error: query.isError ? query.error.message : mutationAbrir.error?.message || mutationRegistrarPago.error?.message || mutationCerrar.error?.message || null,
+    success: primerMensaje(
+      [mutationAbrir.isSuccess, 'Cuenta abierta.'],
+      [mutationRegistrarPago.isSuccess, 'Pago registrado correctamente.'],
+      [mutationCerrar.isSuccess, mutationCerrar.data?.message],
+    ),
+    ticket: mutationRegistrarPago.data?.ticket ?? mutationCerrar.data?.ticket ?? null,
+    division: mutationDividir.data ?? null,
+    
+    // Mapeo de métodos compatibles con el store original
+    cargar: async (idMesa: string) => {
+      if (idMesa === mesaId) await query.refetch();
+      // Si cambia el mesaId, el useQuery lo manejará por reactividad.
+    },
+    abrir: async (idMesa: string) => {
+      await mutationAbrir.mutateAsync(idMesa);
+    },
+    registrarPago: async (payload: RegistrarPagoPayload) => {
+      await mutationRegistrarPago.mutateAsync(payload);
+    },
+    cerrar: async (descuento = 0) => {
+      if (query.data?.id) {
+        await mutationCerrar.mutateAsync({ id: query.data.id, descuento });
+      }
+    },
+    dividir: async (payload: DividirCuentaPayload) => {
+      if (query.data?.id) {
+        await mutationDividir.mutateAsync({ id: query.data.id, payload });
+      }
+    },
+    clearFeedback: () => {
+      mutationAbrir.reset();
+      mutationRegistrarPago.reset();
+      mutationCerrar.reset();
+      mutationDividir.reset();
+    },
+  };
+}

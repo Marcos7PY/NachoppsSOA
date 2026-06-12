@@ -53,7 +53,10 @@ export class AppService {
       throw new NotFoundException(`Mesa con ID ${id} no encontrada.`);
     }
 
-    if (mesa.estado === command.estado) {
+    const isEstadoEqual = mesa.estado === command.estado;
+    const isCuentaEqual = command.cuentaAsociada === undefined || mesa.cuentaAsociada === command.cuentaAsociada;
+
+    if (isEstadoEqual && isCuentaEqual) {
       return { message: 'Estado sin cambios', mesa: mesa as unknown as MesaDto };
     }
 
@@ -97,6 +100,6 @@ export class AppService {
     if (!mesa) {
       throw new NotFoundException(`Mesa con ID ${id} no encontrada.`);
     }
-    return mesa as unknown as MesaDto;
+    return mesa;
   }
 }

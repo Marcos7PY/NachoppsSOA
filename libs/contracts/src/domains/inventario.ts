@@ -1,4 +1,18 @@
-import { ArrayMinSize, IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class StockBajoPayload {
   @IsString()
@@ -18,6 +32,26 @@ export class StockDescontadoPayload {
   cantidad: number;
   @IsString()
   motivo: string;
+}
+
+/**
+ * Emitido por Inventario cuando, al consumir un `PedidoCreado`, el descuento
+ * atómico de stock real falla (`count === 0`) por divergencia/staleness de la
+ * proyección `productos_locales`. Dispara la compensación en Pedidos
+ * (ítem/pedido → `RECHAZADO_SIN_STOCK`).
+ */
+export class StockInsuficientePayload {
+  @IsOptional()
+  @IsString()
+  eventId?: string;
+  @IsString()
+  pedidoId: string;
+  @IsString()
+  productoId: string;
+  @IsNumber()
+  solicitado: number;
+  @IsNumber()
+  disponible: number;
 }
 
 export class CategoriaDto {
@@ -43,6 +77,10 @@ export class ProductoDto {
   id: string;
   @IsString()
   categoriaId: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CategoriaDto)
+  categoria?: CategoriaDto | null;
   @IsString()
   nombre: string;
   @IsOptional()
@@ -55,6 +93,57 @@ export class ProductoDto {
   @IsOptional()
   @IsNumber()
   stockActual?: number | null;
+}
+
+export class ListarProductosQuery {
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  disponible?: boolean;
+
+  /**
+   * Filtra por control de stock: `true` devuelve solo productos con stock
+   * (módulo Inventario), `false` solo productos sin stock (Carta / Menú).
+   * Omitido devuelve todos (p. ej. el comandero).
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  conStock?: boolean;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+export class ProductoListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductoDto)
+  data: ProductoDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
 }
 
 export class CrearProductoCommand {
@@ -73,6 +162,24 @@ export class CrearProductoCommand {
   @IsOptional()
   @IsNumber()
   stockActual?: number;
+}
+
+export class ActualizarProductoCommand {
+  @IsOptional()
+  @IsString()
+  categoriaId?: string;
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+  @IsOptional()
+  @IsString()
+  descripcion?: string | null;
+  @IsOptional()
+  @IsNumber()
+  precio?: number;
+  @IsOptional()
+  @IsBoolean()
+  disponible?: boolean;
 }
 
 export class ObtenerProductosLoteCommand {

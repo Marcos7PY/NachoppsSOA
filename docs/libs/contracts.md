@@ -1,11 +1,11 @@
----
+﻿---
 tipo: libreria
 nombre: @org/contracts
 ruta: libs/contracts
 estado: activa
 fuente: [libs/contracts/dist/domains/caja.d.ts:1, libs/contracts/dist/domains/cuentas.d.ts:1, libs/contracts/dist/domains/identidad.d.ts:1, libs/contracts/dist/domains/inventario.d.ts:1, libs/contracts/dist/domains/mesas.d.ts:1, libs/contracts/dist/domains/pedidos.d.ts:1, libs/contracts/dist/domains/reservas.d.ts:1, libs/contracts/dist/events/routing-keys.d.ts:1, libs/contracts/dist/index.d.ts:1, libs/contracts/dist/messaging/envelope.d.ts:1, libs/contracts/dist/messaging/exchange.d.ts:1, libs/contracts/src/domains/caja.ts:1]
-revisado: 2026-05-30
-commit: 4c186bb
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # contracts
@@ -28,3 +28,4 @@ commit: 4c186bb
 **Como se consume.** El paquete esta registrado como proyecto Nx y se importa desde su nombre de workspace cuando los consumidores lo referencian. [package.json:63]
 
 **Estado.** Activa dentro del workspace Nx declarado por los workspaces del repo. [package.json:63]
+

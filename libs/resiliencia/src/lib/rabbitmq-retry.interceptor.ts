@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Observable, throwError, timer } from 'rxjs';
-import { retryWhen, mergeMap, tap } from 'rxjs/operators';
+import { retry, tap } from 'rxjs/operators';
 import { RmqContext } from '@nestjs/microservices';
 import { context, propagation } from '@opentelemetry/api';
 
@@ -8,7 +8,7 @@ import { context, propagation } from '@opentelemetry/api';
 export class RabbitMQRetryInterceptor implements NestInterceptor {
   private readonly logger = new Logger(RabbitMQRetryInterceptor.name);
 
-  intercept(executionContext: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(executionContext: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctxType = executionContext.getType();
 
     if (ctxType !== 'rpc' && (ctxType as string) !== 'rmq') {
@@ -17,7 +17,7 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
 
     const rmqContext = ctxType === 'rpc'
       ? executionContext.switchToRpc().getContext<RmqContext>()
-      : (executionContext as any).args?.[1] as RmqContext | undefined;
+      : executionContext.getArgByIndex<RmqContext | undefined>(1);
 
     const channel = rmqContext?.getChannelRef?.() || null;
     const originalMsg = rmqContext?.getMessage?.() || null;
@@ -38,28 +38,25 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
           try { channel.ack(originalMsg); } catch { /* ignore */ }
         }
       }),
-      retryWhen((errors) =>
-        errors.pipe(
-          mergeMap((error, index) => {
-            const retryAttempt = index + 1;
-            if (retryAttempt > maxRetries) {
-              this.logger.error(
-                `Reintentos agotados (${maxRetries}). Mandando a DLQ. Error: ${error.message}`
-              );
-              if (channel && originalMsg) {
-                try { channel.nack(originalMsg, false, false); } catch { /* ignore */ }
-              }
-              return throwError(() => error);
-            }
-
-            const delayMs = initialDelay * Math.pow(2, index);
-            this.logger.warn(
-              `Fallo en el consumidor. Reintento ${retryAttempt}/${maxRetries} en ${delayMs}ms. Error: ${error.message}`
+      retry({
+        delay: (error, retryCount) => {
+          if (retryCount > maxRetries) {
+            this.logger.error(
+              `Reintentos agotados (${maxRetries}). Mandando a DLQ. Error: ${error.message}`
             );
-            return timer(delayMs);
-          }),
-        ),
-      ),
+            if (channel && originalMsg) {
+              try { channel.nack(originalMsg, false, false); } catch { /* ignore */ }
+            }
+            return throwError(() => error);
+          }
+
+          const delayMs = initialDelay * Math.pow(2, retryCount - 1);
+          this.logger.warn(
+            `Fallo en el consumidor. Reintento ${retryCount}/${maxRetries} en ${delayMs}ms. Error: ${error.message}`
+          );
+          return timer(delayMs);
+        },
+      }),
     );
     });
   }

@@ -6,7 +6,7 @@ const BasePrisma = createBasePrismaService(PrismaClient);
 
 @Injectable()
 export class PrismaService extends BasePrisma {
-  protected readonly serviceName = 'servicio-cuentas';
+  override readonly serviceName = 'servicio-cuentas';
 
   async enableShutdownHooks(app: INestApplication) {
     this.$on('beforeExit' as never, async () => {

@@ -9,14 +9,31 @@ datasource db {
 }
 
 model Usuario {
-  id        String   @id @default(uuid())
-  nombre    String
-  email     String   @unique
-  password  String
-  rol       String   @default("MESERO")
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  nombre              String
+  email               String    @unique
+  password            String
+  rol                 String    @default("MESERO")
+  activo              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// Refresh tokens (plan 1.4): tokens opacos guardados HASHEADOS. Rotación con
+// detección de reuso (un token revocado que reaparece revoca toda la cadena).
+model RefreshToken {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model AuditoriaLog {
@@ -36,6 +53,7 @@ model OutboxEvent {
   payload    String
   status     String   @default("PENDING")
   attempts   Int      @default(0)
+  claimedAt  DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

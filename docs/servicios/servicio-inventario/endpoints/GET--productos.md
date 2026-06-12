@@ -4,25 +4,25 @@ servicio: servicio-inventario
 metodo: GET
 ruta: /productos
 handler: apps/servicio-inventario/src/app/app.controller.ts:28
-fuente: [apps/servicio-inventario/src/app/app.controller.ts:28, apps/servicio-inventario/src/app/app.controller.ts:29, apps/servicio-inventario/src/app/app.service.ts:44]
-revisado: 2026-05-31
-commit: c5c7891
+fuente: [apps/servicio-inventario/src/app/app.controller.ts:28, apps/servicio-inventario/src/app/app.service.ts:47]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # GET /productos
 
-**Proposito.** listarProductos atiende GET /productos en servicio-inventario usando `listarProductos`. [apps/servicio-inventario/src/app/app.controller.ts:28]
+**Proposito.** listarProductos atiende GET /productos en servicio-inventario. [apps/servicio-inventario/src/app/app.controller.ts:28]
 
-**Autorizacion.** `JwtAuthGuard` se registra como `APP_GUARD` del servicio; no hay `@Roles` local en el handler. [apps/servicio-inventario/src/app/app.module.ts:2, apps/servicio-inventario/src/app/app.controller.ts:28]
+**Autorizacion.** Publico: no hay `@UseGuards` aplicado al handler. [apps/servicio-inventario/src/app/app.controller.ts:28]
 
-**Entrada.** `categoriaId: string` via Query. [apps/servicio-inventario/src/app/app.controller.ts:29]
+**Entrada.** query `ListarProductosQuery` (categoriaId?: string, disponible?: boolean, search?: string, limit?: number, cursor?: string, updatedSince?: string). [apps/servicio-inventario/src/app/app.controller.ts:29]
 
-**Salida.** Respuesta derivada del handler `listarProductos` y del servicio `listarProductos`; codigos esperados: 200 si el handler completa; 401 si falta o falla JWT por `JwtAuthGuard`; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-inventario/src/app/app.controller.ts:29]
+**Salida.** Codigo esperado: 200 si el handler completa. [apps/servicio-inventario/src/app/app.controller.ts:28]
 
-**Efectos.** Usa `producto.findMany`. [apps/servicio-inventario/src/app/app.service.ts:44]
+**Efectos.** llama `listarProductos`; Prisma: `producto.findMany`. [apps/servicio-inventario/src/app/app.service.ts:47]
 
-**Invariantes que toca.** [idempotencia-directa](../../../invariantes/idempotencia-directa.md), [reposicion-como-delta](../../../invariantes/reposicion-como-delta.md)
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- El camino del servicio no declara excepciones Nest explicitas; los errores restantes salen de validacion global o infraestructura. [apps/servicio-inventario/src/app/app.service.ts:44]
+- No se detectan excepciones Nest explicitas en el camino principal; errores restantes salen de validacion global o infraestructura.

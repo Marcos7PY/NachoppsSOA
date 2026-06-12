@@ -1,84 +1,99 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Utensils, 
-  CalendarDays, 
-  Package, 
-  LayoutGrid, 
-  Banknote,
-  Settings,
-  LogOut,
-  ChefHat
-} from 'lucide-react';
+// components/layout/Sidebar.tsx — Navegación lateral (estructura del prototipo)
+
+import { useLocation, useNavigate } from 'react-router-dom';
+import { APP_CONFIG } from '../../config';
 import { useAuthStore } from '../../store/auth.store';
+import { puedeAcceder } from '../../auth/permisos';
+import { Icons, type IconName } from '../ui/icons';
 
-export const Sidebar = () => {
-  const usuario = useAuthStore((state) => state.usuario);
-  const clearSession = useAuthStore((state) => state.clearSession);
+interface NavItem {
+  key: string;
+  label: string;
+  icon: IconName;
+}
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { name: 'Pedidos y Comandas', href: '/pedidos', icon: Utensils },
-    { name: 'Monitor de Cocina', href: '/cocina', icon: ChefHat },
-    { name: 'Caja y Pagos', href: '/caja', icon: Banknote },
-    { name: 'Mapa de Mesas', href: '/mesas', icon: LayoutGrid },
-    { name: 'Reservas', href: '/reservas', icon: CalendarDays },
-    { name: 'Inventario', href: '/inventario', icon: Package },
-  ];
+interface NavGroup {
+  group: string;
+  items: NavItem[];
+}
+
+const NAV: NavGroup[] = [
+  {
+    group: 'Operación',
+    items: [
+      { key: 'inicio', label: 'Inicio', icon: 'Inicio' },
+      { key: 'mesas', label: 'Mesas', icon: 'Mesas' },
+      { key: 'pedidos', label: 'Pedidos', icon: 'Pedidos' },
+      { key: 'cocina', label: 'Cocina', icon: 'Cocina' },
+      { key: 'caja', label: 'Caja', icon: 'Caja' },
+      { key: 'reservas', label: 'Reservas', icon: 'Reservas' },
+    ],
+  },
+  {
+    group: 'Administración',
+    items: [
+      { key: 'carta', label: 'Carta / Menú', icon: 'Pedidos' },
+      { key: 'compras', label: 'Compras', icon: 'Bag' },
+      { key: 'inventario', label: 'Inventario', icon: 'Inventario' },
+      { key: 'reportes', label: 'Reportes', icon: 'Reportes' },
+      { key: 'usuarios', label: 'Usuarios', icon: 'Usuarios' },
+    ],
+  },
+];
+
+export function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const rol = useAuthStore((s) => s.user?.rol);
+
+  // Extraer la key activa del pathname: /app/mesas → mesas
+  const activeKey = location.pathname.split('/')[2] ?? '';
+
+  const go = (key: string) => navigate(`/app/${key}`);
+
+  // Solo se muestran las entradas que el rol puede abrir; los grupos que
+  // quedan vacíos se ocultan por completo.
+  const navVisible = NAV
+    .map((g) => ({ ...g, items: g.items.filter((it) => puedeAcceder(rol, it.key)) }))
+    .filter((g) => g.items.length > 0);
 
   return (
-    <div className="flex h-full w-64 flex-col bg-[#1e3932] text-white transition-all duration-300 shadow-xl">
-      <div className="flex h-16 shrink-0 items-center gap-3 px-6 bg-black/10 border-b border-white/10">
-        <div className="bg-primary-foreground text-primary p-1.5 rounded-lg">
-          <Utensils className="h-6 w-6" />
+    <nav className="sidebar">
+      <div className="brand">
+        <div className="brand-logo">{APP_CONFIG.nombreLocal.charAt(0)}</div>
+        <div>
+          <b>{APP_CONFIG.nombreLocal}</b>
+          <small>{APP_CONFIG.ubicacionLocal}</small>
         </div>
-        <span className="text-xl font-bold tracking-tight">NachoPps</span>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">
-        <nav className="flex-1 space-y-1">
-          <div className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-4 px-2">Menu Principal</div>
-          {navigation.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={({ isActive }) =>
-                `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-white/10 text-white'
-                    : 'text-white/70 hover:bg-white/5 hover:text-white'
-                }`
-              }
-            >
-              <item.icon
-                className="h-5 w-5 shrink-0 opacity-80"
-                aria-hidden="true"
-              />
-              {item.name}
-            </NavLink>
-          ))}
-        </nav>
+      <div className="nav">
+        {navVisible.map((g) => (
+          <div key={g.group}>
+            <div className="nav-lbl">{g.group}</div>
+            {g.items.map((it) => {
+              const Ic = Icons[it.icon];
+              const on = activeKey === it.key;
+              return (
+                <button
+                  key={it.key}
+                  className={`nav-item ${on ? 'on' : ''}`}
+                  onClick={() => go(it.key)}
+                >
+                  <Ic s={18} />
+                  <span>{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
-      <div className="border-t border-white/10 p-4 bg-black/5">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 font-bold uppercase text-sm">
-            {usuario?.nombre?.substring(0, 2) || 'US'}
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">{usuario?.nombre || 'Usuario'}</span>
-            <span className="text-xs text-white/50 capitalize">{usuario?.rol?.toLowerCase() || 'Admin'}</span>
-          </div>
+      <div className="nav-foot">
+        <div className="hint" style={{ padding: '4px 8px', lineHeight: 1.5 }}>
+          {APP_CONFIG.nombreLocal} · Operación
         </div>
-        <button 
-          onClick={() => clearSession()}
-          className="mt-4 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Cerrar Sesión
-        </button>
       </div>
-    </div>
+    </nav>
   );
-};
+}

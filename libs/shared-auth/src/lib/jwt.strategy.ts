@@ -1,7 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, JwtFromRequestFunction } from 'passport-jwt';
 import { Request } from 'express';
+import {
+  getJwtPublicKey,
+  getServiceJwtSecret,
+  makeJwtSecretOrKeyProvider,
+  JWT_VERIFY_ALGORITHMS,
+} from './jwt-keys';
+
+interface JwtPayload {
+  sub: string;
+  rol: string;
+  // Los tokens S2S (rol SISTEMA) no llevan identidad de usuario.
+  email?: string;
+  nombre?: string;
+  aud?: string;
+}
 
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
   return req?.cookies?.['access_token'] ?? null;
@@ -9,9 +24,9 @@ const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor() {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error('JWT_SECRET env variable is required');
     super({
       // 1º cookie httpOnly, 2º header Bearer (fallback no-breaking)
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -19,15 +34,34 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,
-      secretOrKey: secret,
+      // Verifica RS256 (usuario, clave pública) y HS256 (servicio, secreto).
+      secretOrKeyProvider: makeJwtSecretOrKeyProvider(getJwtPublicKey(), getServiceJwtSecret()),
+      algorithms: [...JWT_VERIFY_ALGORITHMS],
     });
   }
 
-  async validate(payload: any) {
+  async validate(payload: JwtPayload) {
+    // T-17: un token S2S (rol SISTEMA) solo es válido en el servicio cuyo
+    // SERVICE_NAME coincide con su claim `aud`. No se usa la opción `audience` de
+    // passport-jwt porque rechazaría los RS256 de usuario, que no llevan `aud`.
+    // Rollout en dos pasos: por defecto tolerante (warn); estricto con
+    // SERVICE_AUD_ENFORCE=true.
+    if (payload.rol === 'SISTEMA') {
+      const expected = process.env.SERVICE_NAME;
+      if (expected && payload.aud !== expected) {
+        if (process.env.SERVICE_AUD_ENFORCE === 'true') {
+          throw new UnauthorizedException('Audiencia del token de servicio inválida');
+        }
+        this.logger.warn(
+          `Token de servicio con aud="${payload.aud}" no coincide con SERVICE_NAME="${expected}" (modo tolerante)`,
+        );
+      }
+    }
     return {
       sub: payload.sub,
       email: payload.email,
       rol: payload.rol,
+      nombre: payload.nombre,
     };
   }
 }

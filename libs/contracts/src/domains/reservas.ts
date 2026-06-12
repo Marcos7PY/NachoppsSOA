@@ -1,5 +1,17 @@
-import { IsString, IsNumber, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
-import { Transform } from 'class-transformer';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsEnum,
+  IsNotEmpty,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export const ReservaEstado = {
   Pendiente: 'PENDIENTE',
@@ -34,6 +46,42 @@ export class ReservaDto {
   createdAt: string;
 }
 
+export class ListarReservasQuery {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
+
+  @IsOptional()
+  @IsEnum(ReservaEstado)
+  estado?: ReservaEstado;
+
+  @IsOptional()
+  @IsDateString()
+  fecha?: string;
+
+  @IsOptional()
+  @IsDateString()
+  updatedSince?: string;
+}
+
+export class ReservaListResponse {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ReservaDto)
+  data: ReservaDto[];
+
+  @IsOptional()
+  @IsString()
+  nextCursor: string | null;
+}
+
 export class CrearReservaCommand {
   @IsOptional()
   @IsString()
@@ -56,14 +104,35 @@ export class CrearReservaCommand {
   @IsNotEmpty()
   hora: string;
 
-  @IsOptional()
   @IsString()
-  mesaPreferida?: string;
+  @IsNotEmpty()
+  mesaPreferida: string;
 
   @IsOptional()
   @IsNumber()
   @Transform(({ obj, value }) => value ?? obj.personas)
   numComensales?: number;
+}
+
+export class ReservaDisponibilidadResponse {
+  @IsString()
+  fecha: string;
+
+  @IsString()
+  hora: string;
+
+  @IsOptional()
+  @IsString()
+  mesaPreferida?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  mesasReservadas: string[];
+
+  @IsNumber()
+  capacidadRestante: number;
+
+  disponible: boolean;
 }
 
 export class ReservaCreadaPayload {

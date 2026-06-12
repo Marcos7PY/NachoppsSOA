@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-cuentas/apps/servicio-cuentas/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

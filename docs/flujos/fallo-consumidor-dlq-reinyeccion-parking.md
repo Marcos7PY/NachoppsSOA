@@ -1,10 +1,10 @@
----
+﻿---
 tipo: flujo
 nombre: fallo-consumidor-dlq-reinyeccion-parking
 disparador: libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25
 fuente: [libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:11, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:25, libs/resiliencia/src/lib/rabbitmq-retry.interceptor.ts:49, stress-tests/run-stock-idempotency-dlq.js:345, stress-tests/run-stock-idempotency-dlq.js:373]
-revisado: 2026-05-31
-commit: c5c7891
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # Fallo de consumidor DLQ reinyeccion parking
@@ -24,3 +24,4 @@ commit: c5c7891
 **Fallo y reconvergencia.** La reconvergencia depende de idempotencia del consumidor: al reinyectar `pedido.creado`, inventario reclama la misma clave y evita doble descuento si el efecto ya ocurrio. [apps/servicio-inventario/src/app/app.service.ts:222, apps/servicio-inventario/src/app/app.service.ts:231]
 
 **Invariantes de extremo a extremo.** [colas-limpias-happy-path](../invariantes/colas-limpias-happy-path.md), [idempotencia-directa](../invariantes/idempotencia-directa.md)
+

@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-caja-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-caja:build",
-          "servicio-caja:serve"
-        ]
+          "jestConfig": "apps/servicio-caja-e2e/jest.config.cts"
+        }
       }
     }
   }

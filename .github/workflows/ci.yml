@@ -26,17 +26,31 @@ jobs:
 
       - run: npm ci
 
+      - name: Set Nx base and head
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "NX_BASE=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+          elif [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+            echo "NX_BASE=$(git rev-list --max-parents=0 HEAD)" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.sha }}" >> "$GITHUB_ENV"
+          else
+            echo "NX_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
+            echo "NX_HEAD=${{ github.sha }}" >> "$GITHUB_ENV"
+          fi
+
       - name: Generate Prisma clients
         env:
-          DATABASE_URL_SERVICIO_RESERVAS: "postgresql://user:pass@localhost:5441/reservas_db?schema=public"
-          DATABASE_URL_SERVICIO_PEDIDOS: "postgresql://user:pass@localhost:5434/pedidos_db?schema=public"
-          DATABASE_URL_SERVICIO_IDENTIDAD: "postgresql://user:pass@localhost:5439/identidad_db?schema=public"
-          DATABASE_URL_SERVICIO_CUENTAS: "postgresql://user:pass@localhost:5435/cuentas_db?schema=public"
-          DATABASE_URL_SERVICIO_CAJA: "postgresql://user:pass@localhost:5437/caja_db?schema=public"
-          DATABASE_URL_SERVICIO_MESAS: "postgresql://user:pass@localhost:5433/mesas_db?schema=public"
-          DATABASE_URL_SERVICIO_INVENTARIO: "postgresql://user:pass@localhost:5436/inventario_db?schema=public"
-          DATABASE_URL_SERVICIO_REPORTES: "postgresql://user:pass@localhost:5438/reportes_db?schema=public"
-          DATABASE_URL_SERVICIO_NOTIFICACIONES: "postgresql://user:pass@localhost:5440/notificaciones_db?schema=public"
+          DATABASE_URL_SERVICIO_RESERVAS: 'postgresql://user:pass@localhost:5441/reservas_db?schema=public'
+          DATABASE_URL_SERVICIO_PEDIDOS: 'postgresql://user:pass@localhost:5434/pedidos_db?schema=public'
+          DATABASE_URL_SERVICIO_IDENTIDAD: 'postgresql://user:pass@localhost:5439/identidad_db?schema=public'
+          DATABASE_URL_SERVICIO_CUENTAS: 'postgresql://user:pass@localhost:5435/cuentas_db?schema=public'
+          DATABASE_URL_SERVICIO_CAJA: 'postgresql://user:pass@localhost:5437/caja_db?schema=public'
+          DATABASE_URL_SERVICIO_MESAS: 'postgresql://user:pass@localhost:5433/mesas_db?schema=public'
+          DATABASE_URL_SERVICIO_INVENTARIO: 'postgresql://user:pass@localhost:5436/inventario_db?schema=public'
+          DATABASE_URL_SERVICIO_REPORTES: 'postgresql://user:pass@localhost:5438/reportes_db?schema=public'
+          DATABASE_URL_SERVICIO_NOTIFICACIONES: 'postgresql://user:pass@localhost:5440/notificaciones_db?schema=public'
         run: |
           cd apps/servicio-reservas && DATABASE_URL="$DATABASE_URL_SERVICIO_RESERVAS" npx prisma generate
           cd ../servicio-pedidos && DATABASE_URL="$DATABASE_URL_SERVICIO_PEDIDOS" npx prisma generate
@@ -48,4 +62,78 @@ jobs:
           cd ../servicio-reportes && DATABASE_URL="$DATABASE_URL_SERVICIO_REPORTES" npx prisma generate
           cd ../servicio-notificaciones && DATABASE_URL="$DATABASE_URL_SERVICIO_NOTIFICACIONES" npx prisma generate
 
-      - run: npx nx run-many -t build --parallel
+      - name: Typecheck, build and test affected projects
+        env:
+          CI: true
+          NX_DAEMON: false
+        run: |
+          mkdir -p .ci-logs
+          set -o pipefail
+          npm exec -- nx affected -t typecheck build test --base="$NX_BASE" --head="$NX_HEAD" --parallel=3 --outputStyle=static 2>&1 | tee .ci-logs/nx-affected.log
+
+      - name: Upload CI logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-logs
+          path: .ci-logs
+          if-no-files-found: ignore
+
+  dependencias-vulnerables:
+    # OWASP A06: falla si hay vulnerabilidades high/critical en dependencias
+    # de producción. Ver docs/seguridad-owasp-top10.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm audit --omit=dev --audit-level=high
+
+  migration-drift:
+    # Falla el build si algún schema.prisma quedó desincronizado de sus
+    # migraciones (plan 1.2). Usa un Postgres descartable como shadow DB.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: drift_shadow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Check migration drift
+        env:
+          SHADOW_DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/drift_shadow'
+        run: bash scripts/check-migration-drift.sh
+
+  agent-skills-drift:
+    # Falla el build si alguna copia de skills de agentes IA quedó desincronizada
+    # de la fuente canónica .agents/skills (plan T-21).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check agent skills sync
+        run: node scripts/sync-agent-skills.mjs --check

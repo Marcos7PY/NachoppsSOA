@@ -17,12 +17,13 @@ export class EventsController {
   async handleCuentaAbierta(
     @Payload() payload: CuentaAbiertaPayload,
   ) {
-    this.logger.log(`Cuenta abierta para mesa ${payload.mesaId}. Ocupando mesa...`);
+    this.logger.log(`Cuenta abierta para mesa ${payload.mesaId} con cuenta ${payload.cuentaId}. Ocupando mesa...`);
 
     await this.appService.actualizarEstado(payload.mesaId, {
       estado: 'OCUPADA',
+      cuentaAsociada: payload.cuentaId,
     });
-    this.logger.log(`Mesa ${payload.mesaId} marcada como OCUPADA por CuentaAbierta`);
+    this.logger.log(`Mesa ${payload.mesaId} marcada como OCUPADA con cuenta ${payload.cuentaId}`);
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)
@@ -33,6 +34,7 @@ export class EventsController {
 
     await this.appService.actualizarEstado(payload.mesaId, {
       estado: 'LIBRE',
+      cuentaAsociada: null,
     });
     this.logger.log(`Mesa ${payload.mesaId} liberada.`);
   }

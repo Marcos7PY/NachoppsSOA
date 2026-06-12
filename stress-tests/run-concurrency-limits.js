@@ -21,6 +21,9 @@ const SETUP_CONCURRENCY = Number.parseInt(process.env.SETUP_CONCURRENCY || '25',
 const REPORT_DIR = 'stress-tests/reports';
 
 let token = '';
+let tokenIssuedAt = 0;
+const TOKEN_REFRESH_MS = 12 * 60 * 1000;
+let reloginInFlight = null;
 const results = [];
 let mesaCounter = Date.now() % 1000000000;
 let reservaSlotCounter = Date.now() % 100000;
@@ -72,9 +75,26 @@ function requestsPerSecond(count, durationMs) {
   return Number((count / (Math.max(durationMs, 1) / 1000)).toFixed(2));
 }
 
+async function ensureRelogin() {
+  if (!reloginInFlight) {
+    reloginInFlight = login().finally(() => { reloginInFlight = null; });
+  }
+  return reloginInFlight;
+}
+
 async function req(method, path, body, opts = {}) {
   const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
-  if (opts.token !== false && token) headers.Authorization = `Bearer ${token}`;
+  if (opts.token !== false && token) {
+    if (
+      opts._retried !== true &&
+      tokenIssuedAt &&
+      Date.now() - tokenIssuedAt > TOKEN_REFRESH_MS &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,6 +107,15 @@ async function req(method, path, body, opts = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
+    if (
+      res.status === 401 &&
+      opts.token !== false &&
+      opts._retried !== true &&
+      !path.includes('/auth/login')
+    ) {
+      await ensureRelogin();
+      return req(method, path, body, { ...opts, _retried: true });
+    }
     const ms = Date.now() - started;
     let data = null;
     const text = await res.text();
@@ -178,7 +207,8 @@ async function waitFor(label, fn, predicate, timeoutMs = 12000, intervalMs = 250
 
 function extractArray(data, key) {
   if (Array.isArray(data)) return data;
-  return data?.[key] || [];
+  // La API pagina con { data, nextCursor }; aceptamos también el campo legacy.
+  return data?.[key] || data?.data || [];
 }
 
 function extractEntity(data, key) {
@@ -219,6 +249,7 @@ async function login() {
     throw new Error(`Login failed: ${res.status} ${JSON.stringify(res.data)}`);
   }
   token = res.data.access_token;
+  tokenIssuedAt = Date.now();
 }
 
 async function createMesa(label) {
@@ -387,6 +418,28 @@ async function closeMesaAccount(mesaId) {
   await sleep(1000);
 }
 
+// T-28.2: registrar un pago exige un turno de caja ABIERTO (invariante T-25). El turno
+// es único global, así que abrir cuando ya hay uno devuelve el existente (idempotente).
+async function ensureTurnoCajaActivo() {
+  const activo = await req('GET', '/caja/turnos/activo');
+  if (activo.ok && activo.data?.id) return activo.data.id;
+  const abierto = await req('POST', '/caja/turnos/abrir', {
+    cajaNombre: 'QA Concurrencia',
+    cajeroNombre: 'QA Bot',
+    fondoInicial: 0,
+  });
+  if (abierto.ok && abierto.data?.id) return abierto.data.id;
+  // Carrera con otra apertura: el activo ya existe, releerlo.
+  const reread = await req('GET', '/caja/turnos/activo');
+  if (reread.ok && reread.data?.id) return reread.data.id;
+  throw new Error(`No se pudo abrir turno de caja: ${abierto.status} ${JSON.stringify(abierto.data ?? abierto.error)}`);
+}
+
+async function cerrarTurnoCaja(turnoId) {
+  if (!turnoId) return;
+  await req('POST', `/caja/turnos/${turnoId}/cerrar`, { denominaciones: {} });
+}
+
 async function rabbitQueues() {
   try {
     return execSync(
@@ -468,14 +521,30 @@ async function scenarioDuplicatePayment() {
   const cuenta = await waitCuenta(mesa.id);
   await servePedidos(mesa.id);
 
+  // Precondición T-28.2: sin un turno abierto los 10 pagos concurrentes devolvían
+  // 400 "No hay turno de caja abierto" y el escenario era un falso negativo.
+  const turnoId = await ensureTurnoCajaActivo();
+
   const run = await runPool('C5 pago duplicado concurrente', count, count, () =>
     payCuenta(cuenta, 'EFECTIVO'),
   );
 
-  await sleep(2500);
+  // El pago ganador cierra la cuenta de forma remota DESPUÉS de su transacción;
+  // bajo contención del advisory lock (algunos clientes hacen timeout a 15s) ese
+  // cierre puede aterrizar más tarde que un `sleep` fijo. Polleamos el estado real
+  // en vez de asumir un retardo, para que el invariante mida el sistema y no el reloj.
+  const cuentaFinal = await waitFor(
+    `cuenta ${cuenta.id} cerrada`,
+    () => req('GET', `/cuentas/${cuenta.id}`),
+    (probe) => probe.ok && probe.data?.estado === 'CERRADA',
+    20000,
+    500,
+  ).catch(() => req('GET', `/cuentas/${cuenta.id}`));
   const trans = await req('GET', '/caja');
   const txs = extractArray(trans.data, 'transacciones').filter((t) => t.cuentaId === cuenta.id);
-  const cuentaFinal = await req('GET', `/cuentas/${cuenta.id}`);
+
+  // Cerrar el turno para no dejar estado que contamine corridas siguientes.
+  await cerrarTurnoCaja(turnoId);
 
   return {
     ...run,

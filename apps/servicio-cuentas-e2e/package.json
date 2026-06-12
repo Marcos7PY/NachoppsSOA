@@ -14,13 +14,8 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/servicio-cuentas-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "servicio-cuentas:build",
-          "servicio-cuentas:serve"
-        ]
+          "jestConfig": "apps/servicio-cuentas-e2e/jest.config.cts"
+        }
       }
     }
   }

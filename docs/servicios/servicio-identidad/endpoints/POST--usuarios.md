@@ -3,26 +3,28 @@ tipo: endpoint
 servicio: servicio-identidad
 metodo: POST
 ruta: /usuarios
-handler: apps/servicio-identidad/src/auth/auth.controller.ts:67
-fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:67, apps/servicio-identidad/src/auth/auth.controller.ts:68, apps/servicio-identidad/src/auth/auth.service.ts:109, libs/contracts/src/domains/identidad.ts:48]
-revisado: 2026-05-31
-commit: c5c7891
+handler: apps/servicio-identidad/src/auth/auth.controller.ts:113
+fuente: [apps/servicio-identidad/src/auth/auth.controller.ts:113, apps/servicio-identidad/src/auth/auth.service.ts:112]
+revisado: 2026-06-02
+commit: 53877c8
 ---
 
 # POST /usuarios
 
-**Proposito.** Crea un usuario administrativo. [apps/servicio-identidad/src/auth/auth.controller.ts:67]
+**Proposito.** crearUsuario atiende POST /usuarios en servicio-identidad. [apps/servicio-identidad/src/auth/auth.controller.ts:113]
 
-**Autorizacion.** `JwtAuthGuard` y `RolesGuard` en el endpoint; roles exigidos: ADMIN. [apps/servicio-identidad/src/auth/auth.controller.ts:57, apps/servicio-identidad/src/auth/auth.controller.ts:66]
+**Autorizacion.** @UseGuards(JwtAuthGuard, RolesGuard) con @Roles('ADMIN'). [apps/servicio-identidad/src/auth/auth.controller.ts:111]
 
-**Entrada.** DTO `CrearUsuarioCommand` con campos: `nombre: string` (@IsString() @IsNotEmpty()). [libs/contracts/src/domains/identidad.ts:51] `email: string` (@IsString() @IsNotEmpty() @IsEmail()). [libs/contracts/src/domains/identidad.ts:54] `password: string` (@IsEmail() @IsString() @MinLength(8)). [libs/contracts/src/domains/identidad.ts:58] `rol: RolUsuario` (@IsString() @MinLength(8) @IsEnum(RolUsuario)). [libs/contracts/src/domains/identidad.ts:61]
+**Entrada.** body `CrearUsuarioCommand` (nombre: string, email: string, password: string, rol: RolUsuario). [apps/servicio-identidad/src/auth/auth.controller.ts:114]
 
-**Salida.** Respuesta derivada del handler `crearUsuario` y del servicio `crearUsuario`; codigos esperados: 201 si Nest aplica el codigo por defecto de POST y el handler completa; 400 para errores de validacion o `BadRequestException`; 404 para `NotFoundException`; 409 para `ConflictException`; 503 para `ServiceUnavailableException`. [apps/servicio-identidad/src/auth/auth.controller.ts:68]
+**Salida.** Codigo esperado: 201 por defecto de Nest para POST si el handler completa. [apps/servicio-identidad/src/auth/auth.controller.ts:113]
 
-**Efectos.** Usa `usuario.findUnique`, `usuario.create`, `auditoriaLog.create`. [apps/servicio-identidad/src/auth/auth.service.ts:109]
+**Efectos.** llama `crearUsuario`; Prisma: `usuario.findUnique`, `usuario.create`. [apps/servicio-identidad/src/auth/auth.service.ts:112]
 
-**Invariantes que toca.** <!-- sin evidencia: no hay invariante atomica especifica enlazada a este endpoint -->
+**Invariantes que toca.** <!-- sin evidencia automatica: revisar invariantes de negocio asociadas si aplica -->
 
 **Errores.**
 
-- 409 por `ConflictException`: throw new ConflictException('Ya existe un usuario con ese email');. [apps/servicio-identidad/src/auth/auth.service.ts:115]
+- 401 si `JwtAuthGuard` rechaza credenciales o token.
+- 403 si `RolesGuard` rechaza el rol requerido.
+- Conflict por `ConflictException` declarado en el camino de servicio.

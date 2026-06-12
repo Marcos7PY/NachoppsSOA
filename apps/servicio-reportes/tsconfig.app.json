@@ -5,9 +5,7 @@
     "rootDir": "../../",
     "module": "CommonJS",
     "moduleResolution": "Node",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -17,11 +15,7 @@
     "emitDeclarationOnly": false,
     "composite": false
   },
-  "exclude": [
-    "jest.config.ts",
-    "src/**/*.spec.ts",
-    "src/**/*.test.ts"
-  ],
+  "exclude": ["jest.config.ts", "src/**/*.spec.ts", "src/**/*.test.ts"],
   "include": [
     "src/**/*.ts",
     "../../libs/resiliencia/**/*.ts",
@@ -29,5 +23,17 @@
     "../../libs/shared-rabbitmq/**/*.ts",
     "../../libs/observabilidad/**/*.ts",
     "../../libs/shared-auth/**/*.ts"
-  ]
+  ],
+  "nx": {
+    "sync": {
+      "ignoredDependencies": [
+        "@org/observabilidad",
+        "@org/resiliencia",
+        "@org/shared-auth",
+        "@org/shared-rabbitmq",
+        "contracts",
+        "shared-prisma"
+      ]
+    }
+  }
 }

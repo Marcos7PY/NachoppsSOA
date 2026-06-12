@@ -1,6 +1,7 @@
 export * from './messaging/exchange';
 export * from './messaging/envelope';
 export * from './events/routing-keys';
+export * from './events/ws-rooms';
 export * from './domains/reservas';
 export * from './domains/pedidos';
 export * from './domains/mesas';

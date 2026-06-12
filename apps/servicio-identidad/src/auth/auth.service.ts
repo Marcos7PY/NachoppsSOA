@@ -6,20 +6,34 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import {
   CrearUsuarioCommand,
   LoginCommand,
   LoginResponseDto,
-  UsuarioAutenticadoPayload,
-  RoutingKeys,
   CambiarRolCommand,
   RolUsuario,
+  ListarUsuariosQuery,
+  UsuarioListResponse,
 } from '@org/contracts';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../generated/prisma';
 import { toUsuarioDto } from './usuarios.mapper';
 
-const SALT_ROUNDS = 10;
+const SALT_ROUNDS = 12;
+const REFRESH_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? '7');
+// Ventana corta para distinguir una carrera legítima de refresh de un reuso tardío/robado.
+const REFRESH_REUSE_GRACE_MS = 10_000;
+
+// T-35: hash dummy precomputado al arrancar. Cuando el email no existe o el
+// usuario está inactivo/bloqueado se ejecuta igualmente un bcrypt.compare contra
+// este hash, para que la latencia del 401 no revele si la cuenta existe.
+const DUMMY_HASH = bcrypt.hashSync('dummy', SALT_ROUNDS);
+
+const MAX_FAILED_ATTEMPTS = 5;
+// Backoff exponencial: intento 5→1min, 6→5min, 7+→15min (tope)
+const LOCKOUT_DURATIONS_MS = [60_000, 300_000, 900_000];
 
 @Injectable()
 export class AuthService {
@@ -37,12 +51,38 @@ export class AuthService {
       where: { email: command.email },
     });
 
-    if (!usuario || !usuario.activo) {
+    if (!usuario?.activo) {
+      // T-35: igualar el timing con la rama de password incorrecta
+      await bcrypt.compare(command.password, DUMMY_HASH);
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    // T-03: verificar bloqueo temporal
+    if (usuario.lockedUntil && usuario.lockedUntil > new Date()) {
+      // T-35: igualar el timing con la rama de password incorrecta
+      await bcrypt.compare(command.password, DUMMY_HASH);
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const passwordValido = await bcrypt.compare(command.password, usuario.password);
     if (!passwordValido) {
+      // Incremento atómico de fallos y cálculo de bloqueo si se alcanza el tope
+      const nuevosFallos = usuario.failedLoginAttempts + 1;
+      let lockedUntil: Date | null = null;
+      if (nuevosFallos >= MAX_FAILED_ATTEMPTS) {
+        const lockoutIndex = Math.min(
+          nuevosFallos - MAX_FAILED_ATTEMPTS,
+          LOCKOUT_DURATIONS_MS.length - 1,
+        );
+        lockedUntil = new Date(Date.now() + LOCKOUT_DURATIONS_MS[lockoutIndex]);
+      }
+      await this.prisma.usuario.update({
+        where: { id: usuario.id },
+        data: { failedLoginAttempts: { increment: 1 }, lockedUntil },
+      });
+      if (lockedUntil) {
+        await this.registrarAuditoria('CUENTA_BLOQUEADA', usuario.id, 'servicio-identidad');
+      }
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -50,23 +90,35 @@ export class AuthService {
       sub: usuario.id,
       email: usuario.email,
       rol: usuario.rol,
+      nombre: usuario.nombre,
     };
 
     const access_token = this.jwt.sign(payload);
 
-    // M2.B: auditoría + outbox en la misma transacción (atomicidad garantizada)
-    await this.prisma.$transaction(async (prisma) => {
-      await prisma.auditoriaLog.create({ data: { accion: 'LOGIN', usuarioId: usuario.id, servicio: 'servicio-identidad' } });
-      await prisma.outboxEvent.create({
-        data: {
-          routingKey: RoutingKeys.UsuarioAutenticado,
-          payload: JSON.stringify({ userId: usuario.id, rol: usuario.rol as RolUsuario, email: usuario.email } satisfies UsuarioAutenticadoPayload),
-          status: 'PENDING',
-        },
-      });
-    });
+    // T-05: re-hash perezoso si el costo almacenado es menor al actual.
+    // Debe re-hashear el texto plano recién verificado, NO el hash almacenado
+    // (hashear el hash deja una credencial que ya no coincide con la contraseña).
+    const rehashPromise = bcrypt.getRounds(usuario.password) < SALT_ROUNDS
+      ? bcrypt.hash(command.password, SALT_ROUNDS).then((nuevoHash) =>
+          this.prisma.usuario.update({ where: { id: usuario.id }, data: { password: nuevoHash } }),
+        )
+      : Promise.resolve();
 
-    this.logger.log(`✅ Login exitoso: ${usuario.email} (${usuario.rol})`);
+    // T-15: el evento UsuarioAutenticado (sin consumidores, con email en el payload)
+    // fue retirado. Login exitoso = resetear contadores de lockout + auditoría, en una
+    // transacción para que ambas escrituras sean atómicas.
+    await Promise.all([
+      rehashPromise,
+      this.prisma.$transaction(async (prisma) => {
+        await prisma.usuario.update({
+          where: { id: usuario.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null },
+        });
+        await prisma.auditoriaLog.create({ data: { accion: 'LOGIN', usuarioId: usuario.id, servicio: 'servicio-identidad' } });
+      }),
+    ]);
+
+    this.logger.log(`✅ Login exitoso: ${usuario.id} (${usuario.rol})`);
 
     return {
       access_token,
@@ -79,15 +131,129 @@ export class AuthService {
     };
   }
 
-  /* ── Validar token ─────────────────────────────────── */
+  /* ── Refresh tokens (plan 1.4) ─────────────────────── */
 
-  async validarToken(token: string) {
-    try {
-      const payload = this.jwt.verify(token);
-      return { valid: true, payload };
-    } catch {
-      throw new UnauthorizedException('Token inválido o expirado');
+  private hashToken(raw: string): string {
+    return createHash('sha256').update(raw).digest('hex');
+  }
+
+  private buildRefreshToken(userId: string): { token: string; tokenHash: string; expiresAt: Date; userId: string } {
+    const token = randomBytes(48).toString('base64url');
+    return {
+      token,
+      tokenHash: this.hashToken(token),
+      expiresAt: new Date(Date.now() + REFRESH_TTL_DAYS * 24 * 3600 * 1000),
+      userId,
+    };
+  }
+
+  private signAccessToken(usuario: { id: string; email: string; rol: string; nombre: string }): string {
+    return this.jwt.sign({ sub: usuario.id, email: usuario.email, rol: usuario.rol, nombre: usuario.nombre });
+  }
+
+  /** Crea un refresh token opaco, guarda su hash y devuelve el valor en claro. */
+  async issueRefreshToken(userId: string): Promise<{ token: string; expiresAt: Date }> {
+    const refresh = this.buildRefreshToken(userId);
+    await this.prisma.refreshToken.create({
+      data: { userId: refresh.userId, tokenHash: refresh.tokenHash, expiresAt: refresh.expiresAt },
+    });
+    return { token: refresh.token, expiresAt: refresh.expiresAt };
+  }
+
+  private async revocarCadenaRefresh(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private esCarreraReciente(token: { revokedAt: Date | null; replacedById?: string | null }): boolean {
+    return Boolean(
+      token.revokedAt &&
+      token.replacedById &&
+      token.revokedAt.getTime() > Date.now() - REFRESH_REUSE_GRACE_MS,
+    );
+  }
+
+  /**
+   * Rota un refresh token: valida, emite uno nuevo y revoca el anterior. Si llega
+   * un token YA revocado (reuso), revoca toda la cadena del usuario y rechaza.
+   */
+  async rotateRefreshToken(rawToken: string): Promise<{
+    access_token: string;
+    refresh: { token: string; expiresAt: Date };
+    usuario: { id: string; nombre: string; email: string; rol: RolUsuario };
+  }> {
+    const tokenHash = this.hashToken(rawToken);
+    const existing = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
+    if (!existing) throw new UnauthorizedException('Refresh token inválido');
+
+    if (existing.revokedAt) {
+      if (this.esCarreraReciente(existing)) {
+        throw new UnauthorizedException('Refresh token ya utilizado');
+      }
+      // Reuso detectado: alguien presentó un token ya rotado → revocar la cadena completa.
+      await this.revocarCadenaRefresh(existing.userId);
+      this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
+      throw new UnauthorizedException('Refresh token ya utilizado');
     }
+    if (existing.expiresAt.getTime() < Date.now()) {
+      throw new UnauthorizedException('Refresh token expirado');
+    }
+
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: existing.userId } });
+    if (!usuario?.activo) throw new UnauthorizedException('Usuario no disponible');
+
+    // T-34: compare-and-swap — solo un caller puede revocar el token presentado.
+    // La revocación condicional atómica reemplaza la secuencia leer→emitir→revocar:
+    // dos refresh concurrentes con el mismo token ya no emiten dos pares.
+    const nuevo = this.buildRefreshToken(usuario.id);
+    const rotacion = await this.prisma.$transaction(async (prisma) => {
+      const revocados = await prisma.refreshToken.updateMany({
+        where: { id: existing.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (revocados.count !== 1) return null;
+
+      const nuevoReg = await prisma.refreshToken.create({
+        data: {
+          userId: nuevo.userId,
+          tokenHash: nuevo.tokenHash,
+          expiresAt: nuevo.expiresAt,
+        },
+      });
+      await prisma.refreshToken.update({
+        where: { id: existing.id },
+        data: { replacedById: nuevoReg.id },
+      });
+      return nuevoReg;
+    });
+
+    if (!rotacion) {
+      const actualizado = await this.prisma.refreshToken.findUnique({ where: { id: existing.id } });
+      if (actualizado && this.esCarreraReciente(actualizado)) {
+        throw new UnauthorizedException('Refresh token ya utilizado');
+      }
+
+      await this.revocarCadenaRefresh(existing.userId);
+      this.logger.warn(`Reuso de refresh token detectado para usuario ${existing.userId}; cadena revocada`);
+      throw new UnauthorizedException('Refresh token ya utilizado');
+    }
+
+    return {
+      access_token: this.signAccessToken(usuario),
+      refresh: { token: nuevo.token, expiresAt: nuevo.expiresAt },
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol as RolUsuario },
+    };
+  }
+
+  /** Revoca el refresh token presentado (logout). No lanza si no existe. */
+  async revokeRefreshTokenByRaw(rawToken?: string | null): Promise<void> {
+    if (!rawToken) return;
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash: this.hashToken(rawToken), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /* ── Perfil del usuario autenticado ────────────────── */
@@ -132,25 +298,91 @@ export class AuthService {
     return toUsuarioDto(usuario);
   }
 
-  async listarUsuarios() {
+  async listarUsuarios(query: ListarUsuariosQuery = {}): Promise<UsuarioListResponse> {
+    const limit = this.normalizeLimit(query.limit);
+    const where: Prisma.UsuarioWhereInput = {
+      ...(query.rol ? { rol: query.rol } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { nombre: { contains: query.search, mode: 'insensitive' } },
+              { email: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.updatedSince
+        ? { updatedAt: { gte: new Date(query.updatedSince) } }
+        : {}),
+    };
+
     const usuarios = await this.prisma.usuario.findMany({
-      orderBy: { createdAt: 'desc' },
+      where,
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
-    return usuarios.map(toUsuarioDto);
+
+    const hasMore = usuarios.length > limit;
+    const data = usuarios.slice(0, limit);
+
+    return {
+      data: data.map(toUsuarioDto),
+      nextCursor: hasMore ? data.at(-1)?.id ?? null : null,
+    };
   }
 
-  async cambiarRol(id: string, command: CambiarRolCommand) {
+  private normalizeLimit(limit?: number): number {
+    const parsed = Number(limit ?? 20);
+    if (!Number.isFinite(parsed)) return 20;
+    return Math.min(Math.max(Math.trunc(parsed), 1), 100);
+  }
+
+  async cambiarRol(id: string, command: CambiarRolCommand, ejecutadoPor: string) {
     const usuario = await this.prisma.usuario.findUnique({ where: { id } });
     if (!usuario) {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const actualizado = await this.prisma.usuario.update({
-      where: { id },
-      data: { rol: command.rol },
-    });
+    // Rechazar siempre la auto-degradación (decisión T-04)
+    if (id === ejecutadoPor && command.rol !== 'ADMIN') {
+      throw new ConflictException('No se puede auto-degradar: use otro administrador para cambiar su propio rol');
+    }
 
-    await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}`, id, 'servicio-identidad');
+    // T-31: si el objetivo es ADMIN y se degrada, verificar dentro de una transacción
+    // que quede al menos un ADMIN activo. Postgres no admite FOR UPDATE con agregaciones,
+    // así que se bloquean las filas ADMIN (lock por id) y se cuenta en aplicación; el lock
+    // se mantiene hasta el commit y serializa degradaciones concurrentes.
+    let actualizado;
+    if (usuario.rol === 'ADMIN' && command.rol !== 'ADMIN') {
+      actualizado = await this.prisma.$transaction(async (tx) => {
+        const admins = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM "Usuario"
+          WHERE rol = 'ADMIN' AND activo = true
+          FOR UPDATE
+        `;
+        if (admins.length <= 1) {
+          throw new ConflictException('No se puede degradar al último administrador activo');
+        }
+        const usuarioActualizado = await tx.usuario.update({
+          where: { id },
+          data: { rol: command.rol },
+        });
+        await tx.auditoriaLog.create({
+          data: {
+            accion: `CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`,
+            usuarioId: id,
+            servicio: 'servicio-identidad',
+          },
+        });
+        return usuarioActualizado;
+      });
+    } else {
+      actualizado = await this.prisma.usuario.update({
+        where: { id },
+        data: { rol: command.rol },
+      });
+      await this.registrarAuditoria(`CAMBIAR_ROL:${command.rol}:por:${ejecutadoPor}`, id, 'servicio-identidad');
+    }
 
     this.logger.log(`✅ Rol actualizado: ${actualizado.email} → ${command.rol}`);
     return toUsuarioDto(actualizado);

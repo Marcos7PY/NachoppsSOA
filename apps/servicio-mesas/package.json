@@ -25,7 +25,8 @@
         ],
         "options": {
           "command": "node dist/apps/servicio-mesas/apps/servicio-mesas/src/main.js"
-        }
+        },
+        "continuous": true
       }
     },
     "tags": [

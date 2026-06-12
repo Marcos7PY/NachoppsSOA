@@ -6,5 +6,5 @@ const BasePrisma = createBasePrismaService(PrismaClient);
 
 @Injectable()
 export class PrismaService extends BasePrisma {
-  protected readonly serviceName = 'servicio-mesas';
+  override readonly serviceName = 'servicio-mesas';
 }

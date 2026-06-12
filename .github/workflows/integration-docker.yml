@@ -1,0 +1,142 @@
+name: Docker Integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  docker-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost \
+            "$AGENT_TOOLSDIRECTORY"
+          docker image prune -af
+          df -h
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build service images
+        run: |
+          services=(
+            servicio-identidad
+            servicio-mesas
+            servicio-pedidos
+            servicio-cuentas
+            servicio-reservas
+            servicio-inventario
+            servicio-notificaciones
+            servicio-caja
+            servicio-reportes
+          )
+
+          for svc in "${services[@]}"; do
+            docker build --build-arg APP_NAME="$svc" -t "infra-$svc" -f Dockerfile .
+          done
+
+          docker build -t infra-pwa-cliente -f apps/pwa-cliente/Dockerfile .
+          docker compose -f infra/docker-compose.yml --profile all build kong
+
+      - name: Start stack
+        run: docker compose -f infra/docker-compose.yml --profile all up -d --wait --wait-timeout 180
+
+      - name: Seed admin
+        env:
+          DATABASE_URL: postgresql://nachopps:secret@localhost:5439/identidad_db?schema=public
+        run: node scripts/seed-admin.js
+
+      - name: Run integration smoke
+        run: npm run probar
+
+      - name: Run stock and DLQ smoke
+        run: |
+          sleep 70
+          npm run probar:stock
+
+      - name: Run security smoke
+        run: |
+          sleep 70
+          npm run probar:seguridad
+
+      - name: Run service e2e suites (9 servicios contra el stack)
+        env:
+          SERVICE_JWT_SECRET: nachopps_service_secret_dev
+          RABBITMQ_URI: amqp://nachopps:nachopps_secret@localhost:5672
+        run: |
+          set -e
+          # Cada e2e pega directamente al servicio en su puerto de host del compose.
+          declare -A ports=(
+            [servicio-identidad]=3001
+            [servicio-mesas]=3002
+            [servicio-pedidos]=3004
+            [servicio-cuentas]=3005
+            [servicio-reservas]=3006
+            [servicio-inventario]=3007
+            [servicio-notificaciones]=3008
+            [servicio-caja]=3009
+            [servicio-reportes]=3010
+          )
+          for svc in "${!ports[@]}"; do
+            echo "── e2e $svc (puerto ${ports[$svc]}) ──"
+            HOST=localhost PORT="${ports[$svc]}" \
+              npx jest --config "apps/$svc-e2e/jest.config.cts" --runInBand
+          done
+
+      - name: Run PWA Playwright e2e
+        env:
+          PWA_BASE_URL: http://localhost:4200
+          CI: 'true'
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test -c apps/pwa-cliente/playwright.config.ts
+
+      - name: Capture Docker logs
+        if: failure()
+        run: |
+          mkdir -p .ci-logs
+          docker compose -f infra/docker-compose.yml --profile all ps > .ci-logs/docker-ps.txt
+          docker compose -f infra/docker-compose.yml --profile all logs --no-color > .ci-logs/docker-compose.log
+          # Volcar al log del job el estado y los logs de cualquier contenedor no-healthy,
+          # para diagnosticar sin depender del artefacto.
+          echo "===== docker compose ps ====="
+          cat .ci-logs/docker-ps.txt
+          for c in $(docker ps -a --filter health=unhealthy --format '{{.Names}}'); do
+            echo "===== LOGS (unhealthy): $c ====="
+            docker logs --tail 120 "$c" 2>&1 || true
+          done
+          for c in $(docker ps -a --filter status=exited --format '{{.Names}}'); do
+            echo "===== LOGS (exited): $c ====="
+            docker logs --tail 120 "$c" 2>&1 || true
+          done
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-integration-reports
+          include-hidden-files: true
+          path: |
+            docs/informe-pruebas.md
+            stress-tests/reports/*.md
+            .ci-logs/*
+          if-no-files-found: ignore
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --profile all down --remove-orphans

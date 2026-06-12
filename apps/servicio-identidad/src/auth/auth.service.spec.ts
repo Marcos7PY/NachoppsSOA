@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -8,10 +9,26 @@ import {
 } from '@nestjs/common';
 import { RolUsuario } from '@org/contracts';
 
+vi.mock('bcrypt', () => ({
+  default: {
+    compare: vi.fn().mockResolvedValue(true),
+    hash: vi.fn().mockResolvedValue('hashed_password'),
+    hashSync: vi.fn().mockReturnValue('dummy_hash'),
+    getRounds: vi.fn().mockReturnValue(12),
+  },
+  compare: vi.fn().mockResolvedValue(true),
+  hash: vi.fn().mockResolvedValue('hashed_password'),
+  hashSync: vi.fn().mockReturnValue('dummy_hash'),
+  getRounds: vi.fn().mockReturnValue(12),
+}));
+
 function createMockPrismaService(overrides: Record<string, any> = {}) {
-  return {
+  const mock = {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
+    $transaction: vi.fn().mockImplementation((fn: (p: any) => Promise<any>) => fn(mock)),
+    // T-31: el lock de admins devuelve filas (no agregado) y se cuenta en aplicación
+    $queryRaw: vi.fn().mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]),
     usuario: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -28,8 +45,12 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       create: vi.fn(),
       findMany: vi.fn(),
     },
+    outboxEvent: {
+      create: vi.fn().mockResolvedValue({}),
+    },
     ...overrides,
   } as any;
+  return mock;
 }
 
 function createMockJwtService() {
@@ -58,6 +79,8 @@ describe('AuthService — Identidad', () => {
     password: 'hashed_password',
     rol: 'ADMIN',
     activo: true,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -68,55 +91,178 @@ describe('AuthService — Identidad', () => {
     mockJwt = createMockJwtService();
     mockPublisher = createMockPublisher();
 
-    service = new AuthService(mockPrisma, mockJwt, mockPublisher as any);
-
-    vi.mock('bcrypt', () => ({
-      default: {
-        compare: vi.fn().mockResolvedValue(true),
-        hash: vi.fn().mockResolvedValue('hashed_password'),
-      },
-      compare: vi.fn().mockResolvedValue(true),
-      hash: vi.fn().mockResolvedValue('hashed_password'),
-    }));
+    service = new AuthService(mockPrisma, mockJwt);
   });
 
-  describe('validarToken', () => {
-    it('debe validar un token correctamente', async () => {
-      const result = await service.validarToken('fake-token');
-      expect(result.valid).toBe(true);
-      expect(result.payload.sub).toBe('u-001');
-    });
-
-    it('debe lanzar UnauthorizedException si el token es invalido', async () => {
-      mockJwt.verify.mockImplementation(() => {
-        throw new Error('invalid');
-      });
-      await expect(service.validarToken('bad-token')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-  });
-
-  describe('cambiarRol', () => {
-    it('debe cambiar el rol de un usuario', async () => {
+  describe('cambiarRol — T-04', () => {
+    it('debe cambiar el rol de un usuario cuando hay 2 admins activos', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
-      mockPrisma.usuario.update.mockResolvedValue({
-        ...usuarioBase,
-        rol: 'MESERO',
-      });
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]);
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, rol: 'MESERO' });
       mockPrisma.auditoriaLog.create.mockResolvedValue({});
 
-      const result = await service.cambiarRol('u-001', {
-        rol: RolUsuario.MESERO,
-      });
+      const result = await service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002');
       expect(result.rol).toBe('MESERO');
+      // T-31: la degradación corre dentro de una transacción (lock + update + auditoría)
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.auditoriaLog.create).toHaveBeenCalledTimes(1);
     });
 
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(null);
       await expect(
-        service.cambiarRol('inexistente', { rol: RolUsuario.MESERO }),
+        service.cambiarRol('inexistente', { rol: RolUsuario.MESERO }, 'u-002'),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rechaza degradar al único ADMIN activo — T-04', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }]);
+
+      await expect(
+        service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rechaza siempre la auto-degradación — T-04', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+
+      await expect(
+        service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-001'),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('permite al ADMIN cambiar su propio rol a ADMIN (sin-op semántico)', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.usuario.update.mockResolvedValue(usuarioBase);
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      const result = await service.cambiarRol('u-001', { rol: RolUsuario.Admin }, 'u-001');
+      expect(result.rol).toBe('ADMIN');
+    });
+  });
+
+  describe('login — T-03 lockout', () => {
+    it('rechaza usuario con lockedUntil en el futuro', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({
+        ...usuarioBase,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+    });
+
+    it('incrementa failedLoginAttempts en password incorrecta', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValueOnce(false);
+      mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase, failedLoginAttempts: 0 });
+      mockPrisma.usuario.update.mockResolvedValue({});
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'mal' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(mockPrisma.usuario.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ failedLoginAttempts: { increment: 1 } }) }),
+      );
+    });
+
+    it('fija lockedUntil al alcanzar MAX_FAILED_ATTEMPTS', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValueOnce(false);
+      mockPrisma.usuario.findUnique.mockResolvedValue({
+        ...usuarioBase,
+        failedLoginAttempts: 4, // el próximo fallo es el 5.º → lockout
+      });
+      mockPrisma.usuario.update.mockResolvedValue({});
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'mal' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      const updateCall = mockPrisma.usuario.update.mock.calls[0][0];
+      expect(updateCall.data.lockedUntil).toBeInstanceOf(Date);
+      expect(updateCall.data.lockedUntil.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('resetea contadores en login exitoso', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
+      mockPrisma.usuario.findUnique.mockResolvedValue({
+        ...usuarioBase,
+        failedLoginAttempts: 3,
+      });
+      mockPrisma.usuario.update.mockResolvedValue({ ...usuarioBase, failedLoginAttempts: 0 });
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      await service.login({ email: 'admin@nachopps.com', password: 'ok' });
+
+      const resetCall = mockPrisma.usuario.update.mock.calls.find(
+        (c: any) => c[0].data.failedLoginAttempts === 0,
+      );
+      expect(resetCall[0].data).toMatchObject({ failedLoginAttempts: 0, lockedUntil: null });
+    });
+  });
+
+  describe('login — T-35 tiempo constante (P-57)', () => {
+    it('ejecuta bcrypt.compare también cuando el email no existe', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue(null);
+
+      await expect(service.login({ email: 'nadie@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(bcrypt.compare).toHaveBeenCalledWith('x', 'dummy_hash');
+    });
+
+    it('ejecuta bcrypt.compare también cuando el usuario está inactivo', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase, activo: false });
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+    });
+
+    it('ejecuta bcrypt.compare también cuando la cuenta está bloqueada', async () => {
+      mockPrisma.usuario.findUnique.mockResolvedValue({
+        ...usuarioBase,
+        lockedUntil: new Date(Date.now() + 60_000),
+      });
+
+      await expect(service.login({ email: 'admin@nachopps.com', password: 'x' }))
+        .rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(bcrypt.compare).toHaveBeenCalledWith('x', 'dummy_hash');
+    });
+  });
+
+  describe('login — T-05 re-hash perezoso', () => {
+    it('re-hashea cuando el costo almacenado es menor a 12', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
+      vi.mocked(bcrypt.getRounds).mockReturnValueOnce(10);
+      vi.mocked(bcrypt.hash).mockResolvedValueOnce('hash-costo-12' as never);
+      mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase });
+      mockPrisma.usuario.update.mockResolvedValue({});
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      await service.login({ email: 'admin@nachopps.com', password: 'ok' });
+
+      // Debe re-hashear el texto plano recibido, NO el hash almacenado: hashear
+      // el hash dejaría una credencial que ya no coincide con la contraseña.
+      expect(bcrypt.hash).toHaveBeenCalledWith('ok', 12);
+      const rehashCall = mockPrisma.usuario.update.mock.calls.find(
+        (c: any) => c[0].data.password === 'hash-costo-12',
+      );
+      expect(rehashCall).toBeTruthy();
+    });
+
+    it('no re-hashea cuando el costo ya es 12', async () => {
+      vi.mocked(bcrypt.compare).mockResolvedValueOnce(true);
+      vi.mocked(bcrypt.getRounds).mockReturnValueOnce(12);
+      mockPrisma.usuario.findUnique.mockResolvedValue({ ...usuarioBase });
+      mockPrisma.usuario.update.mockResolvedValue({});
+      mockPrisma.auditoriaLog.create.mockResolvedValue({});
+
+      await service.login({ email: 'admin@nachopps.com', password: 'ok' });
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
     });
   });
 
@@ -175,13 +321,156 @@ describe('AuthService — Identidad', () => {
     it('debe listar todos los usuarios', async () => {
       mockPrisma.usuario.findMany.mockResolvedValue([usuarioBase]);
       const result = await service.listarUsuarios();
-      expect(result).toHaveLength(1);
+      expect(result.data).toHaveLength(1);
     });
 
     it('debe retornar array vacio si no hay usuarios', async () => {
       mockPrisma.usuario.findMany.mockResolvedValue([]);
       const result = await service.listarUsuarios();
-      expect(result).toEqual([]);
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  describe('refresh tokens (plan 1.4)', () => {
+    it('issueRefreshToken guarda el hash (no el token) y devuelve el valor en claro', async () => {
+      mockPrisma.refreshToken.create.mockResolvedValue({});
+      const r = await service.issueRefreshToken('u-001');
+      expect(typeof r.token).toBe('string');
+      expect(r.token.length).toBeGreaterThan(20);
+      const arg = mockPrisma.refreshToken.create.mock.calls[0][0];
+      expect(arg.data.userId).toBe('u-001');
+      expect(arg.data.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(arg.data.tokenHash).not.toBe(r.token);
+      expect(arg.data.expiresAt).toBeInstanceOf(Date);
+    });
+
+    it('rota: emite uno nuevo, revoca el anterior (CAS) y devuelve access', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValueOnce({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 1e6),
+      });
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-2' });
+      mockPrisma.refreshToken.update.mockResolvedValue({});
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+
+      const r = await service.rotateRefreshToken('raw-token');
+      expect(r.access_token).toBe('fake-access-token');
+      expect(r.usuario.id).toBe('u-001');
+      expect(typeof r.refresh.token).toBe('string');
+      // T-34: la revocación es condicional (compare-and-swap sobre revokedAt: null)
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rt-1', revokedAt: null } }),
+      );
+      expect(mockPrisma.refreshToken.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rt-1' }, data: expect.objectContaining({ replacedById: 'rt-2' }) }),
+      );
+    });
+
+    it('T-34/P-56: dos rotaciones concurrentes → una gana y la cadena nueva sigue viva', async () => {
+      const existing = {
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 1e6),
+      };
+      const rotated = {
+        ...existing,
+        revokedAt: new Date(),
+        replacedById: 'rt-2',
+      };
+      mockPrisma.refreshToken.findUnique
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(rotated);
+      mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-2' });
+      mockPrisma.refreshToken.update.mockResolvedValue({});
+      mockPrisma.refreshToken.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const resultados = await Promise.allSettled([
+        service.rotateRefreshToken('raw-token'),
+        service.rotateRefreshToken('raw-token'),
+      ]);
+
+      const exitosos = resultados.filter((r) => r.status === 'fulfilled');
+      const rechazados = resultados.filter((r) => r.status === 'rejected');
+      expect(exitosos).toHaveLength(1);
+      expect(rechazados).toHaveLength(1);
+      expect((rechazados[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
+
+      const refreshGanador = (exitosos[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof service.rotateRefreshToken>>>).value.refresh;
+      mockPrisma.refreshToken.findUnique.mockResolvedValueOnce({
+        id: 'rt-2',
+        userId: 'u-001',
+        revokedAt: null,
+        expiresAt: refreshGanador.expiresAt,
+      });
+      mockPrisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-3' });
+      mockPrisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      await expect(service.rotateRefreshToken(refreshGanador.token)).resolves.toEqual(
+        expect.objectContaining({
+          access_token: 'fake-access-token',
+          refresh: expect.objectContaining({ token: expect.any(String) }),
+          usuario: expect.objectContaining({ id: 'u-001' }),
+        }),
+      );
+
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(3);
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
+    });
+
+    it('detecta reuso: token revocado revoca toda la cadena y rechaza', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: new Date(Date.now() - 11_000),
+        replacedById: 'rt-2',
+        expiresAt: new Date(Date.now() + 1e6),
+      });
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 'u-001', revokedAt: null } }),
+      );
+    });
+
+    it('rechaza una carrera ya revocada en gracia sin revocar la cadena', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({
+        id: 'rt-1',
+        userId: 'u-001',
+        revokedAt: new Date(),
+        replacedById: 'rt-2',
+        expiresAt: new Date(Date.now() + 1e6),
+      });
+
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un token expirado', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue({ id: 'rt-1', userId: 'u-001', revokedAt: null, expiresAt: new Date(Date.now() - 1000) });
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rechaza un token inexistente', async () => {
+      mockPrisma.refreshToken.findUnique.mockResolvedValue(null);
+      await expect(service.rotateRefreshToken('raw')).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('revokeRefreshTokenByRaw revoca el token presentado y es no-op sin token', async () => {
+      mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+      await service.revokeRefreshTokenByRaw('raw');
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+      await service.revokeRefreshTokenByRaw(null);
+      expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
     });
   });
 });

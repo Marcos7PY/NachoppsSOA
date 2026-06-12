@@ -5,7 +5,7 @@ export const CIRCUIT_BREAKER_REGISTRY = new Map<string, CircuitBreaker>();
 
 export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
@@ -16,10 +16,11 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
     const defaultOptions: CircuitBreaker.Options = {
       timeout: 3000, 
       errorThresholdPercentage: 50, 
-      resetTimeout: 30000, 
+      resetTimeout: 30_000, 
       ...options,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (...args: any[]) {
       let breaker = CIRCUIT_BREAKER_REGISTRY.get(breakerName);
       
