@@ -17,7 +17,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     group: 'Operación',
     items: [
-      { key: 'inicio', label: 'Inicio', shortLabel: 'Inicio', icon: 'Inicio', priority: 6 },
+      { key: 'inicio', label: 'Inicio', shortLabel: 'Inicio', icon: 'Inicio', priority: 0 },
       { key: 'mesas', label: 'Mesas', shortLabel: 'Mesas', icon: 'Mesas', priority: 1 },
       { key: 'pedidos', label: 'Pedidos', shortLabel: 'Pedidos', icon: 'Pedidos', priority: 2 },
       { key: 'cocina', label: 'Cocina', shortLabel: 'Cocina', icon: 'Cocina', priority: 3 },
