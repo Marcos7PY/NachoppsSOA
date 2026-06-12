@@ -36,7 +36,7 @@ export function Header() {
   const [now, setNow] = useState(() => new Date());
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDialogElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
   useFocusTrap(settingsRef, { active: settingsOpen, onClose: () => setSettingsOpen(false) });
   const [theme, setTheme] = useState<Theme>(() => readAttr('data-theme', 'light'));
   const [density, setDensity] = useState<Density>(() => readAttr('data-density', 'comfy'));
@@ -109,9 +109,9 @@ export function Header() {
           <Icons.Layers s={18} />
         </button>
         {settingsOpen && (
-          <>
+          <div ref={settingsRef}>
             <button type="button" aria-label="Cerrar" tabIndex={-1} style={{ position: 'fixed', inset: 0, zIndex: 89, background: 'transparent', border: 'none', padding: 0, cursor: 'default', appearance: 'none' }} onClick={() => setSettingsOpen(false)} />
-            <dialog open className="settings-pop" ref={settingsRef} aria-modal="true" aria-label="Vista y accesibilidad">
+            <dialog open className="settings-pop" aria-modal="true" aria-label="Vista y accesibilidad">
               <div className="sp-row">
                 <span className="sp-lbl">Densidad</span>
                 <div className="seg sm" style={{ width: '100%' }}>
@@ -137,7 +137,7 @@ export function Header() {
                 </button>
               </div>
             </dialog>
-          </>
+          </div>
         )}
       </div>
 
