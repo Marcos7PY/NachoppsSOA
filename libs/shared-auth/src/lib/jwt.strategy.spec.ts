@@ -57,12 +57,12 @@ describe('JwtStrategy (shared-auth)', () => {
       });
     });
 
-    it('en modo tolerante (default) deja pasar aud incorrecta', async () => {
+    it('rechaza aud incorrecta aunque SERVICE_AUD_ENFORCE no este definida', async () => {
       await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: undefined }, async () => {
         const strategy = new JwtStrategy();
         await expect(
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
-        ).resolves.toMatchObject({ rol: 'SISTEMA' });
+        ).rejects.toThrow(/[Aa]udiencia/);
       });
     });
 

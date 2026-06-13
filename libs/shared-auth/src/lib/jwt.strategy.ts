@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, JwtFromRequestFunction } from 'passport-jwt';
 import { Request } from 'express';
@@ -24,8 +24,6 @@ const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private readonly logger = new Logger(JwtStrategy.name);
-
   constructor() {
     super({
       // 1º cookie httpOnly, 2º header Bearer (fallback no-breaking)
@@ -44,17 +42,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // T-17: un token S2S (rol SISTEMA) solo es válido en el servicio cuyo
     // SERVICE_NAME coincide con su claim `aud`. No se usa la opción `audience` de
     // passport-jwt porque rechazaría los RS256 de usuario, que no llevan `aud`.
-    // Rollout en dos pasos: por defecto tolerante (warn); estricto con
-    // SERVICE_AUD_ENFORCE=true.
     if (payload.rol === 'SISTEMA') {
       const expected = process.env.SERVICE_NAME;
       if (expected && payload.aud !== expected) {
-        if (process.env.SERVICE_AUD_ENFORCE === 'true') {
-          throw new UnauthorizedException('Audiencia del token de servicio inválida');
-        }
-        this.logger.warn(
-          `Token de servicio con aud="${payload.aud}" no coincide con SERVICE_NAME="${expected}" (modo tolerante)`,
-        );
+        throw new UnauthorizedException('Audiencia del token de servicio inválida');
       }
     }
     return {

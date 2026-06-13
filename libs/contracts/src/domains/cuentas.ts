@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsOptional, IsArray, IsEnum } from 'class-validator';
+import type { PedidoSnapshot, PedidoSnapshotItem } from './pedidos';
 
 export const CuentaEstado = {
   Abierta: 'ABIERTA',
@@ -24,7 +25,7 @@ export class CuentaCerradaPayload {
   total: number;
   @IsOptional()
   @IsArray()
-  items?: { productoId: string; nombre?: string; cantidad: number; precioUnitario: number }[];
+  items?: PedidoSnapshotItem[];
   // Reportes por mesero (plan 6.3). Opcional: lo poblará cuentas cuando propague
   // el mesero del pedido; el read-model de reportes ya agrupa por este campo.
   @IsOptional()
@@ -48,7 +49,7 @@ export class CuentaDto {
   @IsString()
   mesaId: string;
   @IsArray()
-  pedidos: unknown[];
+  pedidos: PedidoSnapshot[];
   @IsNumber()
   total: number;
   @IsEnum(CuentaEstado)
@@ -70,7 +71,7 @@ export class TicketDto {
   @IsString()
   mesaId: string;
   @IsArray()
-  items: unknown[];
+  items: PedidoSnapshotItem[];
   @IsNumber()
   subtotal: number;
   @IsNumber()

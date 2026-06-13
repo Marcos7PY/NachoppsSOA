@@ -95,7 +95,7 @@ export function BottomNav() {
             aria-label="Más módulos"
             onClick={() => setMoreOpen((current) => !current)}
           >
-            <Icons.Layers s={20} />
+            <Icons.Plus s={20} />
             <span>Más</span>
           </button>
         </div>

@@ -118,6 +118,40 @@ export class PedidoDto {
   createdAt: string;
 }
 
+export type PedidoSnapshotItem = Pick<
+  PedidoItemDto,
+  'productoId' | 'nombre' | 'cantidad' | 'precioUnitario'
+> &
+  Partial<
+    Pick<
+      PedidoItemDto,
+      'id' | 'area' | 'notas' | 'estado' | 'meseroId' | 'meseroNombre'
+    >
+  > & {
+    comensal?: number;
+    identificadorComensal?: number;
+  };
+
+export type PedidoSnapshot = Pick<
+  PedidoDto,
+  | 'id'
+  | 'mesaId'
+  | 'items'
+  | 'total'
+  | 'estado'
+  | 'createdAt'
+  | 'meseroId'
+  | 'meseroNombre'
+> & {
+  items: PedidoSnapshotItem[];
+  numeroMesa?: number;
+  cliente?: string;
+  telefono?: string;
+  direccion?: string;
+  proveedor?: string;
+  modalidad?: string;
+};
+
 export class ListarPedidosQuery {
   @IsOptional()
   @IsString()

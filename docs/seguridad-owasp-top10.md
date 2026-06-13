@@ -42,7 +42,7 @@ desechable, nunca a datos reales.
 
 ### A07 — Identification and Authentication Failures
 - **Cubierto:** login con bcrypt + comparación constante, refresh tokens rotados con detección de reuso (revocación de la familia), rate-limiting agresivo en rutas de auth (Kong), cookies con `httpOnly`/`SameSite`.
-- **JWT S2S:** `SERVICE_AUD_ENFORCE=true` es la configuración estándar. El modo tolerante queda solo como rollback temporal y debe retirarse en la siguiente release mayor (T-56b). Invariante de confusión de algoritmo: `docs/invariantes/jwt-confusion-algoritmo.md`.
+- **JWT S2S:** la audiencia se valida de forma estricta contra `SERVICE_NAME`; `SERVICE_AUD_ENFORCE=true` se conserva solo como configuración explícita de despliegue. Invariante de confusión de algoritmo: `docs/invariantes/jwt-confusion-algoritmo.md`.
 
 ### A08 — Software and Data Integrity Failures
 - **Cubierto:** patrón outbox + DLX en RabbitMQ garantiza integridad de eventos; lockfile (`package-lock.json`) versionado.

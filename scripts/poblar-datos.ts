@@ -14,6 +14,7 @@
 import axios from 'axios';
 
 const BASE = process.env.NACHOPPS_BASE_URL || process.env.BASE_URL || 'http://localhost:8000';
+const DEV_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'kong']);
 
 interface ApiResponse<T = any> {
   message?: string;
@@ -104,6 +105,8 @@ async function crearMesa(
 }
 
 async function main() {
+  assertDevOnlyTarget();
+
   console.log('═══════════════════════════════════════════');
   console.log('  NachoPps — Población de Datos de Prueba');
   console.log('═══════════════════════════════════════════\n');
@@ -280,6 +283,17 @@ async function main() {
   console.log(`  Productos creados:   ${productos.length}`);
   console.log(`  Mesas creadas:       ${mesas.length}`);
   console.log('═══════════════════════════════════════════\n');
+}
+
+function assertDevOnlyTarget() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Seed demo bloqueado: NODE_ENV=production');
+  }
+
+  const url = new URL(BASE);
+  if (!DEV_HOSTS.has(url.hostname) && !url.hostname.endsWith('.local')) {
+    throw new Error(`Seed demo bloqueado: ${BASE} no parece un endpoint local/dev`);
+  }
 }
 
 main().catch((err) => {

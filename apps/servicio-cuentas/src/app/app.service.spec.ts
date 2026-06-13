@@ -123,7 +123,13 @@ describe('AppService — Cuentas', () => {
       estado: CuentaEstado.Abierta,
       total: 50,
       pedidos: [
-        { id: 'p-001', total: 50, items: [{ productoId: 'prod-1', precioUnitario: 25, cantidad: 2 }] },
+        {
+          id: 'p-001',
+          mesaId: 'm-001',
+          estado: PedidoEstado.Entregado,
+          total: 50,
+          items: [{ productoId: 'prod-1', precioUnitario: 25, cantidad: 2 }],
+        },
       ],
       ticket: null,
       createdAt: new Date(),
@@ -155,6 +161,8 @@ describe('AppService — Cuentas', () => {
         pedidos: [
           {
             id: 'p-001',
+            mesaId: 'm-001',
+            estado: PedidoEstado.Entregado,
             total: 50,
             meseroId: 'u-mesero-1',
             meseroNombre: 'Ana Mesa',

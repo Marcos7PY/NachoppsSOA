@@ -106,7 +106,7 @@ export function CartaScreen() {
           </button>
         ))}
         <span className="spacer" />
-        <div className="input" style={{ width: 220 }}>
+        <div className="input toolbar-input">
           <Icons.Search s={15} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" />
         </div>
