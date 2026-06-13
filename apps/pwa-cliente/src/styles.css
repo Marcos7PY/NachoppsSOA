@@ -1312,7 +1312,7 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
 
 @media (max-width: 720px) {
   .modal-wrap { padding: 0; display: flex; align-items: flex-end; }
-  .modal { width: 100% !important; max-width: 100% !important; border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards; max-height: 92vh; max-height: 92dvh; border: 0; border-top: 1px solid var(--border); }
+  .modal { opacity: 1 !important; width: 100% !important; max-width: 100% !important; border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards; max-height: 92vh; max-height: 92dvh; border: 0; border-top: 1px solid var(--border); }
   .modal-scroll { max-height: 78vh; max-height: 78dvh; }
 }
 
