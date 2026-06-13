@@ -11,6 +11,8 @@ import {
 import { getOrCreateCounter } from '@org/observabilidad';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapPedidoToDto } from './pedido.mapper';
+import { Prisma } from '../generated/prisma';
+
 
 /**
  * T-40: transiciones de estado del pedido y compensación de la saga de stock,
@@ -143,6 +145,12 @@ export class PedidosSagaService {
       });
 
       const pedidoId = item.pedidoId;
+
+      // Adquirimos un advisory lock por pedidoId para secuenciar transacciones simultáneas del mismo pedido
+      await prisma.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${pedidoId}))`
+      );
+
       const pedidoActual = await prisma.pedido.findUnique({
         where: { id: pedidoId },
         include: { items: true },
@@ -150,6 +158,7 @@ export class PedidosSagaService {
       if (!pedidoActual) {
         return { message: 'Estado del ítem actualizado exitosamente' };
       }
+
 
       // "Cocina manda": derivamos el estado de producción del pedido desde sus
       // ítems. Solo lo aplicamos si el pedido sigue en fase de producción; nunca
