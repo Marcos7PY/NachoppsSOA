@@ -93,7 +93,7 @@ export function Header() {
       {/* Indicador de conexión */}
       <span className={`conn ${online ? 'online' : 'offline'}`} title={connLabel} role="status" aria-live="polite">
         <span className="conn-dot" />
-        {connLabel}
+        <span className="desktop-only">{connLabel}</span>
       </span>
 
       {/* Accesibilidad / vista */}

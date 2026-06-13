@@ -30,7 +30,7 @@ function MesaCobroPicker({ mesas, onSelect, onClose }: Readonly<MesaCobropickerP
   return (
     <div className="modal-wrap">
       <Scrim onClose={onClose} />
-      <div className="modal" style={{ width: 460, position: 'relative', zIndex: 1 }}>
+      <div className="modal" style={{ width: 'min(460px, 100%)', position: 'relative', zIndex: 1 }}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <h3 style={{ fontSize: 17 }}>Cobrar cuenta · elegir mesa</h3>
           <span className="spacer" />
