@@ -9,6 +9,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
   const prisma: any = {
     $connect: async () => {},
     $disconnect: async () => {},
+    $executeRaw: vi.fn().mockResolvedValue(1),
     pedido: {
       create: vi.fn(),
       findUnique: vi.fn(),
