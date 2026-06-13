@@ -87,7 +87,7 @@ describe('PedidosSagaService — Pedidos', () => {
   });
 
   describe('actualizarEstadoItem — cocina manda (derivación)', () => {
-    const itemBase = { id: 'i-1', pedidoId: 'p-001', nombre: 'Plato', cantidad: 1, precioUnitario: 10, area: 'COCINA', notas: null, modificadores: [] };
+    const itemBase = { id: 'i-1', pedidoId: 'p-001', nombre: 'Plato', cantidad: 1, precioUnitario: 10, area: 'COCINA', notas: null };
 
     it('sube el pedido a EN_PREPARACION cuando arranca el primer ítem', async () => {
       vi.spyOn(mockPrisma.pedidoItem, 'update').mockResolvedValue({ id: 'i-1', pedidoId: 'p-001' } as any);
@@ -148,22 +148,30 @@ describe('PedidosSagaService — Pedidos', () => {
   describe('procesarStockInsuficiente — compensación de saga', () => {
     const itemRechazado = (over: Record<string, any> = {}) => ({
       id: 'it-1', productoId: 'prod-a', nombre: 'A', cantidad: 1, precioUnitario: 10,
-      area: 'COCINA', notas: null, estado: 'RECHAZADO_SIN_STOCK', modificadores: [], ...over,
+      area: 'COCINA', notas: null, estado: 'RECHAZADO_SIN_STOCK', ...over,
     });
 
-    it('marca el ítem RECHAZADO_SIN_STOCK y emite PedidoActualizado, sin tocar el pedido si quedan ítems vivos', async () => {
+    it('recalcula total y emite PedidoActualizado con total corregido si quedan ítems vivos', async () => {
+      const pedidoActualizado = {
+        id: 'ped-1', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
+        total: 20, createdAt: new Date(), updatedAt: new Date(),
+        items: [
+          itemRechazado(),
+          itemRechazado({ id: 'it-2', productoId: 'prod-b', nombre: 'B', estado: 'PENDIENTE', precioUnitario: 20 }),
+        ],
+      };
       const prisma = createMockPrismaService({
         pedidoItem: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
         pedido: {
           findUnique: vi.fn().mockResolvedValue({
             id: 'ped-1', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.Pendiente,
-            total: 50, createdAt: new Date(),
+            total: 30, createdAt: new Date(), updatedAt: new Date(),
             items: [
               itemRechazado(),
-              itemRechazado({ id: 'it-2', productoId: 'prod-b', nombre: 'B', estado: 'PENDIENTE' }),
+              itemRechazado({ id: 'it-2', productoId: 'prod-b', nombre: 'B', estado: 'PENDIENTE', precioUnitario: 20 }),
             ],
           }),
-          update: vi.fn(),
+          update: vi.fn().mockResolvedValue(pedidoActualizado),
         },
         outboxEvent: { create: vi.fn().mockResolvedValue({}) },
         idempotencyKey: { create: vi.fn().mockResolvedValue({}) },
@@ -176,9 +184,14 @@ describe('PedidosSagaService — Pedidos', () => {
         where: { pedidoId: 'ped-1', productoId: 'prod-a', estado: { not: 'RECHAZADO_SIN_STOCK' } },
         data: { estado: 'RECHAZADO_SIN_STOCK' },
       });
-      expect(prisma.pedido.update).not.toHaveBeenCalled();
+      expect(prisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'ped-1' },
+        data: { total: 20 },
+      }));
       expect(prisma.outboxEvent.create).toHaveBeenCalledTimes(1);
       expect(prisma.outboxEvent.create.mock.calls[0][0].data.routingKey).toBe('pedido.actualizado');
+      const payload = JSON.parse(prisma.outboxEvent.create.mock.calls[0][0].data.payload);
+      expect(payload.pedido.total).toBe(20);
     });
 
     it('pasa el pedido entero a RECHAZADO_SIN_STOCK cuando todos los ítems quedan rechazados', async () => {
@@ -192,7 +205,7 @@ describe('PedidosSagaService — Pedidos', () => {
           }),
           update: vi.fn().mockResolvedValue({
             id: 'ped-2', mesaId: 'm-1', numeroMesa: 3, estado: PedidoEstado.RechazadoSinStock,
-            total: 10, createdAt: new Date(), items,
+            total: 0, createdAt: new Date(), updatedAt: new Date(), items,
           }),
         },
         outboxEvent: { create: vi.fn().mockResolvedValue({}) },
@@ -204,8 +217,10 @@ describe('PedidosSagaService — Pedidos', () => {
 
       expect(prisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 'ped-2' },
-        data: { estado: PedidoEstado.RechazadoSinStock },
+        data: { estado: PedidoEstado.RechazadoSinStock, total: 0 },
       }));
+      const payload = JSON.parse(prisma.outboxEvent.create.mock.calls[0][0].data.payload);
+      expect(payload.pedido.total).toBe(0);
     });
 
     it('es idempotente: una clave duplicada (P2002) no propaga ni re-marca', async () => {

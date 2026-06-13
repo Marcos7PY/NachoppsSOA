@@ -53,7 +53,6 @@ model PedidoItem {
   area           String?       @default("COCINA")
   notas          String?
   estado         String        @default("PENDIENTE")
-  modificadores  Modificador[]
   comensal       Int           @default(1)
   meseroId       String?
   meseroNombre   String?
@@ -69,16 +68,6 @@ model MesaLocal {
   updatedAt DateTime @updatedAt
 
   @@map("mesas_local")
-}
-
-model Modificador {
-  id           String     @id @default(uuid())
-  pedidoItemId String
-  pedidoItem   PedidoItem @relation(fields: [pedidoItemId], references: [id])
-  nombre       String
-  precioExtra  Decimal    @default(0) @db.Decimal(10, 2)
-
-  @@map("modificadores")
 }
 
 model OutboxEvent {

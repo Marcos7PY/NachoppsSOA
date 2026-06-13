@@ -78,7 +78,6 @@ export function DetallePedido({ pedido: p, onClose, onAvanzar, actionLoading, on
                 <span className="dish-q">{it.cantidad}</span>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontWeight: 600 }}>{it.nombre}</span>
-                  {it.modificadores.length > 0 && <div className="cmd-line-mods" style={{ marginTop: 2 }}>{it.modificadores.map((m) => m.nombre).join(' · ')}</div>}
                   {it.notas && <div className="cmd-line-mods" style={{ marginTop: 2 }}><Icons.Note s={11} /> {it.notas}</div>}
                 </div>
                 <span className="mono muted">{fmt(it.subtotal)}</span>

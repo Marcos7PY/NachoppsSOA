@@ -49,16 +49,6 @@ CREATE TABLE "mesas_local" (
 );
 
 -- CreateTable
-CREATE TABLE "modificadores" (
-    "id" TEXT NOT NULL,
-    "pedidoItemId" TEXT NOT NULL,
-    "nombre" TEXT NOT NULL,
-    "precioExtra" DECIMAL(10,2) NOT NULL DEFAULT 0,
-
-    CONSTRAINT "modificadores_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "outbox_events" (
     "id" TEXT NOT NULL,
     "routingKey" TEXT NOT NULL,
@@ -112,7 +102,3 @@ CREATE INDEX "idempotency_keys_createdAt_idx" ON "idempotency_keys"("createdAt")
 
 -- AddForeignKey
 ALTER TABLE "pedido_items" ADD CONSTRAINT "pedido_items_pedidoId_fkey" FOREIGN KEY ("pedidoId") REFERENCES "pedidos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "modificadores" ADD CONSTRAINT "modificadores_pedidoItemId_fkey" FOREIGN KEY ("pedidoItemId") REFERENCES "pedido_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-

@@ -55,7 +55,7 @@ Monorepo **Nx** con una arquitectura de **microservicios event-driven** (NestJS)
 - **Transactional Outbox** en los 9 servicios: el evento se persiste en la misma transacción que el cambio de estado y un `OutboxProcessor` (cron 1s) lo publica con reintentos (5 → `FAILED`), purga e idempotencia.
 - **Idempotencia de consumidores:** claim atómico de `idempotencyKey` (p.ej. por `pedido.id`) antes de procesar.
 - **Resiliencia:** retry interceptor en consumidores + circuit breaker en llamadas síncronas (pedidos→mesas, pedidos→inventario, caja→cuentas).
-- **Seguridad:** JWT en cookie `httpOnly`, CSRF double-submit (`X-CSRF-Token`), `helmet`, CORS restrictivo, `ValidationPipe` whitelist, `GlobalExceptionFilter`, Swagger solo fuera de producción, fail-fast sin `RABBITMQ_URI`, graceful shutdown.
+- **Seguridad:** JWT en cookie `httpOnly`, CSRF double-submit (`X-CSRF-Token`), `helmet`, CORS restrictivo, `ValidationPipe` whitelist, `GlobalExceptionFilter`, Swagger solo fuera de producción, fail-fast sin `RABBITMQ_URI`/`CORS_ORIGIN` en prod, graceful shutdown.
 
 ## Desarrollo
 
@@ -95,7 +95,10 @@ docker compose -f infra/docker-compose.prod.yml up -d
 El `OutboxProcessor` (en `libs/resiliencia`) reclama cada lote con un `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` que marca los eventos como `PUBLISHING`: **varias réplicas por microservicio son seguras** — cada una salta las filas bloqueadas por las demás, sin publicar duplicados en el happy path (T-08). Un cron de rescate devuelve a `PENDING` los `PUBLISHING` huérfanos (réplica caída a mitad de lote) tras 60s, preservando la entrega at-least-once. Configurar `terminationGracePeriodSeconds` ≥ 30s para el apagado graceful.
 
 ## Observabilidad
-Jaeger (trazas OTEL), Prometheus (métricas en `/api/telemetry/metrics`) y Grafana. Todos los servicios exportan a `OTEL_EXPORTER_OTLP_ENDPOINT`.
+Jaeger (trazas OTEL), Prometheus (métricas en `/api/telemetry/metrics`) y Grafana. Todos los servicios exportan a `OTEL_EXPORTER_OTLP_ENDPOINT`. En producción Jaeger no publica `16686`; usar túnel SSH/red interna (`docs/operacion/jaeger-prod.md`).
+
+## Desarrollo local solamente
+`infra/docker-compose.yml` y `scripts/poblar-datos.ts` son solo para desarrollo: contienen credenciales demo y datos de prueba. Producción usa `infra/docker-compose.prod.yml` con `.env` real.
 
 ## Documentación
 - `docs/production-audit-report.md` — auditoría de producción y correcciones aplicadas.

@@ -8,6 +8,10 @@ Todas las novedades relevantes de NachoPps. El formato sigue
 ## [Unreleased]
 
 ### Added
+- Script one-off `backfill:cuentas-abiertas` para corregir cuentas abiertas con
+  total inflado por pedidos no cobrables.
+- Runbooks de Jaeger en producción, `jwt-cache` degradado y configuración de
+  agentes.
 - Compensación de la saga de stock: evento `StockInsuficiente`; Pedidos marca
   ítem/pedido `RECHAZADO_SIN_STOCK` y emite `PedidoActualizado` (plan 1.1).
 - Idempotencia HTTP en `POST /pedidos` y `POST /caja/pagos` vía header
@@ -30,15 +34,24 @@ Todas las novedades relevantes de NachoPps. El formato sigue
 - Refresh tokens: `POST /auth/refresh` + rotación de cookie httpOnly (plan 1.4).
 
 ### Changed
+- `procesarPagoRecibido` en pedidos usa un `updateMany` atómico e idempotente y
+  no marca `RECHAZADO_SIN_STOCK` como pagado.
+- Documentada la salida futura del modo tolerante de `SERVICE_AUD_ENFORCE`.
 - JWT de usuario migrado de HS256 compartido a **RS256** (privada solo en
   identidad, pública en servicios + Kong); tokens de servicio en HS256 con
   secreto dedicado (plan 2.1).
 - CSP explícita en Helmet en los 9 servicios (plan 2.4).
 
 ### Security
+- `pedido.total` se recompone al rechazar ítems por falta de stock y cuentas
+  excluye pedidos `CANCELADO`/`RECHAZADO_SIN_STOCK` del total cobrable.
+- `CORS_ORIGIN` y `GRAFANA_PASS` fallan rápido en producción; Jaeger deja de
+  publicar `16686` en el compose productivo.
 - Kong Admin API ya no se publica en prod (loopback interno) (plan 2.2).
 - Gestor de secretos vía Docker secrets para prod (plan 2.3).
 
 ### Tests
+- Specs de remediación para saga de dinero, cuenta con pedidos no cobrables,
+  `PagoRegistrado` idempotente y confusión de algoritmo JWT.
 - Cobertura mínima subida en `vitest.config.mts`; specs nuevos para la saga de
   stock, idempotencia, JWT, outbox y reportes (plan 4.2).

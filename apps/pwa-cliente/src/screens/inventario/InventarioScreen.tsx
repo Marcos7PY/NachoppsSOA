@@ -103,7 +103,7 @@ export function InventarioScreen() {
           />
         </div>
         <span className="spacer" />
-        <div className="input" style={{ width: 210 }}>
+        <div className="input toolbar-input">
           <select value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)} aria-label="Filtrar por categoría">
             <option value="">Todas las categorías</option>
             {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}

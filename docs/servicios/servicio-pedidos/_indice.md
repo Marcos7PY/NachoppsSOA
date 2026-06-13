@@ -20,7 +20,6 @@ commit: 53877c8
 - [Pedido](datos/Pedido.md) [apps/servicio-pedidos/prisma/schema.prisma:20]
 - [PedidoItem](datos/PedidoItem.md) [apps/servicio-pedidos/prisma/schema.prisma:41]
 - [MesaLocal](datos/MesaLocal.md) [apps/servicio-pedidos/prisma/schema.prisma:59]
-- [Modificador](datos/Modificador.md) [apps/servicio-pedidos/prisma/schema.prisma:67]
 - [OutboxEvent](datos/OutboxEvent.md) [apps/servicio-pedidos/prisma/schema.prisma:77]
 - [ProductoLocal](datos/ProductoLocal.md) [apps/servicio-pedidos/prisma/schema.prisma:90]
 - [IdempotencyKey](datos/IdempotencyKey.md) [apps/servicio-pedidos/prisma/schema.prisma:101]

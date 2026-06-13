@@ -9,5 +9,5 @@ import { AppModule } from './app/app.module';
 
 void bootstrapNachoppsService({
   serviceName: 'servicio-pedidos', module: AppModule, queue: 'pedidos_queue', defaultPort: 3000,
-  swagger: { title: 'Nachopps Restobar — API Pedidos', description: 'Comandas, saga de pedidos, modificadores y KDS' },
+  swagger: { title: 'Nachopps Restobar — API Pedidos', description: 'Comandas, saga de pedidos y KDS' },
 });

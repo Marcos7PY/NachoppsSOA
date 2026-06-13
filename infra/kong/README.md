@@ -65,3 +65,10 @@ Al desplegar en producción, la política de la cookie de sesión (`access_token
 - **Dominio cruzado (Cross-Site):** Si la PWA está en `nachopps.vercel.app` y la API en `api.nachopps.com`, es OBLIGATORIO configurar las cookies con `SameSite=None` y `Secure=true`. Sin esto, el navegador rechazará enviar las credenciales y el WebSocket/sesión fallará.
 
 *Asegúrese de modificar estas variables de entorno en el microservicio `servicio-identidad` según el entorno de despliegue real.*
+
+## `jwt-cache` en modo degradado
+
+El trade-off operativo de `degraded_mode` esta documentado en
+`docs/operacion/jwt-cache-degraded.md`: los tokens cacheados pueden seguir
+validos hasta su `exp` si identidad cae, incluso si fueron revocados durante esa
+ventana.

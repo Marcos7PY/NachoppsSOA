@@ -60,11 +60,21 @@ describe('jwt-keys (plan 2.1 RS256 usuario / HS256 servicio)', () => {
     expect(() => jwt.verify(forged, key!, { algorithms: ['HS256'] })).toThrow();
   });
 
-  it('rechaza algoritmos no soportados', async () => {
-    const header = Buffer.from(JSON.stringify({ alg: 'ES512', typ: 'JWT' })).toString('base64url');
+  it('rechaza alg none', async () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
     const fake = `${header}.${Buffer.from('{}').toString('base64url')}.sig`;
     const { err, key } = await resolveKey(makeJwtSecretOrKeyProvider(publicKey, serviceSecret), fake);
     expect(err).toBeInstanceOf(Error);
+    expect(err?.message).toContain('Algoritmo JWT no soportado');
+    expect(key).toBeUndefined();
+  });
+
+  it('rechaza RS512', async () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'RS512', typ: 'JWT' })).toString('base64url');
+    const fake = `${header}.${Buffer.from('{}').toString('base64url')}.sig`;
+    const { err, key } = await resolveKey(makeJwtSecretOrKeyProvider(publicKey, serviceSecret), fake);
+    expect(err).toBeInstanceOf(Error);
+    expect(err?.message).toContain('Algoritmo JWT no soportado');
     expect(key).toBeUndefined();
   });
 

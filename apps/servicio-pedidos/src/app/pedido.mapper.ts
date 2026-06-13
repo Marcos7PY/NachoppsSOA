@@ -28,10 +28,6 @@ export function mapPedidoToDto(p: PedidoEntity): PedidoDto {
       estado: i.estado as EstadoItem,
       meseroId: i.meseroId ?? p.meseroId ?? undefined,
       meseroNombre: i.meseroNombre ?? p.meseroNombre ?? undefined,
-      modificadores: i.modificadores.map(m => ({
-        nombre: m.nombre,
-        precioExtra: Number(m.precioExtra)
-      }))
     }))
   };
 }

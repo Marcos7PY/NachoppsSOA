@@ -116,11 +116,6 @@ function applyHeaders(headers: Headers, method: string): void {
   if (csrfToken && MUTATING_METHODS.has(method) && !headers.has(CSRF_HEADER_KEY)) {
     headers.set(CSRF_HEADER_KEY, csrfToken);
   }
-  // Idempotencia HTTP (plan 1.3): el backend deduplica POST con la misma clave,
-  // así un retry de transporte no crea pedidos/pagos duplicados.
-  if (method === 'POST' && !headers.has('Idempotency-Key')) {
-    headers.set('Idempotency-Key', newIdempotencyKey());
-  }
 }
 
 async function parseErrorBody(res: Response): Promise<unknown> {
@@ -172,17 +167,28 @@ async function request<T>(path: string, init?: RequestInit, retried = false): Pr
   return res.json() as Promise<T>;
 }
 
+function withIdempotencyKey(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Idempotency-Key')) {
+    headers.set('Idempotency-Key', newIdempotencyKey());
+  }
+  return { ...init, headers };
+}
+
 // ─── Helpers tipados ────────────────────────────────────────────
 export const client = {
   get: <T>(path: string, init?: RequestInit) =>
     request<T>(path, { ...init, method: 'GET' }),
 
   post: <T>(path: string, body?: unknown, init?: RequestInit) =>
-    request<T>(path, {
-      ...init,
-      method: 'POST',
-      body: body == null ? undefined : JSON.stringify(body),
-    }),
+    request<T>(
+      path,
+      withIdempotencyKey({
+        ...init,
+        method: 'POST',
+        body: body == null ? undefined : JSON.stringify(body),
+      }),
+    ),
 
   patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
     request<T>(path, {

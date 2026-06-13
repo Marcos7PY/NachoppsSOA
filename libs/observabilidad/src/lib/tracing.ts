@@ -18,8 +18,9 @@ export function initTracing(serviceName: string): NodeSDK {
   // Asegurarnos de apagar el tracer si la app crashea
   process.on('SIGTERM', () => {
     sdk.shutdown()
-      .then(() => console.log('OpenTelemetry SDK finalizado exitosamente'))
-      .catch((error) => console.log('Error finalizando OpenTelemetry SDK', error))
+      // Durante el apagado el logger de la app puede estar cerrandose; stderr sigue disponible.
+      .then(() => process.stderr.write('OpenTelemetry SDK finalizado exitosamente\n'))
+      .catch((error) => process.stderr.write(`Error finalizando OpenTelemetry SDK: ${String(error)}\n`))
       .finally(() => process.exit(0));
   });
 

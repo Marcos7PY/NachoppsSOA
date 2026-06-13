@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CuentaCerradaPayload } from '@org/contracts';
+import { CuentaCerradaPayload, PedidoSnapshotItem } from '@org/contracts';
 
 @Injectable()
 export class AppService {
@@ -58,8 +58,7 @@ export class AppService {
     const stats = new Map<string, { nombre: string; cantidad: number; ingresos: number }>();
     for (const v of ventas) {
       if (!Array.isArray(v.items)) continue;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const item of v.items as any[]) {
+      for (const item of v.items as PedidoSnapshotItem[]) {
         const pid = item.productoId;
         if (!pid) continue;
         const cur = stats.get(pid) ?? { nombre: item.nombre ?? pid, cantidad: 0, ingresos: 0 };
@@ -133,8 +132,7 @@ export class AppService {
       },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalIngresos = ventas.reduce((acc: number, v: any) => acc + Number(v.total), 0);
+    const totalIngresos = ventas.reduce((acc, v) => acc + Number(v.total), 0);
 
     // 1. Agrupar Ventas por Hora reales del día
     const horasMap = new Map<string, number>();
@@ -161,8 +159,7 @@ export class AppService {
 
     for (const v of ventas) {
       if (Array.isArray(v.items)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const item of v.items as any[]) {
+        for (const item of v.items as PedidoSnapshotItem[]) {
           const pid = item.productoId;
           if (!pid) continue;
           const current = productStats.get(pid) || { nombre: item.nombre || pid, cantidad: 0, ingresos: 0 };

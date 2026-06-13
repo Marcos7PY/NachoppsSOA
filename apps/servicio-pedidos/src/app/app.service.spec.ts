@@ -70,6 +70,7 @@ describe('AppService — Pedidos', () => {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
       },
       pedidoItem: {
         update: vi.fn(),
@@ -133,10 +134,8 @@ describe('AppService — Pedidos', () => {
   });
 
   describe('procesarPagoRecibido', () => {
-    it('debe mantener estado si no se paga completo', async () => {
-      const pedidoConSaldo = { ...basePedido, total: 100, estado: PedidoEstado.Pendiente };
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([pedidoConSaldo] as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue(pedidoConSaldo as any);
+    it('marca en lote los pedidos cobrables de la mesa como PAGADO', async () => {
+      mockPrisma.pedido.updateMany.mockResolvedValue({ count: 2 });
 
       await service.procesarPagoRecibido({
         cuentaId: 'cuenta-1',
@@ -145,33 +144,31 @@ describe('AppService — Pedidos', () => {
         metodoPago: 'EFECTIVO'
       });
 
-      expect(updateSpy).toHaveBeenCalledWith({
-        where: { id: 'p-001' },
+      expect(mockPrisma.pedido.updateMany).toHaveBeenCalledWith({
+        where: {
+          mesaId: 'mesa-1',
+          estado: {
+            notIn: [
+              PedidoEstado.Pagado,
+              PedidoEstado.Cancelado,
+              PedidoEstado.RechazadoSinStock,
+            ],
+          },
+        },
         data: { estado: PedidoEstado.Pagado },
       });
+      expect(mockPrisma.pedido.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.pedido.update).not.toHaveBeenCalled();
     });
 
-    it('debe actualizar estado a PAGADO si el pago cubre el total', async () => {
-      const pedidoPendiente = { ...basePedido, total: 100, estado: PedidoEstado.Pendiente };
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([pedidoPendiente] as any);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue(pedidoPendiente as any);
+    it('es idempotente por convergencia en reentrega', async () => {
+      mockPrisma.pedido.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
 
-      await service.procesarPagoRecibido({
-        cuentaId: 'cuenta-1',
-        mesaId: 'mesa-1',
-        montoTotal: 100,
-        metodoPago: 'EFECTIVO'
-      });
-
-      expect(updateSpy).toHaveBeenCalledWith({
-        where: { id: 'p-001' },
-        data: { estado: PedidoEstado.Pagado },
-      });
-    });
-
-    it('no debe lanzar error si no hay pedidos para la mesa', async () => {
-      vi.spyOn(mockPrisma.pedido, 'findMany').mockResolvedValue([]);
+      await service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-1', montoTotal: 100, metodoPago: 'EFECTIVO' });
       await expect(service.procesarPagoRecibido({ cuentaId: 'c-001', mesaId: 'm-empty', montoTotal: 100, metodoPago: 'EFECTIVO' })).resolves.not.toThrow();
+      expect(mockPrisma.pedido.updateMany).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -304,7 +301,6 @@ describe('AppService — Pedidos', () => {
             notas: null,
             estado: PedidoEstado.Pendiente,
             comensal: 1,
-            modificadores: [],
           },
         ],
       } as any);
@@ -321,7 +317,6 @@ describe('AppService — Pedidos', () => {
             stockActual: null,
             area: 'COCINA',
             comensal: 1,
-            modificadores: [],
           },
         ],
         total: 50,
@@ -351,7 +346,6 @@ describe('AppService — Pedidos', () => {
             comensal: 1,
             meseroId: 'u-mesero-1',
             meseroNombre: 'Ana Mesa',
-            modificadores: [],
           },
         ],
       } as any);
@@ -368,7 +362,6 @@ describe('AppService — Pedidos', () => {
             stockActual: null,
             area: 'COCINA',
             comensal: 1,
-            modificadores: [],
           },
         ],
         total: 25,

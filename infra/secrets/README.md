@@ -9,6 +9,7 @@ Archivos esperados:
 
 | Archivo | Contenido |
 |---------|-----------|
+| `jwt-dev.env` | variables JWT dev generadas por `npm run dev:keys` para `docker-compose.yml` |
 | `jwt_private_key` | PEM RS256 privada (solo identidad) |
 | `jwt_public_key` | PEM RS256 pública |
 | `service_jwt_secret` | secreto HS256 para tokens de servicio |

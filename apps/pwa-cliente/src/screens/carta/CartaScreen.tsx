@@ -1,7 +1,7 @@
 // screens/carta/CartaScreen.tsx — Gestión de Carta / Menú
 // Cableado a APIs reales: la Carta son los productos SIN control de stock
 // (useInventarioQuery con conStock=false). Los productos con stock viven en el
-// módulo Inventario. Sin food cost, happy hour ni modificadores.
+// módulo Inventario. Sin food cost ni happy hour.
 
 import { Scrim } from '../../components/ui/Scrim';
 import { useMemo, useState } from 'react';
@@ -106,7 +106,7 @@ export function CartaScreen() {
           </button>
         ))}
         <span className="spacer" />
-        <div className="input" style={{ width: 220 }}>
+        <div className="input toolbar-input">
           <Icons.Search s={15} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plato…" />
         </div>

@@ -159,7 +159,6 @@ export class AppService {
         area: p.categoriaNombre?.toLowerCase().includes('bebida') ? 'BAR' : 'COCINA',
         notas: item.notas,
         comensal: item.identificadorComensal || 1,
-        modificadores: item.modificadores || [],
       } satisfies PedidoItemMapeado;
     });
   }
@@ -242,19 +241,11 @@ export class AppService {
               comensal: item.comensal,
               meseroId: mesero?.id,
               meseroNombre: mesero?.nombre ?? mesero?.id,
-              modificadores: {
-                create: item.modificadores.map(m => ({
-                  nombre: m.nombre,
-                  precioExtra: m.precioExtra || 0
-                }))
-              }
             }))
           }
         },
         include: {
-          items: {
-            include: { modificadores: true }
-          }
+          items: true
         }
       });
 
@@ -294,9 +285,7 @@ export class AppService {
     const pedidos = await this.prisma.pedido.findMany({
       where,
       include: {
-        items: {
-          include: { modificadores: true }
-        }
+        items: true
       },
       take: limit + 1,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
@@ -391,8 +380,7 @@ export class AppService {
   private async procesarEventoProducto(
     routingKey: string,
     payload: { id: string; eventId?: string; stockSyncMode?: string; stockDelta?: number; stockActual?: number | null },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    apply: (prisma: any) => Promise<void>,
+    apply: (prisma: Prisma.TransactionClient) => Promise<void>,
   ): Promise<void> {
     const fallbackKey = routingKey === RoutingKeys.ProductoActualizado
       ? `${payload.id}:${payload.stockSyncMode ?? 'SIN_MODO'}:${payload.stockDelta ?? 'SIN_DELTA'}:${payload.stockActual ?? 'SIN_STOCK'}`
@@ -412,8 +400,7 @@ export class AppService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async upsertProductoLocalConPrisma(prisma: any, producto: {
+  private async upsertProductoLocalConPrisma(prisma: Prisma.TransactionClient, producto: {
     id: string;
     nombre: string;
     precio: number;
@@ -468,18 +455,19 @@ export class AppService {
 
   async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {
     this.logger.log(`Procesando pago recibido para cuenta ${payload.cuentaId} y mesa ${payload.mesaId}`);
-    
-    const pedidos = await this.prisma.pedido.findMany({
-      where: { mesaId: payload.mesaId, estado: { notIn: [PedidoEstado.Pagado, PedidoEstado.Cancelado] } }
-    });
 
-    for (const pedido of pedidos) {
-      await this.prisma.pedido.update({
-        where: { id: pedido.id },
-        data: {
-          estado: PedidoEstado.Pagado,
+    await this.prisma.pedido.updateMany({
+      where: {
+        mesaId: payload.mesaId,
+        estado: {
+          notIn: [
+            PedidoEstado.Pagado,
+            PedidoEstado.Cancelado,
+            PedidoEstado.RechazadoSinStock,
+          ],
         },
-      });
-    }
+      },
+      data: { estado: PedidoEstado.Pagado },
+    });
   }
 }

@@ -72,7 +72,6 @@ export function TicketCard({ p, items, col, now, online, onAdvance, onRegress, o
                 <span className="q">{it.cantidad}×</span>
                 <div style={{ minWidth: 0 }}>
                   <span className="nm">{it.nombre}</span>
-                  {it.modificadores.length > 0 && <div className="note">{it.modificadores.map((m) => m.nombre).join(', ')}</div>}
                   {it.notas && <div className="note"><Icons.Note s={12} /> {it.notas}</div>}
                 </div>
               </div>

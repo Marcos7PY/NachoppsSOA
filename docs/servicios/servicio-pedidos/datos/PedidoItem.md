@@ -25,7 +25,6 @@ commit: 53877c8
 | apps/servicio-pedidos/prisma/schema.prisma:49 | `area           String?       @default("COCINA")` |
 | apps/servicio-pedidos/prisma/schema.prisma:50 | `notas          String?` |
 | apps/servicio-pedidos/prisma/schema.prisma:51 | `estado         String        @default("PENDIENTE")` |
-| apps/servicio-pedidos/prisma/schema.prisma:52 | `modificadores  Modificador[]` |
 | apps/servicio-pedidos/prisma/schema.prisma:53 | `comensal       Int           @default(1)` |
 | apps/servicio-pedidos/prisma/schema.prisma:55 | `@@index([pedidoId])` |
 | apps/servicio-pedidos/prisma/schema.prisma:56 | `@@map("pedido_items")` |
