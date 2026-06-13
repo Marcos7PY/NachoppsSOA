@@ -1,9 +1,11 @@
-// components/ui/ToastProvider.tsx — toasts globales (reemplazo de window.__toast)
+// components/ui/ToastProvider.tsx — toasts globales con accesibilidad completa
+// - role="status" en host (polite) para toasts informativos
+// - role="alert" individual en toasts kind=err/warn (interrumpe flujo de voz)
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { Icons, type IconName } from './icons';
 
-export type ToastKind = 'ok' | 'err' | 'info';
+export type ToastKind = 'ok' | 'err' | 'info' | 'warn';
 
 export interface ToastOptions {
   title: string;
@@ -28,13 +30,25 @@ const KIND_COLOR: Record<ToastKind, string> = {
   ok: 'var(--ok)',
   err: 'var(--danger)',
   info: 'var(--info)',
+  warn: 'var(--warn)',
+};
+
+/* Mapa de iconos por defecto cuando no se provee icon */
+const KIND_DEFAULT_ICON: Record<ToastKind, IconName> = {
+  ok: 'Check',
+  err: 'Alert',
+  info: 'Bell',
+  warn: 'Alert',
 };
 
 function ToastItem({ t }: Readonly<{ t: ToastItem }>) {
-  const Ic = Icons[t.icon ?? 'Check'];
   const kind = t.kind ?? 'ok';
+  const Ic = Icons[t.icon ?? KIND_DEFAULT_ICON[kind]];
+  /* role="alert" en err/warn: el lector de pantalla interrumpe para anunciar.
+     role="status" en ok/info: anuncio no intrusivo (aria-live polite). */
+  const role = kind === 'err' || kind === 'warn' ? 'alert' : 'status';
   return (
-    <div className={`toast ${kind}`}>
+    <div className={`toast ${kind}`} role={role} aria-live={role === 'alert' ? 'assertive' : 'polite'}>
       <span className="t-ic" style={{ color: KIND_COLOR[kind] }}>
         <Ic s={18} />
       </span>
@@ -68,7 +82,9 @@ export function ToastProvider({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <ToastContext.Provider value={ctxValue}>
       {children}
-      <div className="toast-host">
+      {/* aria-live="polite": el host anuncia toasts sin interrumpir.
+          Los toasts err/warn tienen su propio role="alert" que sí interrumpe. */}
+      <div className="toast-host" aria-label="Notificaciones" aria-relevant="additions">
         {toasts.map((t) => <ToastItem key={t.id} t={t} />)}
       </div>
     </ToastContext.Provider>

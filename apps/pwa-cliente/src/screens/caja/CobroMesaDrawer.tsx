@@ -86,15 +86,15 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
           <span className="tag-canal salon" style={{ marginLeft: 4 }}>Mesa {mesaNumero ?? cuentaActiva?.mesaId ?? ''}</span>
           {cuentaActiva && <span className="muted" style={{ fontSize: 13 }}>· {cuentaActiva.cantidadItems} ítems</span>}
           <span className="spacer" />
-          <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label="Cerrar cobro de cuenta"><Icons.Close s={17} /></button>
         </div>
 
         {(error || success) && (
-          <div className={`banner ${error ? 'err' : 'ok'}`} style={{ margin: '12px 20px 0' }}>
+          <div className={`banner ${error ? 'err' : 'ok'}`} style={{ margin: '12px 20px 0' }} role="alert" aria-live={error ? 'assertive' : 'polite'}>
             {error ? <Icons.Alert s={16} /> : <Icons.Check s={16} />}
             <span>{error ?? success}</span>
             <span className="spacer" />
-            <button className="btn btn-sm btn-ghost" onClick={clearFeedback}>Cerrar</button>
+            <button className="btn btn-sm btn-ghost" onClick={clearFeedback} aria-label="Cerrar notificación">Cerrar</button>
           </div>
         )}
 
@@ -221,7 +221,7 @@ function CobroBody({
               <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {['exacto', 50, 100, 200].map((c) => <button key={c} className="chip" onClick={() => setRecibido(c === 'exacto' ? totalCobro.toFixed(2) : String(c))}>{c === 'exacto' ? 'Exacto' : 'S/ ' + c}</button>)}
               </div>
-              <div className={`cuadre ${vuelto > 0 ? 'sobrante' : 'ok'}`} style={{ marginTop: 12, padding: '12px 14px' }}>
+              <div className={`cuadre ${vuelto > 0 ? 'ok' : 'ok'}`} style={{ marginTop: 12, padding: '12px 14px' }} aria-live="polite" aria-label={`Vuelto: ${vuelto > 0 ? 'S/ ' + vuelto.toFixed(2) : 'Sin vuelto'}`}>
                 <div className="lbl">Vuelto</div><div className="big" style={{ fontSize: 26 }}>{fmt(vuelto)}</div>
               </div>
             </div>
@@ -234,9 +234,32 @@ function CobroBody({
           </div>
         )}
         <div style={{ display: 'grid', gap: 8 }}>
-          <button className="btn btn-primary btn-block" disabled={!cuentaActiva || loading || !online || faltaPago} onClick={onPagar}>
-            {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icons.Card s={16} />} Registrar pago y cerrar cuenta
+          {!online && (
+            <div className="banner warn" role="alert">
+              <Icons.Alert s={16} />
+              <span>Sin conexión. Reconecta para registrar el pago.</span>
+            </div>
+          )}
+          {faltaPago && online && (
+            <div className="banner warn" role="status" aria-live="polite">
+              <Icons.Alert s={16} />
+              <span>El monto recibido es menor al total. Ingresa al menos <b className="mono">S/ {(totalCobro - recNum).toFixed(2)}</b> más.</span>
+            </div>
+          )}
+          <button
+            className="btn btn-primary btn-block"
+            disabled={!cuentaActiva || loading || !online || faltaPago}
+            onClick={onPagar}
+            aria-describedby="cobro-pago-hint"
+          >
+            {loading ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : <Icons.Card s={16} />}
+            {' '}Registrar pago y cerrar cuenta
           </button>
+          {(faltaPago || !online) && (
+            <span id="cobro-pago-hint" className="hint" style={{ textAlign: 'center' }}>
+              {!online ? 'Requiere conexión a internet.' : 'Completa el monto recibido para continuar.'}
+            </span>
+          )}
         </div>
       </div>
     </div>
