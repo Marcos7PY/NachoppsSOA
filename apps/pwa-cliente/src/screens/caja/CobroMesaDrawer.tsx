@@ -243,7 +243,7 @@ function CobroBody({
           {faltaPago && online && (
             <div className="banner warn" role="status" aria-live="polite">
               <Icons.Alert s={16} />
-              <span>El monto recibido es menor al total. Ingresa al menos <b className="mono">S/ {(totalCobro - recNum).toFixed(2)}</b> más.</span>
+              <span>El monto recibido es menor al total. Ingresa al menos <b className="mono">S/ {(totalCobro - Number(recibido || 0)).toFixed(2)}</b> más.</span>
             </div>
           )}
           <button
