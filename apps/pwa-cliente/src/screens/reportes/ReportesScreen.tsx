@@ -72,12 +72,18 @@ export function ReportesScreen() {
                 </div>
               ) : (
                 <div className="bars">
-                  {resumen.ventasPorHora.map((item) => (
-                    <div key={item.hora} className="bar-col">
-                      <div className="bar" style={{ height: `${Math.max(8, item.total * 8)}px` }} />
-                      <span className="bar-lbl">{item.hora}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const max = Math.max(...resumen.ventasPorHora.map((y) => y.total)) || 1;
+                    return resumen.ventasPorHora.map((item) => {
+                      const peak = item.total === max && item.total > 0;
+                      return (
+                        <div key={item.hora} className="bar-col" title={`${item.hora} · S/ ${item.total.toFixed(2)}`}>
+                          <div className="bar" style={{ height: `${Math.max(8, (item.total / max) * 100)}%`, background: peak ? 'var(--accent)' : 'var(--accent-soft)' }} />
+                          <span className="bar-lbl">{item.hora}</span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </section>

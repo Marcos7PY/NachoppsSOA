@@ -174,7 +174,7 @@ function CobroBody({
     <div className="two-up" style={{ padding: 20, gap: 22 }}>
       <div>
         <div className="hint" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>Detalle de la cuenta</div>
-        <div className="panel" style={{ padding: '4px 14px' }}>
+        <div className="panel cobro-items-list" style={{ padding: '4px 14px' }}>
           {items.length === 0 ? (
             <div className="muted" style={{ padding: 12, fontSize: 13 }}>La cuenta no tiene ítems.</div>
           ) : items.map((it) => (
@@ -215,9 +215,9 @@ function CobroBody({
           </div>
         </div>
         {metodo === 'EFECTIVO' && (
-          <div className="two-up" style={{ gap: 14 }}>
+          <div className="cobro-keypad-layout" style={{ gap: 14 }}>
             <div>
-              <div className="field" style={{ marginBottom: 8 }}><label htmlFor="cobro-recibido">Recibido</label><div className="input"><span className="muted">S/</span><input id="cobro-recibido" value={recibido} onChange={(e) => setRecibido(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" style={{ fontSize: 18, fontWeight: 800 }} /></div></div>
+              <div className="field" style={{ marginBottom: 8 }}><label htmlFor="cobro-recibido">Recibido</label><div className="input"><span className="muted">S/</span><input id="cobro-recibido" value={recibido} onChange={(e) => setRecibido(e.target.value.replace(/[^\d.]/g, ''))} inputMode="none" style={{ fontSize: 18, fontWeight: 800 }} /></div></div>
               <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
                 {['exacto', 50, 100, 200].map((c) => <button key={c} className="chip" onClick={() => setRecibido(c === 'exacto' ? totalCobro.toFixed(2) : String(c))}>{c === 'exacto' ? 'Exacto' : 'S/ ' + c}</button>)}
               </div>
