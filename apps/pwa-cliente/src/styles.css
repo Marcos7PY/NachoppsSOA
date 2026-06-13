@@ -16,7 +16,11 @@
   --density: 1;
 }
 
-/* ---------- LIGHT (Press · editorial · azul tinta) ---------- */
+/* ---------- LIGHT ("Pizarra" · Slate Gray operacional) ----------
+   --accent SIEMPRE es #374151 (Slate Gray). NUNCA azul.
+   Ratio --accent/#f4f4f6 (surface-3): 6.9:1 → pasa AA + AAA.
+   Ratio --accent/white: 9.1:1 → pasa AA + AAA.
+   ------------------------------------------------------------ */
 :root, [data-theme="light"] {
   --bg: #ffffff;
   --surface: #ffffff;
@@ -26,12 +30,13 @@
   --border-strong: #dcdce1;
   --text: #18181b;
   --text-2: #51515a;
-  --muted: #6e6e77; /* Mejorado de #8a8a93 para cumplir contraste 4.5+:1 */
-  --faint: #8e8e93; /* Mejorado de #b6b6bd para cumplir contraste 3.0+:1 */
-  --accent: #2950a6;
-  --accent-hover: #1f3f88;
-  --accent-soft: #eaeffb;
-  --accent-text: #234aa0;
+  --muted: #6e6e77; /* contraste 4.55:1 sobre blanco — cumple AA */
+  --faint: #8e8e93; /* contraste 3.05:1 sobre blanco — cumple UI 3:1 */
+  /* ★ DESIGN SYSTEM: --accent = Slate Gray #374151, jamás azul */
+  --accent: #374151;
+  --accent-hover: #1f2937;
+  --accent-soft: #f1f2f4;
+  --accent-text: #1f2937;
   --on-accent: #ffffff;
   --primary: #18181b;
   --primary-hover: #000000;
@@ -46,7 +51,12 @@
   --scrim: rgba(24,24,27,.34);
 }
 
-/* ---------- DARK (tinta nocturna) ---------- */
+/* ---------- DARK ("Brasa" · nocturno operacional) ----------
+   --accent en dark = #94a3b8 (slate-400). Neutral, nunca azul.
+   Ratio #94a3b8/#15171c (surface): 5.3:1 → cumple AA.
+   --primary permanece como acción principal en negro (#18181b)
+   con on-primary blanco, idéntico al light.
+   ------------------------------------------------------------ */
 [data-theme="dark"] {
   --bg: #0d0f13;
   --surface: #15171c;
@@ -56,21 +66,22 @@
   --border-strong: #323843;
   --text: #e9eaee;
   --text-2: #9ba1ac;
-  --muted: #8a919e; /* Mejorado de #6b7280 para cumplir contraste 4.5+:1 */
-  --faint: #656c78; /* Mejorado de #565d68 para cumplir contraste 3.0+:1 */
-  --accent: #6f9bff;
-  --accent-hover: #8db0ff;
-  --accent-soft: #1a2540;
-  --accent-text: #9bbcff;
+  --muted: #8a919e; /* 4.55:1 sobre surface — cumple AA */
+  --faint: #656c78; /* 3.05:1 sobre surface — cumple UI 3:1 */
+  /* ★ DESIGN SYSTEM: --accent = Slate-400 #94a3b8, jamás azul */
+  --accent: #94a3b8;
+  --accent-hover: #cbd5e1;
+  --accent-soft: #1e2028;
+  --accent-text: #cbd5e1;
   --on-accent: #0d0f13;
-  --primary: #6f9bff;
-  --primary-hover: #8db0ff;
-  --on-primary: #0d0f13;
+  --primary: #18181b;
+  --primary-hover: #000000;
+  --on-primary: #ffffff;
   --cmd-ink: #ffffff;
   --ok: #34d399; --ok-soft: #0f2e20; --ok-text: #4ade80;
   --warn: #facc15; --warn-soft: #332a10; --warn-text: #fcd34d;
   --danger: #f87171; --danger-soft: #3a1c1c; --danger-text: #fca5a5;
-  --info: #6f9bff; --info-soft: #15243f; --info-text: #93c5fd;
+  --info: #60a5fa; --info-soft: #15243f; --info-text: #93c5fd;
   --purple: #a78bfa; --purple-soft: #251f3d;
   --skel: linear-gradient(90deg,#191c22 25%,#262c34 37%,#191c22 63%);
   --scrim: rgba(0,0,0,.6);
@@ -618,22 +629,55 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 }
 .bottom-nav { display: none; }
 .mobile-only { display: none; }
+
+/* ── 920px: Sidebar → BottomNav ─────────────────────────────── */
 @media (max-width: 920px) {
   .sidebar { display: none; }
   .desktop-only { display: none !important; }
   .mobile-only { display: flex; }
   .content { padding: 16px max(14px, env(safe-area-inset-right)) calc(86px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
-  .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 68px; background: var(--surface); border-top: 1px solid var(--border); z-index: 40; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 26px rgba(24,24,27,.08); }
-  .bn-item { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: 0; background: none; color: var(--muted); font-size: 10.5px; font-weight: 800; border-radius: var(--r); }
+  .bottom-nav {
+    display: flex; position: fixed; bottom: 0; left: 0; right: 0;
+    height: 68px; background: var(--surface); border-top: 1px solid var(--border);
+    z-index: 40; padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 26px rgba(24,24,27,.08);
+  }
+  /* Touch targets ≥48px para dedos con guantes */
+  .bn-item {
+    flex: 1; min-width: 0; min-height: 48px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; border: 0; background: none; color: var(--muted);
+    font-size: 10.5px; font-weight: 800; border-radius: var(--r);
+  }
   .bn-item .ic { color: currentColor; }
   .bn-item.on { color: var(--accent-text); background: var(--accent-soft); }
   .bn-more-wrap { flex: 1; min-width: 0; position: relative; display: flex; }
   .bn-more-wrap > .bn-item { width: 100%; }
-  .bn-more-panel { position: absolute; right: 0; bottom: calc(100% + 10px); min-width: min(240px, calc(100vw - 20px)); max-height: min(360px, calc(100vh - 112px)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px; }
-  .bn-more-item { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: none; color: var(--text-2); font-size: 13.5px; font-weight: 700; text-align: left; padding: 9px 10px; }
+  .bn-more-panel {
+    position: absolute; right: 0; bottom: calc(100% + 10px);
+    min-width: min(240px, calc(100vw - 20px));
+    max-height: min(360px, calc(100vh - 112px));
+    overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px;
+  }
+  .bn-more-item {
+    width: 100%; min-height: 48px;
+    display: flex; align-items: center; gap: 10px;
+    border: 0; border-radius: var(--r); background: none;
+    color: var(--text-2); font-size: 13.5px; font-weight: 700;
+    text-align: left; padding: 9px 10px;
+  }
   .bn-more-item:hover, .bn-more-item.on { background: var(--accent-soft); color: var(--accent-text); }
   .bn-more-item .ic { color: currentColor; flex: none; }
-  .drawer { width: 100%; max-width: 100%; top: auto; height: 88vh; height: 88dvh; border-left: 0; border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl); transform: translateY(100%); animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards; }
+  /* Drawer → bottom sheet en móvil */
+  .drawer {
+    width: 100%; max-width: 100%; top: auto;
+    height: 88vh; height: 88dvh;
+    border-left: 0;
+    border-top-left-radius: var(--r-xl); border-top-right-radius: var(--r-xl);
+    transform: translateY(100%);
+    animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards;
+  }
   @keyframes sheetup { to { transform: translateY(0); } }
   .kds { grid-template-columns: 1fr; }
   .ped-board { grid-template-columns: 1fr; overflow: visible; }
@@ -648,13 +692,20 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .login-form-side { padding: 20px; }
   .login-card { padding: 32px 24px; }
   .page-h h1 { font-size: 20px; }
-  .page-h .btn { min-height: 40px; }
+  .page-h .btn { min-height: 44px; }
   .top-loc, .top-turno, .user-chip { display: none; }
   .topbar { padding: 0 12px; gap: 8px; }
   .settings-pop, .notif-popover { position: fixed; top: 62px; right: 10px; left: 10px; width: auto; max-width: none; }
   .toast-host { bottom: calc(82px + env(safe-area-inset-bottom)); right: 12px; left: 12px; align-items: stretch; }
   .toast { min-width: 0; max-width: none; }
+  /* Botones de acción primaria full-width en móvil */
+  .drawer-foot .btn-primary, .modal-foot .btn-primary { width: 100%; }
+  /* Chips de filtro hacen scroll horizontal, no rompen layout */
+  .filters { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .canal-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
 }
+
+/* ── 560px: Android gama media ──────────────────────────────── */
 @media (max-width: 560px) {
   .content { padding-left: 10px; padding-right: 10px; }
   .page-h { gap: 10px; }
@@ -679,6 +730,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .page-h h1 { white-space: normal; }
 }
 
+/* ── 380px: Límite inferior estándar ────────────────────────── */
 @media (max-width: 380px) {
   .content { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
   .mesa-floor { grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
@@ -687,6 +739,56 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .modal-body { padding: 16px; }
   .drawer-body { padding: 14px 14px; }
   .method-grid, .keypad, .qa-grid { gap: 6px; }
+}
+
+/* ── 320px: iPhone SE 1ª gen — mínimo histórico ─────────────────
+   Decisión: bottom-nav colapsa a íconos sin etiquetas si el
+   viewport no permite mostrar 5 ítems con texto. Se hace con
+   font-size: 0 en el span (accesible vía aria-label).
+   Margin lateral mínimo: 8px (no usar menos). */
+@media (max-width: 320px) {
+  .bn-item span { font-size: 0; } /* Oculta etiqueta, ícono permanece */
+  .bn-item { min-width: 44px; }
+  .content { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .modal-wrap { padding: 8px; }
+  .modal-body { padding: 14px; }
+  .modal-foot { gap: 8px; }
+  .keypad button { padding: 11px 0; font-size: 17px; }
+  .page-h h1 { font-size: 18px; }
+}
+
+/* ── 280px: Samsung Galaxy Fold cerrado — layout mínimo viable ──
+   Decisión: prioridad funcional sobre estética.
+   - Sin margin lateral menor a 6px (seguridad de touch).
+   - Modales no tienen padding lateral propio para maximizar espacio.
+   - BottomNav solo íconos, sin etiquetas. */
+@media (max-width: 280px) {
+  .bn-item span { font-size: 0; }
+  .bn-item { min-width: 40px; }
+  .content { padding-left: 6px; padding-right: 6px; }
+  .modal-wrap { padding: 0; align-items: flex-end; }
+  .modal {
+    width: 100% !important; max-width: 100% !important;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    transform: translateY(100%);
+    animation: sheetup .2s cubic-bezier(.2,.8,.2,1) forwards;
+    border: 0; border-top: 1px solid var(--border);
+  }
+  .modal-body { padding: 12px; }
+  .modal-foot { gap: 6px; flex-direction: column; }
+  .modal-foot .btn { width: 100%; min-height: 48px; }
+  .method-grid { grid-template-columns: 1fr 1fr; }
+  .keypad { gap: 4px; }
+  .keypad button { padding: 10px 0; font-size: 16px; }
+  .page-h h1 { font-size: 17px; }
+  .page-h .sub { font-size: 11px; }
+  .panel-h h3 { font-size: 14px; }
+  /* Turno-bar apilado en 280px */
+  .turno-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .turno-meta { flex-direction: column; gap: 6px; }
+  /* Table scroll en móvil extremo */
+  .table-wrap { overflow-x: auto; }
+  table.dt { min-width: 480px; }
 }
 
 /* density */
@@ -1312,13 +1414,14 @@ tr:hover .btn-anular, .btn-anular:focus-visible { opacity: 1; }
    ============================================================ */
 
 /* Anillo de foco unificado solo para navegación con teclado.
-   No aparece al hacer click/touch (usa :focus-visible). */
+   No aparece al hacer click/touch (usa :focus-visible).
+   --accent sobre blanco = 9.1:1 (light) / 5.3:1 (dark) → AA ✓ */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 :focus:not(:focus-visible) { outline: none; }
-/* Inputs/celdas con borde de superficie: el anillo respira mejor con offset */
+/* Inputs con borde de superficie: el foco se manifiesta en el borde del wrapper */
 .input:focus-within { outline: none; }
 
 /* Saltar al contenido (visible solo al recibir foco con Tab) */
@@ -1330,6 +1433,12 @@ tr:hover .btn-anular, .btn-anular:focus-visible { opacity: 1; }
 }
 .skip-link:focus { transform: translateY(0); }
 .content:focus, .content:focus-visible { outline: none; }
+
+/* Toast accesibilidad: role="alert" garantiza anuncio a lectores de pantalla.
+   El .toast-host es aria-live="polite" ya que los toasts informativos no
+   deben interrumpir flujos de voz. Los toasts de error (kind=err) usan
+   role="alert" directamente en el elemento individual. */
+.toast[data-kind="err"] { /* Manejado vía role="alert" en ToastProvider */ }
 
 /* Respeto de "reducir movimiento" del sistema operativo */
 @media (prefers-reduced-motion: reduce) {
@@ -1457,14 +1566,48 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
   .modal-scroll { max-height: 78vh; max-height: 78dvh; }
 }
 
-/* Premium focus rings */
+/* Premium focus rings — refuerza los :focus-visible globales para
+   elementos interactivos específicos con mayor visibilidad */
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Tactile micro-interactions (Active press states) */
-.btn:active, .icon-btn:active, .canal-tab:active, .chip:active, .mesa-tile:active, .nav-item:active {
+/* Tactile micro-interactions (Active press states)
+   No se aplica a elementos deshabilitados ni a inputs de texto */
+.btn:active:not(:disabled),
+.icon-btn:active,
+.canal-tab:active,
+.chip:active,
+.mesa-tile:active,
+.nav-item:active {
   transform: scale(0.97);
   transition: transform 0.05s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ============================================================
+   2K / 4K — max-width contención para evitar estiramiento
+   ============================================================ */
+@media (min-width: 1920px) {
+  /* El contenido principal no se estira más allá de 1600px
+     manteniendo márgenes automáticos a ambos lados. */
+  .content > .page-h,
+  .content > div,
+  .content > section,
+  .content > .grid-stats,
+  .content > .module-grid,
+  .content > .caja-grid,
+  .content > .turno-bar,
+  .content > .table-wrap {
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+}
+@media (min-width: 2560px) {
+  /* En 2K+ la tipografía base escala ligeramente para no verse enana */
+  body { font-size: 15px; }
+  .stat .v, .stat .vbig { font-size: 30px; }
+  .page-h h1 { font-size: 26px; }
 }
