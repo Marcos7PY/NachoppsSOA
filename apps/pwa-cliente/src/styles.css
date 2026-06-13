@@ -1244,3 +1244,26 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
   .toggle.on .knob { transform: translateX(20px); }
   .repo-quick button { min-height: 40px; }
 }
+
+/* responsive overrides and mobile tabs */
+@media (max-width: 920px) {
+  .cmd-overlay { padding: 0; }
+  .cmd { width: 100vw; height: 100vh; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
+  .module-toolbar .spacer { display: none; }
+}
+
+@media (max-width: 560px) {
+  .cmd-filters { flex-direction: column; align-items: stretch; }
+  .cmd-search { width: 100%; }
+}
+
+.cmd-cart { flex: 1; }
+
+.cmd-tabs-mobile { display: none; }
+@media (max-width: 1080px) {
+  .cmd-tabs-mobile { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 2px; }
+  .cmd-tabs-mobile button { flex: 1; border: 0; background: none; padding: 12px; font-weight: 700; font-size: 14px; color: var(--text-2); display: flex; align-items: center; justify-content: center; gap: 8px; border-bottom: 2px solid transparent; cursor: pointer; }
+  .cmd-tabs-mobile button.on { color: var(--accent); border-bottom-color: var(--accent); }
+  .cmd-tabs-mobile button .cnt-badge { background: var(--accent); color: var(--on-accent); font-size: 10.5px; font-weight: 800; min-width: 18px; height: 18px; border-radius: 9px; display: grid; place-items: center; padding: 0 4px; }
+  .hidden-mobile { display: none !important; }
+}

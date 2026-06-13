@@ -16,7 +16,7 @@ export function AperturaCajaModal({ loading, onClose, onOpen }: Readonly<Apertur
   return (
     <div className="modal-wrap">
       <Scrim onClose={onClose} />
-      <div className="modal" style={{ width: 420, position: 'relative', zIndex: 1 }}>
+      <div className="modal" style={{ width: 'min(420px, 100%)', position: 'relative', zIndex: 1 }}>
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className="modal-icon" style={{ width: 34, height: 34, margin: 0, borderRadius: 9, background: 'var(--ok-soft)', color: 'var(--ok-text)' }}>
             <Icons.Cash s={17} />

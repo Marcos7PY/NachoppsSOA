@@ -52,6 +52,7 @@ export function Comandero({
   useFocusTrap(cmdRef, { active: true, onClose });
   const [cat, setCat] = useState<string>('TODAS');
   const [q, setQ] = useState('');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'cart'>('catalog');
   const search = q.trim();
   const {
     productos,
@@ -141,6 +142,16 @@ export function Comandero({
           <span className="spacer" />
         </div>
 
+        {/* Selector de pestañas para móvil/tablet */}
+        <div className="cmd-tabs-mobile mobile-only">
+          <button className={activeTab === 'catalog' ? 'on' : ''} onClick={() => setActiveTab('catalog')}>
+            <Icons.Layers s={16} /> Carta
+          </button>
+          <button className={activeTab === 'cart' ? 'on' : ''} onClick={() => setActiveTab('cart')}>
+            <Icons.Pedidos s={16} /> Pedido {cmd.totalItems > 0 && <span className="cnt-badge">{cmd.totalItems}</span>}
+          </button>
+        </div>
+
         {/* Barra de contexto */}
         <div className="cmd-context">
           <ContextoCanal
@@ -164,7 +175,7 @@ export function Comandero({
 
         <div className="cmd-body">
           {/* Catálogo */}
-          <div className="cmd-catalog">
+          <div className={`cmd-catalog ${activeTab === 'catalog' ? 'active' : 'hidden-mobile'}`}>
             <div className="cmd-filters">
               <div className="cmd-cats">
                 <button className={`chip ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todos</button>
@@ -197,7 +208,9 @@ export function Comandero({
           </div>
 
           {/* Comanda */}
-          <ComandaCart cmd={cmd} modoAgregar={modoAgregar} />
+          <div className={`cmd-cart-wrap ${activeTab === 'cart' ? 'active' : 'hidden-mobile'}`} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+            <ComandaCart cmd={cmd} modoAgregar={modoAgregar} />
+          </div>
         </div>
       </dialog>
     </div>
