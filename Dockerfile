@@ -15,9 +15,8 @@ FROM node:22-alpine@sha256:968df39aedcea65eeb078fb336ed7191baf48f972b44797113971
 WORKDIR /usr/src/app
 COPY apps ./apps
 COPY libs ./libs
-COPY packages ./packages
 RUN mkdir /out && \
-    find apps libs packages -mindepth 2 -maxdepth 2 -name package.json | \
+    find apps libs -mindepth 2 -maxdepth 2 -name package.json | \
     while read -r f; do mkdir -p "/out/$(dirname "$f")" && cp "$f" "/out/$f"; done
 
 # ── Etapa builder: compila el servicio (con devDependencies) ─────────────────
