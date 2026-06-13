@@ -44,24 +44,24 @@ export function LoginScreen() {
 
   return (
     <div className="login-wrap" data-screen-label="Login">
-      {/* Panel izquierdo: branding */}
+      {/* Panel izquierdo: branding premium con gradiente y grid */}
       <div className="login-art">
         <div className="row" style={{ gap: 12 }}>
           <div className="brand-logo" style={{ width: 42, height: 42, fontSize: 21 }}>N</div>
           <div>
             <b style={{ fontSize: 19, fontWeight: 800 }}>NachoPps</b>
-            <div style={{ opacity: 0.6, fontSize: 12, fontWeight: 600 }}>Sistema operativo de restobar</div>
+            <div style={{ opacity: 0.65, fontSize: 12, fontWeight: 600 }}>Sistema operativo de restobar</div>
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1.12, maxWidth: 380 }}>
+          <h2 style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-.03em', lineHeight: 1.1, maxWidth: 380, margin: 0 }}>
             La consola de operación de tu salón, cocina y caja.
-          </div>
-          <p style={{ opacity: 0.55, fontSize: 15, fontWeight: 500, maxWidth: 360, marginTop: 16 }}>
-            Mesas, pedidos, KDS, cuentas y cobros en una sola herramienta rápida y táctil.
+          </h2>
+          <p style={{ opacity: 0.7, fontSize: 15, fontWeight: 500, maxWidth: 360, marginTop: 16, lineHeight: 1.45 }}>
+            Mesas, pedidos, KDS, cuentas y cobros en una sola herramienta rápida, táctil y de alto rendimiento.
           </p>
         </div>
-        <div className="row" style={{ gap: 18, opacity: 0.5, fontSize: 12, fontWeight: 600 }}>
+        <div className="row" style={{ gap: 18, opacity: 0.7, fontSize: 12.5, fontWeight: 600 }}>
           <span className="row" style={{ gap: 6 }}>
             <WifiIcon /> Funciona offline
           </span>
@@ -71,26 +71,38 @@ export function LoginScreen() {
         </div>
       </div>
 
-      {/* Panel derecho: formulario */}
+      {/* Panel derecho: formulario con efecto de tarjeta flotante y orbes de fondo */}
       <div className="login-form-side">
+        <div className="login-glow-orb login-glow-orb-1" />
+        <div className="login-glow-orb login-glow-orb-2" />
+
         <form className="login-card" onSubmit={submit}>
-          <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 4px', letterSpacing: '-.02em' }}>
+          {/* Cabecera de marca para dispositivos móviles (se oculta en pantallas grandes) */}
+          <div className="login-mobile-brand">
+            <div className="brand-logo" style={{ width: 38, height: 38, fontSize: 19 }}>N</div>
+            <div>
+              <b style={{ fontSize: 17, fontWeight: 800 }}>NachoPps</b>
+              <div style={{ opacity: 0.6, fontSize: 11, fontWeight: 600 }}>Sistema de restobar</div>
+            </div>
+          </div>
+
+          <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-.02em', color: 'var(--text)' }}>
             Iniciar sesión
           </h1>
-          <p className="muted" style={{ margin: '0 0 22px', fontWeight: 600 }}>
+          <p className="muted" style={{ margin: '0 0 24px', fontWeight: 600, color: 'var(--text-2)', fontSize: 14 }}>
             Ingresa para entrar a Operación.
           </p>
 
           {error && (
-            <div id="login-error" className={`banner ${error.kind}`} style={{ marginBottom: 16 }} role="alert">
+            <div id="login-error" className={`banner ${error.kind}`} style={{ marginBottom: 18 }} role="alert">
               <AlertIcon />
               <span>{error.text}</span>
             </div>
           )}
 
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label htmlFor="login-email">Correo</label>
-            <div className={`input ${error?.field ? 'invalid' : ''}`}>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="login-email" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)', marginBottom: 2 }}>Correo electrónico</label>
+            <div className={`input ${error?.field ? 'invalid' : ''}`} style={{ padding: '10px 14px' }}>
               <MailIcon />
               <input
                 id="login-email"
@@ -103,13 +115,14 @@ export function LoginScreen() {
                 autoFocus
                 aria-invalid={!!error?.field}
                 aria-describedby={error ? 'login-error' : undefined}
+                style={{ fontSize: 14.5 }}
               />
             </div>
           </div>
 
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label htmlFor="login-password">Contraseña</label>
-            <div className={`input ${error?.field ? 'invalid' : ''}`}>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label htmlFor="login-password" style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-2)', marginBottom: 2 }}>Contraseña</label>
+            <div className={`input ${error?.field ? 'invalid' : ''}`} style={{ padding: '10px 14px' }}>
               <LockIcon />
               <input
                 id="login-password"
@@ -121,11 +134,12 @@ export function LoginScreen() {
                 autoComplete="current-password"
                 aria-invalid={!!error?.field}
                 aria-describedby={error ? 'login-error' : undefined}
+                style={{ fontSize: 14.5 }}
               />
               <button
                 type="button"
                 className="icon-btn"
-                style={{ width: 26, height: 26, border: 0, background: 'none' }}
+                style={{ width: 28, height: 28, border: 0, background: 'none', display: 'grid', placeItems: 'center', cursor: 'pointer', color: 'var(--text-2)' }}
                 onClick={() => setShowPass(!showPass)}
                 aria-label={showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
@@ -134,16 +148,17 @@ export function LoginScreen() {
             </div>
           </div>
 
-          <div style={{ marginBottom: 20 }} />
+          <div style={{ marginBottom: 24 }} />
 
           <button
             type="submit"
             className="btn btn-primary btn-lg btn-block"
             disabled={loading}
+            style={{ minHeight: 48, borderRadius: 'var(--r-lg)', fontSize: 15 }}
           >
             {loading ? (
               <>
-                <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />{' '}
+                <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />{' '}
                 Ingresando…
               </>
             ) : (
