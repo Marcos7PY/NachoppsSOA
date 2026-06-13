@@ -71,7 +71,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Readonly<Props
             <div>
               <div className="field" style={{ marginBottom: 10 }}>
                 <label htmlFor="mov-monto">Monto</label>
-                <div className="input"><span className="muted">S/</span><input id="mov-monto" autoFocus value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} inputMode="decimal" placeholder="0.00" style={{ fontSize: 20, fontWeight: 800 }} /></div>
+                <div className="input"><span className="muted">S/</span><input id="mov-monto" autoFocus value={monto} onChange={(e) => setMonto(e.target.value.replace(/[^\d.]/g, ''))} inputMode="none" placeholder="0.00" style={{ fontSize: 20, fontWeight: 800 }} /></div>
               </div>
               <div className="keypad">
                 {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => <button key={d} onClick={() => setMonto((m) => m + d)}>{d}</button>)}

@@ -672,7 +672,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
    KDS mejorado
    ============================================================ */
 .kds-metrics { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.kds-metric { display: flex; align-items: center; gap: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 11px 15px; min-width: 150px; }
+.kds-metric { display: flex; align-items: center; gap: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 11px 15px; min-width: 150px; flex: 1 1 150px; }
 .kds-metric .km-ic { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; flex: none; }
 .kds-metric .km-v { font-size: 22px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .kds-metric .km-k { font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 3px; }
@@ -1250,6 +1250,20 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
   .cmd-overlay { padding: 0; }
   .cmd { width: 100vw; height: 100vh; height: 100dvh; max-height: 100dvh; border: 0; border-radius: 0; }
   .module-toolbar .spacer { display: none; }
+  .canal-tabs .spacer { display: none; }
+  .canal-tabs .toolbar-input { width: 100%; margin-top: 8px; }
+  .drawer-wrap > .drawer {
+    width: 100%;
+    max-width: 100%;
+    top: auto;
+    height: 88vh;
+    height: 88dvh;
+    border-left: 0;
+    border-top-left-radius: var(--r-xl);
+    border-top-right-radius: var(--r-xl);
+    transform: translateY(100%);
+    animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards;
+  }
 }
 
 @media (max-width: 560px) {
