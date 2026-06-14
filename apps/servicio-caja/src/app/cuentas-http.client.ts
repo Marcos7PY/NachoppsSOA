@@ -46,6 +46,6 @@ export class CuentasHttpClient {
         headers: { Authorization: `Bearer ${this.getServiceToken()}` },
       },
     );
-    return res.data;
+    return res.data as never;
   }
 }

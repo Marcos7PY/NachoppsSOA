@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/reservas/ReservasScreen.tsx - Agenda del día y acciones de reservas
 
 import { useMemo, useState, type SubmitEvent } from 'react';

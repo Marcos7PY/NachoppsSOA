@@ -29,7 +29,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
   login: async (req: LoginRequest) => {
     const user = await authApi.login(req);
     set({ user, authenticated: true });
-    socketService.connect();
+    void socketService.connect();
   },
 
   logout: () => {
@@ -52,7 +52,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
     try {
       const user = await authApi.me();
       set({ user, authenticated: true, loading: false });
-      socketService.connect();
+      void socketService.connect();
     } catch {
       clearAuthToken();
       socketService.disconnect();

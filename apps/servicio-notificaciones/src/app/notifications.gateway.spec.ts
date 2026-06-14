@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { JwtService } from '@nestjs/jwt';
 import { NotificationsGateway, resolveWsCorsOrigins } from './notifications.gateway';
+import { Socket } from 'socket.io';
 
 // ── Claves de prueba (mismo modelo que producción) ──────────────────────────
 // RS256: par de claves; el privado firma tokens de USUARIO, el público verifica.
@@ -52,7 +54,7 @@ function createClient({
     emit: vi.fn(),
     disconnect: vi.fn(),
     join: vi.fn(),
-  } as any;
+  } as unknown as Socket;
 }
 
 describe('NotificationsGateway', () => {
@@ -108,7 +110,7 @@ describe('NotificationsGateway', () => {
 
     await gateway.handleConnection(client);
 
-    expect(client.data.user).toMatchObject({ sub: 'user-1', rol: 'COCINA' });
+    expect((client.data as Record<string, unknown>).user).toMatchObject({ sub: 'user-1', rol: 'COCINA' });
     expect(client.emit).not.toHaveBeenCalled();
     expect(client.disconnect).not.toHaveBeenCalled();
   });
@@ -126,14 +128,14 @@ describe('NotificationsGateway', () => {
       const emit = vi.fn();
       const to = vi.fn().mockReturnValue({ emit });
       const gw = new NotificationsGateway(new JwtService({}));
-      (gw as any).server = { to, emit };
+      (gw as unknown as { server: unknown }).server = { to, emit };
       return { gw, to, emit };
     }
 
     it('pago.registrado va a ADMIN/CAJERO/GERENCIA, no a MESERO/COCINA', () => {
       const { gw, to } = gatewayWithServerSpy();
       gw.emitPedidoUpdate({ pattern: 'pago.registrado', data: {} });
-      const rooms = to.mock.calls[0][0];
+      const rooms = to.mock.calls[0][0] as string[];
       expect(rooms).toEqual(expect.arrayContaining(['rol:ADMIN', 'rol:CAJERO', 'rol:GERENCIA']));
       expect(rooms).not.toContain('rol:MESERO');
       expect(rooms).not.toContain('rol:COCINA');
@@ -157,7 +159,7 @@ describe('NotificationsGateway', () => {
 
     await gateway.handleConnection(client);
 
-    expect(client.data.user).toMatchObject({ sub: 'servicio-x', rol: 'SISTEMA' });
+    expect((client.data as Record<string, unknown>).user).toMatchObject({ sub: 'servicio-x', rol: 'SISTEMA' });
     expect(client.disconnect).not.toHaveBeenCalled();
   });
 

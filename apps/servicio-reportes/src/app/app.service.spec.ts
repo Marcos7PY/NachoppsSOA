@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppService } from './app.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { CuentaCerradaPayload } from '@org/contracts';
 
 describe('AppService — Reportes', () => {
   const prisma = {
@@ -13,7 +15,7 @@ describe('AppService — Reportes', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new AppService(prisma as any);
+    service = new AppService(prisma as unknown as PrismaService);
   });
 
   it('registra ventas con upsert idempotente por cuenta', async () => {
@@ -22,7 +24,7 @@ describe('AppService — Reportes', () => {
       mesaId: 'mesa-1',
       total: 50,
       items: [{ productoId: 'prod-1', nombre: 'Nachos', cantidad: 2, precioUnitario: 25 }],
-    } as any);
+    });
 
     expect(prisma.ventaDiaria.upsert).toHaveBeenCalledWith({
       where: { cuentaId: 'cuenta-1' },
@@ -31,10 +33,10 @@ describe('AppService — Reportes', () => {
         mesaId: 'mesa-1',
         total: 50,
         items: [{ productoId: 'prod-1', nombre: 'Nachos', cantidad: 2, precioUnitario: 25 }],
-      }),
+      }) as unknown,
       update: expect.objectContaining({
         total: 50,
-      }),
+      }) as unknown,
     });
   });
 
@@ -85,11 +87,11 @@ describe('AppService — Reportes', () => {
       await service.registrarVenta({
         cuentaId: 'c1', mesaId: 'm1', total: 30, items: [],
         meseroId: 'u-1', meseroNombre: 'Ana',
-      } as any);
+      });
       expect(prisma.ventaDiaria.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          create: expect.objectContaining({ meseroId: 'u-1', meseroNombre: 'Ana' }),
-        }),
+          create: expect.objectContaining({ meseroId: 'u-1', meseroNombre: 'Ana' }) as unknown,
+        }) as unknown,
       );
     });
 

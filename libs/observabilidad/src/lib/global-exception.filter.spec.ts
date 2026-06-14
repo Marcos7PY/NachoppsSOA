@@ -1,5 +1,6 @@
 import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
+import { ArgumentsHost } from '@nestjs/common';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
 function makeHost(method = 'GET', url = '/recurso') {
@@ -21,7 +22,7 @@ describe('GlobalExceptionFilter', () => {
     const filter = new GlobalExceptionFilter();
     const { host, status, json } = makeHost('POST', '/pedidos');
 
-    filter.catch(new BadRequestException('payload inválido'), host as any);
+    filter.catch(new BadRequestException('payload inválido'), host as unknown as ArgumentsHost);
 
     expect(status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
     expect(json).toHaveBeenCalledWith(
@@ -37,7 +38,7 @@ describe('GlobalExceptionFilter', () => {
     const filter = new GlobalExceptionFilter();
     const { host, status, json } = makeHost();
 
-    filter.catch(new Error('boom interno'), host as any);
+    filter.catch(new Error('boom interno'), host as unknown as ArgumentsHost);
 
     expect(status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
     expect(json).toHaveBeenCalledWith(
@@ -54,7 +55,7 @@ describe('GlobalExceptionFilter', () => {
 
     filter.catch(
       new HttpException({ message: 'detalle estructurado', error: 'X' }, HttpStatus.CONFLICT),
-      host as any,
+      host as unknown as ArgumentsHost,
     );
 
     expect(json).toHaveBeenCalledWith(
@@ -66,9 +67,9 @@ describe('GlobalExceptionFilter', () => {
     const filter = new GlobalExceptionFilter();
     const { host, json } = makeHost('DELETE', '/mesas/1');
 
-    filter.catch(new BadRequestException('x'), host as any);
+    filter.catch(new BadRequestException('x'), host as unknown as ArgumentsHost);
 
-    const payload = json.mock.calls[0][0];
+    const payload = json.mock.calls[0][0] as { path: string, timestamp: string };
     expect(payload.path).toBe('/mesas/1');
     expect(() => new Date(payload.timestamp).toISOString()).not.toThrow();
   });

@@ -19,8 +19,8 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
       ? executionContext.switchToRpc().getContext<RmqContext>()
       : executionContext.getArgByIndex<RmqContext | undefined>(1);
 
-    const channel = rmqContext?.getChannelRef?.() || null;
-    const originalMsg = rmqContext?.getMessage?.() || null;
+    const channel = (rmqContext?.getChannelRef?.() || null) as { ack?: (msg: unknown) => void; nack?: (msg: unknown, all: boolean, requeue: boolean) => void } | null;
+    const originalMsg = (rmqContext?.getMessage?.() || null) as { properties?: { headers?: Record<string, string> } } | null;
 
     const maxRetries = 3;
     const initialDelay = 1000;
@@ -35,17 +35,17 @@ export class RabbitMQRetryInterceptor implements NestInterceptor {
       return next.handle().pipe(
       tap(() => {
         if (channel && originalMsg) {
-          try { channel.ack(originalMsg); } catch { /* ignore */ }
+          try { channel?.ack?.(originalMsg); } catch { /* ignore */ }
         }
       }),
       retry({
-        delay: (error, retryCount) => {
+        delay: (error: Error, retryCount: number) => {
           if (retryCount > maxRetries) {
             this.logger.error(
               `Reintentos agotados (${maxRetries}). Mandando a DLQ. Error: ${error.message}`
             );
             if (channel && originalMsg) {
-              try { channel.nack(originalMsg, false, false); } catch { /* ignore */ }
+              try { channel?.nack?.(originalMsg, false, false); } catch { /* ignore */ }
             }
             return throwError(() => error);
           }

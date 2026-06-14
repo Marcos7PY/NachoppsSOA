@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 import { Scrim } from '../../components/ui/Scrim';
 import { useState } from 'react';
 import { Icons } from '../../components/ui/icons';

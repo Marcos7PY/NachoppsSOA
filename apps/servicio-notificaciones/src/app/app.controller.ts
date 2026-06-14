@@ -1,8 +1,10 @@
 import { Controller, Get, Logger, UseInterceptors } from '@nestjs/common';
-import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import {
   PedidoCreadoPayload,
   PedidoActualizadoPayload,
+  PedidoListoPayload,
+  TicketGeneradoPayload,
   CuentaAbiertaPayload,
   CuentaCerradaPayload,
   MesaActualizadaPayload,
@@ -32,63 +34,69 @@ export class AppController {
   @EventPattern(RoutingKeys.PedidoCreado)
   async handlePedidoCreado(
     @Payload() payload: PedidoCreadoPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.PedidoCreado, payload, context);
+    await this.handleEvent(RoutingKeys.PedidoCreado, payload);
   }
 
   @EventPattern(RoutingKeys.PedidoActualizado)
   async handlePedidoActualizado(
     @Payload() payload: PedidoActualizadoPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.PedidoActualizado, payload, context);
+    await this.handleEvent(RoutingKeys.PedidoActualizado, payload);
+  }
+
+  @EventPattern(RoutingKeys.PedidoListo)
+  async handlePedidoListo(
+    @Payload() payload: PedidoListoPayload,
+  ) {
+    await this.handleEvent(RoutingKeys.PedidoListo, payload);
+  }
+
+  @EventPattern(RoutingKeys.TicketGenerado)
+  async handleTicketGenerado(
+    @Payload() payload: TicketGeneradoPayload,
+  ) {
+    await this.handleEvent(RoutingKeys.TicketGenerado, payload);
   }
 
   @EventPattern(RoutingKeys.CuentaAbierta)
   async handleCuentaAbierta(
     @Payload() payload: CuentaAbiertaPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.CuentaAbierta, payload, context);
+    await this.handleEvent(RoutingKeys.CuentaAbierta, payload);
   }
 
   @EventPattern(RoutingKeys.CuentaCerrada)
   async handleCuentaCerrada(
     @Payload() payload: CuentaCerradaPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.CuentaCerrada, payload, context);
+    await this.handleEvent(RoutingKeys.CuentaCerrada, payload);
   }
 
   @EventPattern(RoutingKeys.MesaActualizada)
   async handleMesaActualizada(
     @Payload() payload: MesaActualizadaPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.MesaActualizada, payload, context);
+    await this.handleEvent(RoutingKeys.MesaActualizada, payload);
   }
 
   @EventPattern(RoutingKeys.ReservaCreada)
   async handleReservaCreada(
     @Payload() payload: ReservaCreadaPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.ReservaCreada, payload, context);
+    await this.handleEvent(RoutingKeys.ReservaCreada, payload);
   }
 
   @EventPattern(RoutingKeys.ReservaCancelada)
   async handleReservaCancelada(
     @Payload() payload: ReservaCanceladaPayload,
-    @Ctx() context: RmqContext,
   ) {
-    await this.handleEvent(RoutingKeys.ReservaCancelada, payload, context);
+    await this.handleEvent(RoutingKeys.ReservaCancelada, payload);
   }
 
   private async handleEvent(
     pattern: string,
     data: unknown,
-    _context: RmqContext,
   ): Promise<void> {
     this.logger.log(`✅ Evento recibido: ${pattern}`);
     this.logger.log(` Datos: ${JSON.stringify(data)}`);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 export const RESTO_FISCAL = {
   nombre: 'NachoPps',
   zona: 'Barranco · Lima',

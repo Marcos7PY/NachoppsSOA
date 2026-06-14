@@ -20,33 +20,14 @@ export function createBasePrismaService<T extends new (...args: any[]) => any>(P
     }
 
     async onModuleInit() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (this as any).$connect();
+      await (this as unknown as { $connect(): Promise<void> }).$connect();
       const connectionString = process.env.DATABASE_URL ?? '';
       const dbName = connectionString.split('/').pop()?.split('?')[0] ?? 'desconocida';
       Logger.log(`Conectado a ${dbName} vía PrismaPg`, this.serviceName);
     }
 
-    async $checkAndRecordIdempotencyKey(key: string): Promise<boolean> {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        if ((this as any).idempotencyKey) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (this as any).idempotencyKey.create({ data: { key } });
-          return false;
-        }
-        return false; // Dummy fallback if model doesn't exist
-      } catch (error: unknown) {
-        if ((error as { code?: string }).code === 'P2002') {
-          return true; // Ya existía
-        }
-        throw error;
-      }
-    }
-
     async onModuleDestroy() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (this as any).$disconnect();
+      await (this as unknown as { $disconnect(): Promise<void> }).$disconnect();
     }
   }
 

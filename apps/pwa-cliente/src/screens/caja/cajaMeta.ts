@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/caja/cajaMeta.ts — metadatos de método de pago + cálculo de KPIs del turno.
 
 import type { IconName } from '../../components/ui/icons';

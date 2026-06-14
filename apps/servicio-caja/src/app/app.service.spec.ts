@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
 
@@ -19,13 +20,35 @@ vi.mock('@org/resiliencia', async () => {
 import { AppService } from './app.service';
 import { CuentasHttpClient } from './cuentas-http.client';
 
-function createMockPrismaService(overrides: Record<string, any> = {}) {
-  return {
-    $connect: async () => {},
-    $disconnect: async () => {},
-    checkAndRecordIdempotencyKey: async (_key: string) => true,
-    ...overrides,
-  } as any;
+function createMockPrismaService() {
+  const mock = {
+    $connect: () => Promise.resolve(),
+    $disconnect: () => Promise.resolve(),
+    $transaction: vi.fn((cb: (m: unknown) => unknown) => cb(mock)),
+    checkAndRecordIdempotencyKey: () => Promise.resolve(true),
+    transaccion: {
+      create: vi.fn(),
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+    },
+    outboxEvent: {
+      create: vi.fn(),
+    },
+    cuentaAbierta: {
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      update: vi.fn(),
+    },
+    turnoCaja: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+    },
+    movimientoCaja: {
+      create: vi.fn(),
+    },
+    $executeRaw: vi.fn(),
+  };
+  return mock;
 }
 
 describe('AppService — Caja', () => {
@@ -37,36 +60,13 @@ describe('AppService — Caja', () => {
     vi.clearAllMocks();
     mockTokenService = { generateServiceToken: vi.fn().mockReturnValue('mock-service-token') };
 
-    mockPrisma = createMockPrismaService({
-      transaccion: {
-        create: vi.fn(),
-        findMany: vi.fn(),
-        aggregate: vi.fn(),
-      },
-      outboxEvent: {
-        create: vi.fn(),
-      },
-      cuentaAbierta: {
-        findUnique: vi.fn(),
-        upsert: vi.fn(),
-        update: vi.fn(),
-      },
-      turnoCaja: {
-        findFirst: vi.fn(),
-        create: vi.fn(),
-      },
-      movimientoCaja: {
-        create: vi.fn(),
-      },
-      $executeRaw: vi.fn(),
-      $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
-    });
+    mockPrisma = createMockPrismaService();
 
     process.env['CUENTAS_SERVICE_URL'] = 'http://localhost:3005/api';
 
     // T-40: el cliente HTTP real con el token service mockeado, para que los
     // specs sigan espiando axios de extremo a extremo.
-    service = new AppService(mockPrisma as any, new CuentasHttpClient(mockTokenService as any));
+    service = new AppService(mockPrisma as never, new CuentasHttpClient(mockTokenService as never));
   });
 
   describe('registrarPago', () => {

@@ -22,9 +22,9 @@ describe('JwtStrategy (shared-auth)', () => {
 
     const strategy = new JwtStrategy();
     const payload = { sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana', extra: 'ignored' };
-    await expect(
+    expect(
       strategy.validate(payload),
-    ).resolves.toEqual({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana' });
+    ).toEqual({ sub: 'u1', email: 'a@b.com', rol: 'ADMIN', nombre: 'Ana' });
 
     process.env.JWT_PUBLIC_KEY = pub;
     process.env.SERVICE_JWT_SECRET = svc;
@@ -42,36 +42,36 @@ describe('JwtStrategy (shared-auth)', () => {
     it('acepta un token de servicio con aud === SERVICE_NAME', async () => {
       await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-inventario', SERVICE_AUD_ENFORCE: 'true' }, async () => {
         const strategy = new JwtStrategy();
-        await expect(
+        expect(
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
-        ).resolves.toMatchObject({ rol: 'SISTEMA' });
+        ).toMatchObject({ rol: 'SISTEMA' });
       });
     });
 
     it('rechaza (estricto) un token de servicio con aud incorrecta', async () => {
       await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, async () => {
         const strategy = new JwtStrategy();
-        await expect(
+        expect(() =>
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
-        ).rejects.toThrow(/[Aa]udiencia/);
+        ).toThrow(/[Aa]udiencia/);
       });
     });
 
     it('rechaza aud incorrecta aunque SERVICE_AUD_ENFORCE no este definida', async () => {
       await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: undefined }, async () => {
         const strategy = new JwtStrategy();
-        await expect(
+        expect(() =>
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
-        ).rejects.toThrow(/[Aa]udiencia/);
+        ).toThrow(/[Aa]udiencia/);
       });
     });
 
     it('un token de USUARIO (RS256, sin aud) pasa aunque haya enforce', async () => {
       await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, async () => {
         const strategy = new JwtStrategy();
-        await expect(
+        expect(
           strategy.validate({ sub: 'u1', email: 'a@b.com', rol: 'MESERO', nombre: 'Ana' }),
-        ).resolves.toMatchObject({ rol: 'MESERO' });
+        ).toMatchObject({ rol: 'MESERO' });
       });
     });
   });

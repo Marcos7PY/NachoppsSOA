@@ -78,24 +78,24 @@ function markMesaOcupadaEnCache(mesaId: string) {
 }
 
 function invalidateOperationalData(mesaId?: string) {
-  queryClient.invalidateQueries({
+  void queryClient.invalidateQueries({
     queryKey: PEDIDOS_QUERY_KEY,
     exact: false,
     refetchType: 'all',
   });
-  queryClient.invalidateQueries({
+  void queryClient.invalidateQueries({
     queryKey: MESAS_QUERY_KEY,
     exact: false,
     refetchType: 'all',
   });
-  queryClient.invalidateQueries({
+  void queryClient.invalidateQueries({
     queryKey: CUENTAS_QUERY_KEY,
     exact: false,
     refetchType: 'all',
   });
 
   if (mesaId) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: [...CUENTAS_QUERY_KEY, 'mesa', mesaId],
       exact: false,
       refetchType: 'all',

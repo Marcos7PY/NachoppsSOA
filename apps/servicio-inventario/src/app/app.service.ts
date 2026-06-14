@@ -99,17 +99,16 @@ export class AppService {
     return undefined;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private toProductoDto(producto: any): ProductoDto {
+  private toProductoDto(producto: Record<string, unknown>): ProductoDto {
     return {
-      id: producto.id,
-      categoriaId: producto.categoriaId,
-      categoria: producto.categoria ?? undefined,
-      nombre: producto.nombre,
-      descripcion: producto.descripcion ?? null,
-      precio: Number(producto.precio),
-      disponible: producto.disponible,
-      stockActual: producto.stockActual ?? null,
+      id: producto['id'] as string,
+      categoriaId: producto['categoriaId'] as string,
+      categoria: (producto['categoria'] ?? undefined) as CategoriaDto | undefined,
+      nombre: producto['nombre'] as string,
+      descripcion: (producto['descripcion'] ?? null) as string | null,
+      precio: Number(producto['precio']),
+      disponible: producto['disponible'] as boolean,
+      stockActual: (producto['stockActual'] ?? null) as number | null,
     };
   }
 

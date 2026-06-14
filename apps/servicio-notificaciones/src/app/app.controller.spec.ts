@@ -2,6 +2,9 @@ import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
 import { RoutingKeys } from '@org/contracts';
 import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { NotificationsGateway } from './notifications.gateway';
+import { PedidoCreadoPayload } from '@org/contracts';
 
 describe('AppController - Notificaciones', () => {
   it('pedido.creado persiste y emite el payload enriquecido', async () => {
@@ -12,7 +15,7 @@ describe('AppController - Notificaciones', () => {
         contenido: 'Nuevo pedido',
       }),
     };
-    const controller = new AppController(appService as any, gateway as any);
+    const controller = new AppController(appService as unknown as AppService, gateway as unknown as NotificationsGateway);
     const payload = {
       pedido: {
         id: 'pedido-1',
@@ -24,7 +27,7 @@ describe('AppController - Notificaciones', () => {
       },
     };
 
-    await controller.handlePedidoCreado(payload as any, {} as any);
+    await controller.handlePedidoCreado(payload as unknown as PedidoCreadoPayload);
 
     expect(appService.registrarNotificacion).toHaveBeenCalledWith(
       RoutingKeys.PedidoCreado,

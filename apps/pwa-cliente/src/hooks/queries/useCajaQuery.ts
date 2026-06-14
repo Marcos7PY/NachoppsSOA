@@ -15,7 +15,7 @@ export function useCajaQuery() {
     queryFn: cajaApi.getResumenActivo,
   });
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
 
   const abrirMutation = useMutation({
     mutationFn: (payload: AbrirTurnoPayload) => cajaApi.abrirTurno(payload),

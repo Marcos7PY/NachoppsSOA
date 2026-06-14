@@ -162,7 +162,7 @@ export class AppService {
 
       await prisma.cuenta.update({
         where: { id: cuenta.id },
-        data: { total, pedidos: snapshot as unknown as Prisma.InputJsonValue },
+        data: { total, pedidos: snapshot },
       });
     });
 
@@ -203,7 +203,7 @@ export class AppService {
 
       await prisma.cuenta.update({
         where: { id: cuenta.id },
-        data: { total, pedidos: snapshot as unknown as Prisma.InputJsonValue },
+        data: { total, pedidos: snapshot },
       });
     });
 
@@ -425,7 +425,7 @@ export class AppService {
   }
 
   private parsePedidosSnapshot(value: unknown): PedidoSnapshot[] {
-    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    const parsed = typeof value === 'string' ? (JSON.parse(value) as unknown) : value;
     if (!Array.isArray(parsed)) return [];
 
     return parsed.map((pedido, index) => {

@@ -52,7 +52,7 @@ export function makeJwtSecretOrKeyProvider(publicKey: string, serviceSecret: str
   return (_req: unknown, rawJwtToken: string, done: JwtKeyDoneFn): void => {
     try {
       const headerB64 = String(rawJwtToken).split('.')[0];
-      const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+      const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8')) as { alg?: string };
       if (header.alg === 'RS256') return done(null, publicKey);
       if (header.alg === 'HS256') return done(null, serviceSecret);
       return done(new Error(`Algoritmo JWT no soportado: ${header.alg}`));

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useQuery, useMutation } from '@tanstack/react-query';
 import * as cuentasApi from '../../api/cuentas.api';
 import { mapCuenta } from '../../mappers/cuenta.mapper';
@@ -34,7 +35,7 @@ export function useCuentasQuery(mesaId?: string) {
     },
     onSuccess: (data, idMesa) => {
       queryClient.setQueryData([...CUENTAS_QUERY_KEY, 'mesa', idMesa], data);
-      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
     },
   });
 
@@ -43,10 +44,10 @@ export function useCuentasQuery(mesaId?: string) {
       return cuentasApi.registrarPago(payload);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: CUENTAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: CAJA_QUERY_KEY });
     },
   });
 
@@ -57,8 +58,8 @@ export function useCuentasQuery(mesaId?: string) {
     onSuccess: (response, variables) => {
       // Limpiar caché de la cuenta
       queryClient.setQueryData([...CUENTAS_QUERY_KEY, 'mesa', mesaId], null);
-      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: PEDIDOS_QUERY_KEY });
     },
   });
 

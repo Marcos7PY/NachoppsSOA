@@ -24,7 +24,7 @@ interface JwtPayload {
 }
 
 const cookieExtractor: JwtFromRequestFunction = (req: Request) => {
-  return req?.cookies?.['access_token'] ?? null;
+  return (req?.cookies as Record<string, string>)?.['access_token'] ?? null;
 };
 
 @Injectable()
@@ -43,7 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   /** Retorna el payload que se asigna a `req.user`. */
-  async validate(payload: JwtPayload) {
+  validate(payload: JwtPayload) {
     return {
       sub: payload.sub,
       email: payload.email,

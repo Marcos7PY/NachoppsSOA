@@ -22,7 +22,7 @@ describe('JwtStrategy de identidad', () => {
 
     const strategy = new JwtStrategy();
 
-    await expect(
+    expect(
       strategy.validate({
         sub: 'user-1',
         email: 'admin@test.com',
@@ -30,7 +30,7 @@ describe('JwtStrategy de identidad', () => {
         nombre: 'Admin',
         extra: 'ignored',
       }),
-    ).resolves.toEqual({
+    ).toEqual({
       sub: 'user-1',
       email: 'admin@test.com',
       rol: 'ADMIN',

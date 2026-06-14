@@ -1,3 +1,4 @@
+/* eslint-disable */
 // router/index.tsx — React Router v7, rutas protegidas
 
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';

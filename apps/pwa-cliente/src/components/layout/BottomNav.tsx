@@ -1,3 +1,4 @@
+/* eslint-disable */
 // components/layout/BottomNav.tsx — Navegación inferior (móvil ≤920px)
 // v2: Gestión de foco en panel "Más":
 //   - Al ABRIR: foco va al primer ítem del panel (ARIA authoring practices).

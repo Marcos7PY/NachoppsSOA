@@ -66,7 +66,7 @@ export class AppService {
     const fondoInicial = this.money(command.fondoInicial ?? 0);
     let turno;
     try {
-      turno = await this.prisma.$transaction(async (prisma) => {
+      turno = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
         const creado = await prisma.turnoCaja.create({
           data: {
             cajaId: command.cajaId ?? 'T01',
@@ -112,7 +112,7 @@ export class AppService {
     return typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
   }
 
-  async obtenerTurnoActivo(_usuarioId?: string | null) {
+  async obtenerTurnoActivo() {
     const turno = await this.prisma.turnoCaja.findFirst({
       where: { estado: 'ABIERTA' },
       orderBy: { abiertoAt: 'desc' },
@@ -120,7 +120,7 @@ export class AppService {
     return turno ? this.mapTurno(turno) : null;
   }
 
-  async obtenerResumenTurnoActivo(_usuarioId?: string | null) {
+  async obtenerResumenTurnoActivo() {
     const turno = await this.prisma.turnoCaja.findFirst({
       where: { estado: 'ABIERTA' },
       orderBy: { abiertoAt: 'desc' },
@@ -218,7 +218,7 @@ export class AppService {
   }
 
   async cerrarTurno(id: string, command: CerrarTurnoCajaCommand, usuarioId?: string | null) {
-    const cierre = await this.prisma.$transaction(async (prisma) => {
+    const cierre = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
       const turno = await prisma.turnoCaja.findUnique({
         where: { id },
         include: {
@@ -284,6 +284,7 @@ export class AppService {
 
   async registrarPago(
     command: PagarCuentaCajaCommand,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     usuarioId?: string | null,
   ): Promise<{ message?: string; transaccion: TransaccionDto; ticket?: unknown; turno: unknown }> {
     const turno = await this.prisma.turnoCaja.findFirst({
@@ -318,7 +319,7 @@ export class AppService {
       );
     }
 
-    const transaccion = await this.prisma.$transaction(async (prisma) => {
+    const transaccion = await this.prisma.$transaction(async (prisma: import('../generated/prisma').Prisma.TransactionClient) => {
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.cuentaId}), 1, 8))::bit(32)::int)`;
 
@@ -402,7 +403,7 @@ export class AppService {
     let ticket: unknown;
     try {
       const cierre = await this.cuentasHttp.cerrarCuenta(command.cuentaId, descuento.toNumber());
-      ticket = cierre?.ticket;
+      ticket = (cierre as Record<string, unknown>)?.ticket;
       await this.prisma.cuentaAbierta.update({
         where: { cuentaId: command.cuentaId },
         data: { estado: 'CERRADA', total: totalConDescuento },
@@ -455,25 +456,25 @@ export class AppService {
   }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
-  private buildResumen(turno: any) {
+  private buildResumen(turno: import('../generated/prisma').TurnoCaja & { movimientos?: import('../generated/prisma').MovimientoCaja[], arqueos?: import('../generated/prisma').ArqueoCaja[], cierre?: import('../generated/prisma').CierreCaja | null }) {
     const movimientos = Array.isArray(turno.movimientos) ? turno.movimientos : [];
-    const ventas = movimientos.filter((m: any) => m.tipo === 'VENTA');
-    const ingresos = movimientos.filter((m: any) => m.tipo === 'INGRESO');
-    const egresos = movimientos.filter((m: any) => m.tipo === 'EGRESO');
-    const totalVentas = this.sum(ventas.map((m: any) => m.monto));
-    const totalIngresos = this.sum(ingresos.map((m: any) => m.monto));
-    const totalEgresos = this.sum(egresos.map((m: any) => m.monto));
-    const propinas = this.sum(movimientos.map((m: any) => m.propina ?? 0));
+    const ventas = movimientos.filter((m: import('../generated/prisma').MovimientoCaja) => m.tipo === 'VENTA');
+    const ingresos = movimientos.filter((m: import('../generated/prisma').MovimientoCaja) => m.tipo === 'INGRESO');
+    const egresos = movimientos.filter((m: import('../generated/prisma').MovimientoCaja) => m.tipo === 'EGRESO');
+    const totalVentas = this.sum(ventas.map((m: import('../generated/prisma').MovimientoCaja) => m.monto));
+    const totalIngresos = this.sum(ingresos.map((m: import('../generated/prisma').MovimientoCaja) => m.monto));
+    const totalEgresos = this.sum(egresos.map((m: import('../generated/prisma').MovimientoCaja) => m.monto));
+    const propinas = this.sum(movimientos.map((m: import('../generated/prisma').MovimientoCaja) => m.propina ?? 0));
     const porMetodo = this.emptyMetodoTotals();
 
-    ventas.forEach((m: any) => {
+    ventas.forEach((m: import('../generated/prisma').MovimientoCaja) => {
       if (m.metodo in porMetodo) porMetodo[m.metodo] += this.n(m.monto);
     });
 
     return {
       turno: this.mapTurno(turno),
-      movimientos: movimientos.map((m: any) => this.mapMovimiento(m)),
-      ventas: ventas.map((m: any) => this.mapMovimiento(m)),
+      movimientos: movimientos.map((m: import('../generated/prisma').MovimientoCaja) => this.mapMovimiento(m)),
+      ventas: ventas.map((m: import('../generated/prisma').MovimientoCaja) => this.mapMovimiento(m)),
       totalVentas: totalVentas.toNumber(),
       totalEgresos: totalEgresos.toNumber(),
       totalIngresos: totalIngresos.toNumber(),
@@ -487,7 +488,7 @@ export class AppService {
     };
   }
 
-  private computeEfectivoEsperado(movimientos: any[]) {
+  private computeEfectivoEsperado(movimientos: import('../generated/prisma').MovimientoCaja[]) {
     return this.sum(
       movimientos
         .filter((m) => m.metodo === 'EFECTIVO')
@@ -497,7 +498,7 @@ export class AppService {
 
   private sum(values: unknown[]) {
     return values.reduce(
-      (acc: Prisma.Decimal, value) => acc.plus(this.money(value as any)),
+      (acc: Prisma.Decimal, value) => acc.plus(this.money(value as never)),
       new Prisma.Decimal(0),
     );
   }
@@ -518,7 +519,7 @@ export class AppService {
     }, {} as Record<string, number>);
   }
 
-  private mapTransaccion(t: any): TransaccionDto {
+  private mapTransaccion(t: import('../generated/prisma').Transaccion): TransaccionDto {
     return {
       id: t.id,
       cuentaId: t.cuentaId,
@@ -531,7 +532,7 @@ export class AppService {
     };
   }
 
-  private mapTurno(t: any) {
+  private mapTurno(t: import('../generated/prisma').TurnoCaja) {
     return {
       id: t.id,
       cajaId: t.cajaId,
@@ -547,7 +548,7 @@ export class AppService {
     };
   }
 
-  private mapMovimiento(m: any) {
+  private mapMovimiento(m: import('../generated/prisma').MovimientoCaja) {
     return {
       id: m.id,
       turnoId: m.turnoId,
@@ -565,7 +566,7 @@ export class AppService {
     };
   }
 
-  private mapArqueo(a: any) {
+  private mapArqueo(a: import('../generated/prisma').ArqueoCaja) {
     return {
       id: a.id,
       turnoId: a.turnoId,
@@ -578,7 +579,7 @@ export class AppService {
     };
   }
 
-  private mapCierre(c: any) {
+  private mapCierre(c: import('../generated/prisma').CierreCaja) {
     return {
       id: c.id,
       turnoId: c.turnoId ?? null,

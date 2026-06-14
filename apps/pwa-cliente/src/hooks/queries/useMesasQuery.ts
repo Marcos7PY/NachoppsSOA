@@ -41,7 +41,7 @@ export function useMesasQuery() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
     },
   });
 
@@ -56,7 +56,7 @@ export function useMesasQuery() {
       );
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: MESAS_QUERY_KEY });
     },
   });
 

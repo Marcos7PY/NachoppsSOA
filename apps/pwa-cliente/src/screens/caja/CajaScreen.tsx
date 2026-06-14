@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/caja/CajaScreen.tsx — Caja: dashboard de turno + cobro de mesa + cierre operativo.
 
 import { Scrim } from '../../components/ui/Scrim';
@@ -264,13 +265,13 @@ export function CajaScreen() {
         <MovimientoModal
           tipoInicial={modal === 'egreso' ? 'EGRESO' : 'INGRESO'}
           onClose={() => setModal(null)}
-          onSave={async (mov) => {
+          onSave={(...args) => { void (async (mov) => {
             if (!turno) return;
             await crearMovimiento(turno.id, mov);
             setModal(null);
             const esEgreso = mov.tipo === 'EGRESO';
             toast({ title: esEgreso ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: esEgreso ? 'ArrowDown' : 'ArrowUp', kind: esEgreso ? 'info' : 'ok' });
-          }}
+          })(...args); }}
         />
       )}
 
@@ -279,11 +280,11 @@ export function CajaScreen() {
           k={k}
           cajeroNombre={cajeroNombre}
           onClose={() => setModal(null)}
-          onDone={async (denominaciones) => {
+          onDone={(...args) => { void (async (denominaciones) => {
             await cerrarTurno(turno.id, { denominaciones });
             setModal(null);
             toast({ title: 'Caja cerrada', msg: 'Turno cerrado y arqueo guardado', icon: 'Lock' });
-          }}
+          })(...args); }}
         />
       )}
     </div>

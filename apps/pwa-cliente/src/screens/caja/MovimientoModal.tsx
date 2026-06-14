@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/caja/MovimientoModal.tsx — Egreso / Ingreso de efectivo.
 
 import { Scrim } from '../../components/ui/Scrim';

@@ -8,9 +8,9 @@ const BasePrisma = createBasePrismaService(PrismaClient);
 export class PrismaService extends BasePrisma {
   override readonly serviceName = 'servicio-cuentas';
 
-  async enableShutdownHooks(app: INestApplication) {
-    this.$on('beforeExit' as never, async () => {
-      await app.close();
+  enableShutdownHooks(app: INestApplication) {
+    process.on('beforeExit', () => {
+      app.close().catch(console.error);
     });
   }
 }

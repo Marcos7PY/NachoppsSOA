@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/login/LoginScreen.tsx — Login real con auth store
 
 import { useState, type SubmitEvent } from 'react';

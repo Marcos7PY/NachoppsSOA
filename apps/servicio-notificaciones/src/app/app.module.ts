@@ -25,8 +25,10 @@ import { RoutingKeys } from '@org/contracts';
       bindings: [
         RoutingKeys.PedidoCreado,
         RoutingKeys.PedidoActualizado,
+        RoutingKeys.PedidoListo,
         RoutingKeys.CuentaAbierta,
         RoutingKeys.CuentaCerrada,
+        RoutingKeys.TicketGenerado,
         RoutingKeys.MesaActualizada,
         RoutingKeys.ReservaCreada,
         RoutingKeys.ReservaCancelada,

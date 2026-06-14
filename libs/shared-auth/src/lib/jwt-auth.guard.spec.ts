@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@nestjs/passport', () => ({
   AuthGuard: () =>
     class {
-      async canActivate() {
-        return true;
+      canActivate() {
+        return Promise.resolve(true);
       }
     },
 }));
@@ -132,16 +132,16 @@ describe('JwtAuthGuard compartido', () => {
 
   it('handleRequest devuelve el user si no hay error', () => {
     const user = { sub: 'u1', rol: 'ADMIN' };
-    expect(guard.handleRequest(null, user, null, {} as any)).toBe(user);
+    expect(guard.handleRequest(null, user)).toBe(user);
   });
 
   it('handleRequest lanza UnauthorizedException cuando err está presente', () => {
-    expect(() => guard.handleRequest(new Error('bad'), null, null, {} as any))
+    expect(() => guard.handleRequest(new Error('bad'), null))
       .toThrow('Token inválido o expirado');
   });
 
   it('handleRequest lanza UnauthorizedException cuando user es null', () => {
-    expect(() => guard.handleRequest(null, null, null, {} as any))
+    expect(() => guard.handleRequest(null, null))
       .toThrow('Token inválido o expirado');
   });
 });

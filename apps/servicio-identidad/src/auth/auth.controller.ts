@@ -100,7 +100,7 @@ export class AuthController {
     @Body() body: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const raw = req.cookies?.['refresh_token'] ?? body?.refresh_token;
+    const raw = (req.cookies as Record<string, string>)?.['refresh_token'] ?? body?.refresh_token;
     if (!raw) throw new UnauthorizedException('No hay refresh token');
     const result = await this.authService.rotateRefreshToken(raw);
     this.setAuthCookies(res, result.access_token, result.refresh.token);
@@ -111,7 +111,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('auth/logout')
   async logout(@Req() req: ExpressRequest, @Res({ passthrough: true }) res: Response) {
-    await this.authService.revokeRefreshTokenByRaw(req.cookies?.['refresh_token']);
+    await this.authService.revokeRefreshTokenByRaw((req.cookies as Record<string, string>)?.['refresh_token']);
     res.clearCookie('access_token', {
       httpOnly: true,
       secure: COOKIE_SECURE,

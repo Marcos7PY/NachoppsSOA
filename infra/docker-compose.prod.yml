@@ -424,6 +424,16 @@ services:
         condition: service_healthy
 
   # ═══════════════════════════════════════════════════
+  # FRONTEND (PWA)
+  # ═══════════════════════════════════════════════════
+  pwa-cliente:
+    image: ${REGISTRY:-ghcr.io/marcos7py/nachoppssoa}/pwa-cliente:latest
+    container_name: nachopps-pwa-cliente
+    restart: unless-stopped
+    ports:
+      - '8080:8080'
+
+  # ═══════════════════════════════════════════════════
   # KONG API GATEWAY (Punto único de acceso)
   # ═══════════════════════════════════════════════════
   kong:

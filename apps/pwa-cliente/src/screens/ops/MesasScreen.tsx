@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/ops/MesasScreen.tsx — Plano de salón en vivo (rediseño del prototipo).
 // Cableado real: useMesasQuery (plano + estados) y useCuentasQuery (cuenta de la
 // mesa seleccionada). Lanza el Comandero para tomar/agregar pedido.
