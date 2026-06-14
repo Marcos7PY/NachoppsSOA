@@ -86,3 +86,13 @@ test-output
 .env
 # SonarQube token local
 infra/sonarqube/.sonar-token.local
+
+# AI Agents directories
+.agent/
+.agents/
+.gemini/
+.opencode/
+.claude/
+.cursor/
+.codex/
+.commandcode/

@@ -518,6 +518,17 @@ services:
     entrypoint: ['/bin/sh', '-c', 'while true; do sh /usr/local/bin/backup.sh || echo "[db-backup] ciclo con fallos"; sleep 86400; done']
     restart: unless-stopped
 
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: nachopps-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.docker/config.json:/config.json:ro
+    environment:
+      - DOCKER_API_VERSION=1.40
+    command: --interval 300 --cleanup
+    restart: unless-stopped
+
 volumes:
   nachopps-backups:
   nachopps-db-reservas:

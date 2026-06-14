@@ -139,12 +139,12 @@ export function MesasScreen() {
           <div className="sub">Salón en vivo · toca una mesa para tomar o agregar pedido</div>
         </div>
         <span className="spacer" />
-        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar"><Icons.Refresh s={16} /></button>
+        <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar mesas" aria-label="Refrescar mesas"><Icons.Refresh s={16} /></button>
         <button className="btn btn-primary" onClick={() => setComandero({ open: true, modoAgregar: false })}><Icons.Plus s={16} /> Nuevo pedido</button>
       </div>
 
       {!online && (
-        <output className="banner warn module-feedback">
+        <output className="banner warn module-feedback" role="alert">
           <Icons.Alert s={17} />
           <span>Sin conexión. La creación de mesas está deshabilitada.</span>
         </output>
@@ -355,13 +355,16 @@ interface MesaDrawerFootProps {
   onClose: () => void;
 }
 
+/* Jerarquía de acción en mesa ocupada:
+   - "Cobrar": acción de cierre económico → btn-primary (máximo énfasis)
+   - "Agregar a la cuenta": acción frecuente pero no de cierre → btn-soft */
 function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose }: Readonly<MesaDrawerFootProps>) {
   if (ocupada) {
     return (
       <>
-        <button className="btn btn-ghost" onClick={onCobrar}><Icons.Caja s={15} /> Cobrar</button>
+        <button className="btn btn-primary" onClick={onCobrar} aria-label="Cobrar cuenta de esta mesa"><Icons.Caja s={15} /> Cobrar</button>
         <span className="spacer" />
-        <button className="btn btn-primary" onClick={onAgregar}><Icons.Plus s={15} /> Agregar a la cuenta</button>
+        <button className="btn btn-soft" onClick={onAgregar} aria-label="Agregar ítems a la cuenta"><Icons.Plus s={15} /> Agregar a la cuenta</button>
       </>
     );
   }
@@ -369,7 +372,7 @@ function MesaDrawerFoot({ ocupada, estado, onCobrar, onTomar, onAgregar, onClose
     return (
       <>
         <span className="spacer" />
-        <button className="btn btn-primary" onClick={onTomar}><Icons.Plus s={15} /> Tomar pedido</button>
+        <button className="btn btn-primary" onClick={onTomar} aria-label="Tomar nuevo pedido para esta mesa"><Icons.Plus s={15} /> Tomar pedido</button>
       </>
     );
   }
@@ -408,7 +411,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
           <h3 style={{ fontSize: 18, marginLeft: 4 }}>Mesa {m.numero}</h3>
           <span className="muted" style={{ fontSize: 13 }}>· {m.ubicacion} · {m.capacidad} pers</span>
           <span className="spacer" />
-          <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label={`Cerrar detalle de Mesa ${m.numero}`}><Icons.Close s={17} /></button>
         </div>
         <div className="drawer-body">
           <MesaDrawerBody
@@ -421,7 +424,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
             now={now}
           />
         </div>
-        <div className="modal-foot" style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+        <div className="drawer-foot">
           <MesaDrawerFoot
             ocupada={ocupada}
             estado={m.estado}
