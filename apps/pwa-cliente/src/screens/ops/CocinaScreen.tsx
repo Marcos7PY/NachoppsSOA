@@ -169,9 +169,9 @@ export function CocinaScreen() {
   if (fs) {
     return (
       <div className="kds-fs">
-        <div className="row" style={{ marginBottom: 12 }}>
+        <div className="row kds-fs-head" style={{ marginBottom: 12 }}>
           <h1 style={{ fontSize: 22, margin: 0 }}>Cocina · KDS</h1>
-          <span style={{ marginLeft: 14 }}>{stationTabs}</span>
+          <span className="kds-fs-tabs" style={{ marginLeft: 14 }}>{stationTabs}</span>
           <span className="spacer" />
           <button className="btn btn-ghost btn-sm" onClick={() => setFs(false)}><Icons.Minimize s={16} /> Salir</button>
         </div>

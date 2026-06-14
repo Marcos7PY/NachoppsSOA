@@ -103,7 +103,7 @@ export function ReportesScreen() {
                     <thead>
                       <tr>
                         <th>Producto</th>
-                        <th>Cantidad</th>
+                        <th className="col-mobile-hidden">Cantidad</th>
                         <th>Ingresos</th>
                       </tr>
                     </thead>
@@ -111,7 +111,7 @@ export function ReportesScreen() {
                       {resumen.topProductos.map((item) => (
                         <tr key={item.productoId ?? item.nombre}>
                           <td><strong>{item.nombre}</strong></td>
-                          <td>{item.cantidad}</td>
+                          <td className="col-mobile-hidden">{item.cantidad}</td>
                           <td>{item.ingresos == null ? 'Sin dato' : `S/ ${item.ingresos.toFixed(2)}`}</td>
                         </tr>
                       ))}

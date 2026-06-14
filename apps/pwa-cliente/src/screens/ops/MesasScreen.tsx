@@ -410,7 +410,7 @@ function MesaDrawer({ mesa: m, onClose, onCobrar, onTomar, onAgregar }: Readonly
         <div className="panel-h" style={{ padding: '16px 20px' }}>
           <span className={`badge dot ${badgeCls}`}>{meta.label}</span>
           <h3 style={{ fontSize: 18, marginLeft: 4 }}>Mesa {m.numero}</h3>
-          <span className="muted" style={{ fontSize: 13 }}>· {m.ubicacion} · {m.capacidad} pers</span>
+          <span className="muted mesa-drawer-meta" style={{ fontSize: 13 }}>· {m.ubicacion} · {m.capacidad} pers</span>
           <span className="spacer" />
           <button className="icon-btn" onClick={onClose} aria-label={`Cerrar detalle de Mesa ${m.numero}`}><Icons.Close s={17} /></button>
         </div>

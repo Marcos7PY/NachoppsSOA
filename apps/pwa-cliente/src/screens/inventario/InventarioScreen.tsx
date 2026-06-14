@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
-import { useMemo, useState, type SubmitEvent } from 'react';
+import { useMemo, useState, useEffect, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useInventarioQuery } from '../../hooks/queries/useInventarioQuery';
 import { Icons } from '../../components/ui/icons';
@@ -20,6 +20,14 @@ export function InventarioScreen() {
 
   const [productoForm, setProductoForm] = useState<CrearProductoPayload>(INITIAL_PRODUCT);
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const el = document.querySelector('.content');
+    if (el) el.classList.add('has-form');
+    return () => {
+      if (el) el.classList.remove('has-form');
+    };
+  }, []);
 
   const productosPorCategoria = useMemo(
     () => categorias.map((cat) => ({ categoria: cat, productos: productos.filter((p) => p.categoriaId === cat.id) })),
