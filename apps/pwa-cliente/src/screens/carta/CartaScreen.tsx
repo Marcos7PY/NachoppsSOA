@@ -107,6 +107,7 @@ export function CartaScreen() {
             {c.nombre} <span className="ct-count">{productos.filter((p) => p.categoriaId === c.id).length}</span>
           </button>
         ))}
+        </div>
         <span className="spacer" />
         <div className="input toolbar-input">
           <Icons.Search s={15} />
