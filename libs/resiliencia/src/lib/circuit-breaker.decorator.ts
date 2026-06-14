@@ -9,7 +9,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
     propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
-    const originalMethod = descriptor.value;
+    const originalMethod = descriptor.value as (...args: unknown[]) => Promise<unknown>;
     const breakerName = `${target.constructor.name}.${propertyKey}`;
     const logger = new Logger('CircuitBreaker');
 
@@ -20,8 +20,7 @@ export function CircuitBreakerOptions(options?: CircuitBreaker.Options) {
       ...options,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       let breaker = CIRCUIT_BREAKER_REGISTRY.get(breakerName);
       
       if (!breaker) {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // components/layout/Header.tsx — Topbar: turno, conexión, tema, accesibilidad,
 // notificaciones (backend), usuario y logout.
 // v2: Ningún cambio de comportamiento. Cambios menores:

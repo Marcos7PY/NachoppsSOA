@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppService } from './app.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('AppService — Notificaciones', () => {
   let service: AppService;
@@ -12,7 +13,7 @@ describe('AppService — Notificaciones', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    service = new AppService(prisma as any);
+    service = new AppService(prisma as unknown as PrismaService);
   });
 
   describe('obtenerNotificaciones', () => {
@@ -46,7 +47,7 @@ describe('AppService — Notificaciones', () => {
           canal: 'UI',
           contenido: 'Nuevo pedido registrado para la Mesa 7 por un total de S/ 42.00.',
           estado: 'PENDIENTE',
-        }),
+        }) as unknown,
       });
     });
 
@@ -78,16 +79,16 @@ describe('AppService — Notificaciones', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             contenido: 'Nueva reserva registrada a nombre de Ana para el 2026-01-02 a las 20:00.',
-          }),
-        }),
+          }) as unknown,
+        }) as unknown,
       );
       expect(prisma.notificacion.create).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           data: expect.objectContaining({
             contenido: '{"ok":true}',
-          }),
-        }),
+          }) as unknown,
+        }) as unknown,
       );
     });
 
@@ -102,8 +103,8 @@ describe('AppService — Notificaciones', () => {
 
       expect(prisma.notificacion.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          contenido: expect.stringContaining('Mesa ??'),
-        }),
+          contenido: expect.stringContaining('Mesa ??') as unknown,
+        }) as unknown,
       });
     });
   });

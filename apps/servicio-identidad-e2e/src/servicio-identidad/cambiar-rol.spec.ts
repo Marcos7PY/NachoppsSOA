@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 
 /**
  * P-51 (T-31): integración real de cambiarRol contra Postgres.
@@ -28,9 +29,9 @@ async function listarAdminsActivos(): Promise<UsuarioDto[]> {
   const admins: UsuarioDto[] = [];
   let cursor: string | null = null;
   do {
-    const res = await http.get('/api/usuarios', {
+    const res = (await http.get('/api/usuarios', {
       params: { rol: 'ADMIN', limit: 100, ...(cursor ? { cursor } : {}) },
-    });
+    })) as unknown as { status: number; data: { data: UsuarioDto[]; nextCursor: string | null } };
     expect(res.status).toBe(200);
     admins.push(...res.data.data);
     cursor = res.data.nextCursor;
@@ -39,18 +40,18 @@ async function listarAdminsActivos(): Promise<UsuarioDto[]> {
 }
 
 async function crearAdmin(tag: string): Promise<UsuarioDto> {
-  const res = await http.post('/api/usuarios', {
+  const res = (await http.post('/api/usuarios', {
     nombre: `E2E Admin ${tag}`,
     email: `e2e-t31-${tag}-${Date.now()}@test.com`,
     password: 'Password#123',
     rol: 'ADMIN',
-  });
+  })) as unknown as { status: number; data: UsuarioDto };
   expect(res.status).toBe(201);
   return res.data;
 }
 
 function cambiarRol(id: string, rol: string) {
-  return http.patch(`/api/usuarios/${id}/rol`, { rol });
+  return http.patch(`/api/usuarios/${id}/rol`, { rol }) as unknown as Promise<{ status: number; data: { rol: string } }>;
 }
 
 describe('PATCH /api/usuarios/:id/rol — degradación de ADMIN (T-31 / P-51)', () => {

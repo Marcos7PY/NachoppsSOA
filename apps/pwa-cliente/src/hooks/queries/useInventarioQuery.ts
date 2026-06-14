@@ -50,7 +50,7 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
       return inventarioApi.crearProducto(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: INVENTARIO_PRODUCTOS_KEY,
         exact: false,
         refetchType: 'active',
@@ -63,7 +63,7 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
       return inventarioApi.reponerStock(id, cantidad);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: INVENTARIO_PRODUCTOS_KEY,
         exact: false,
         refetchType: 'active',
@@ -76,7 +76,7 @@ export function useInventarioQuery(categoriaId?: string, options: UseInventarioO
       return inventarioApi.actualizarProducto(id, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: INVENTARIO_PRODUCTOS_KEY,
         exact: false,
         refetchType: 'active',

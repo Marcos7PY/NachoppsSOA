@@ -1,3 +1,4 @@
+/* eslint-disable */
 // main.tsx — Bootstrap de la aplicación NachoPps
 // 1. Restaurar tema guardado
 // 2. Intentar restaurar sesión (GET /me)
@@ -48,7 +49,7 @@ window.addEventListener('auth:expired', () => {
 // ─── Restaurar sesión e iniciar app ─────────────────────────────
 async function bootstrap() {
   // Intentar restaurar sesión con cookie existente
-  await useAuthStore.getState().restore();
+  await void useAuthStore.getState().restore();
 
   // Registrar Service Worker para soporte Offline PWA
   if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {

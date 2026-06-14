@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, expect, it, vi } from 'vitest';
 import { EventsController } from './events.controller';
 

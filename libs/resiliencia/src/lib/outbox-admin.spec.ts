@@ -17,7 +17,7 @@ function makeDb(overrides: Record<string, unknown> = {}) {
 function makeController(dbOverrides: Record<string, unknown> = {}) {
   const db = makeDb(dbOverrides);
   // OutboxAdminController usa @Inject(OUTBOX_DB); lo instanciamos manualmente
-  const ctrl = new OutboxAdminController(db as any);
+  const ctrl = new OutboxAdminController(db);
   return { ctrl, db };
 }
 
@@ -58,7 +58,7 @@ describe('OutboxAdminController — retry', () => {
       where: { id: 'evt-abc', status: 'FAILED' },
       data: { status: 'PENDING', attempts: 0 },
     });
-    expect(result).toMatchObject({ id: 'evt-abc', message: expect.stringContaining('PENDING') });
+    expect(result).toMatchObject({ id: 'evt-abc', message: expect.stringContaining('PENDING') as string });
   });
 
   it('lanza NotFoundException si el evento no existe o no está en FAILED', async () => {

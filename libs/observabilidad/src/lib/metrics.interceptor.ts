@@ -50,10 +50,9 @@ export class MetricsInterceptor implements NestInterceptor {
     if (ctxType === 'rpc' || (ctxType as string) === 'rmq') {
       const rmqContext = ctxType === 'rpc'
         ? context.switchToRpc().getContext<RmqContext>()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        : (context as any).args?.[1] as RmqContext | undefined;
+        : (context as { args?: unknown[] }).args?.[1] as RmqContext | undefined;
         
-      const msg = rmqContext?.getMessage?.();
+      const msg = rmqContext?.getMessage?.() as { fields?: { routingKey?: string, exchange?: string } } | undefined;
       const routingKey = msg?.fields?.routingKey || 'unknown';
       const queue = msg?.fields?.exchange || 'unknown'; // Using exchange as queue fallback or we could use consumer queue
 
@@ -65,7 +64,7 @@ export class MetricsInterceptor implements NestInterceptor {
             this.rmqCounter.inc({ queue, routing_key: routingKey, status: 'success' });
             endTimer({ queue, routing_key: routingKey });
           },
-          error: (err) => {
+          error: () => {
             this.rmqCounter.inc({ queue, routing_key: routingKey, status: 'error' });
             endTimer({ queue, routing_key: routingKey });
           },
@@ -74,8 +73,8 @@ export class MetricsInterceptor implements NestInterceptor {
     }
 
     if (ctxType === 'http') {
-      const req = context.switchToHttp().getRequest();
-      const res = context.switchToHttp().getResponse();
+      const req = context.switchToHttp().getRequest<{ method: string, route?: { path: string }, url: string }>();
+      const res = context.switchToHttp().getResponse<{ statusCode: number }>();
       const { method, route, url } = req;
       const path = route ? route.path : url;
       
@@ -88,8 +87,8 @@ export class MetricsInterceptor implements NestInterceptor {
             this.requestCounter.inc({ method, route: path, status_code: statusCode });
             endTimer({ method, route: path, status_code: statusCode });
           },
-          error: (err) => {
-            const statusCode = err.status || 500;
+          error: (err: unknown) => {
+            const statusCode = (err as { status?: number }).status || 500;
             this.requestCounter.inc({ method, route: path, status_code: statusCode });
             endTimer({ method, route: path, status_code: statusCode });
           },

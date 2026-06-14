@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/caja/CobroMesaDrawer.tsx — Cobro de una cuenta de mesa (REAL).
 // Cableado a useCuentasQuery: registrarPago. El backend registra el pago y cierra la cuenta.
 

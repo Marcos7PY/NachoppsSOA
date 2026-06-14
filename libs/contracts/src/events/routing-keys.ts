@@ -6,13 +6,10 @@ export const RoutingKeys = {
   // Reservas
   ReservaCreada: 'reserva.creada',
   ReservaCancelada: 'reserva.cancelada',
-  ReservaConfirmada: 'reserva.confirmada',
 
   // Mesas
   MesaCreada: 'mesa.creada',
   MesaActualizada: 'mesa.actualizada',
-  MesaAsignada: 'mesa.asignada',
-  MesaLiberada: 'mesa.liberada',
 
   // Pedidos
   PedidoCreado: 'pedido.creado',
@@ -26,11 +23,8 @@ export const RoutingKeys = {
 
   // Caja
   PagoRegistrado: 'pago.registrado',
-  ArqueoRealizado: 'arqueo.realizado',
 
   // Inventario
-  StockBajo: 'stock.bajo',
-  StockDescontado: 'stock.descontado',
   StockInsuficiente: 'stock.insuficiente',
   ProductoCreado: 'producto.creado',
   ProductoActualizado: 'producto.actualizado',

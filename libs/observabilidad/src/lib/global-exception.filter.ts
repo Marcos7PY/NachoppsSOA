@@ -24,15 +24,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
+    let status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    let message: unknown =
       exception instanceof HttpException
         ? exception.getResponse()
         : 'Internal server error';
+
+    if (exception && typeof exception === 'object' && 'code' in exception) {
+      const code = (exception as { code?: string }).code;
+      if (code === 'P2002') {
+        status = HttpStatus.CONFLICT;
+        message = 'Conflicto: registro duplicado (P2002)';
+      } else if (code === 'P2025') {
+        status = HttpStatus.NOT_FOUND;
+        message = 'Registro no encontrado (P2025)';
+      }
+    }
 
     this.logger.error(
       `HTTP ${status} - ${request.method} ${request.url}`,

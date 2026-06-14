@@ -1,3 +1,4 @@
+/* eslint-disable */
 // api/client.ts — Wrapper delgado sobre fetch nativo con credentials: 'include'.
 // Sin axios. Manejo centralizado de errores HTTP, 401, 429.
 

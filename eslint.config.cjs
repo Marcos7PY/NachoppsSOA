@@ -28,6 +28,25 @@ module.exports = [
     },
   },
   {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parserOptions: {
+        project: [
+          './tsconfig.base.json',
+          './apps/*/tsconfig.json',
+          './libs/*/tsconfig.json',
+          './apps/*-e2e/tsconfig.json',
+          './libs/*/*/tsconfig.json'
+        ],
+        tsconfigRootDir: __dirname,
+      },
+    },
+    rules: {
+      ...tsPlugin.configs?.['recommended-type-checked']?.rules,
+      '@typescript-eslint/no-floating-promises': 'error',
+    },
+  },
+  {
     files: ['**/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',

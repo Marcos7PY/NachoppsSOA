@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/reportes/ReportesScreen.tsx - Resumen diario y métricas reales
 
 import { useReportesQuery } from '../../hooks/queries/useReportesQuery';

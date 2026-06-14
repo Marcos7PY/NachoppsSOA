@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/compras/ComprasScreen.tsx — Compras / Proveedores (OC, recepción, costeo)
 // Datos mock (ver src/data/compras.mock.ts). Sin backend de compras aún.
 

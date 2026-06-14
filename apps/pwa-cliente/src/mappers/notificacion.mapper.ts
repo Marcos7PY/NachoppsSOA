@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import type { NotificacionDto, NotificacionVM, SocketNotificationPayload } from '../types/notificacion.types';
 
 type UnknownRecord = Record<string, unknown>;

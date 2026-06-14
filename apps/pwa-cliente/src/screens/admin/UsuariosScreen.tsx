@@ -98,7 +98,16 @@ export function UsuariosScreen() {
   };
 
   return (
-    <div>
+    <div
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      ref={(el) => {
+        const content = el?.closest('.content');
+        if (content) {
+          if (puedeGestionar) content.classList.add('has-form');
+          else content.classList.remove('has-form');
+        }
+      }}
+    >
       <div className="page-h">
         <div>
           <h1>Usuarios</h1>
@@ -191,7 +200,7 @@ export function UsuariosScreen() {
                       <th>Usuario</th>
                       <th>Rol</th>
                       <th>Estado</th>
-                      <th>Creado</th>
+                      <th className="col-mobile-hidden">Creado</th>
                       {puedeGestionar && <th className="cell-action">Cambiar rol</th>}
                     </tr>
                   </thead>
@@ -213,7 +222,7 @@ export function UsuariosScreen() {
                           <span className={`badge-rol ${ROL_CLASS[usuario.rol] ?? 'rol-sistema'}`}>{usuario.rolLabel}</span>
                         </td>
                         <td><span className={`badge dot ${usuario.estadoClass}`}>{usuario.estadoLabel}</span></td>
-                        <td className="muted">{usuario.createdAtLabel}</td>
+                        <td className="muted col-mobile-hidden">{usuario.createdAtLabel}</td>
                         {puedeGestionar && (
                           <td className="cell-action">
                             <div className="input">

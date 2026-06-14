@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unused-vars */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
 import { PedidoEstado } from '@org/contracts';
@@ -6,7 +7,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
   const mock = {
     $connect: async () => {},
     $disconnect: async () => {},
-    checkAndRecordIdempotencyKey: async (_key: string) => true,
+    checkAndRecordIdempotencyKey: (_key: string) => Promise.resolve(true),
     ...overrides,
   };
   return mock as any;
@@ -54,10 +55,10 @@ describe('AppService — Inventario', () => {
         create: vi.fn().mockResolvedValue({}),
       },
       $executeRaw: vi.fn(),
-      $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
+      $transaction: vi.fn((cb: unknown) => Promise.resolve((cb as (arg: unknown) => unknown)(mockPrisma))),
     });
 
-    service = new AppService(mockPrisma as any);
+    service = new AppService(mockPrisma);
   });
 
   describe('listarProductos', () => {
@@ -99,7 +100,7 @@ describe('AppService — Inventario', () => {
 
       await service.listarProductos({
         categoriaId: 'cat-001',
-        disponible: false as any,
+        disponible: false,
         search: 'limon',
         cursor: 'prod-010',
         updatedSince: '2026-01-01T00:00:00.000Z',

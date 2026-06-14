@@ -42,13 +42,19 @@ export class AppController {
   }
 
   @Get('turnos/activo')
-  obtenerTurnoActivo(@UsuarioActual() usuarioId: string | null) {
-    return this.appService.obtenerTurnoActivo(usuarioId);
+  obtenerTurnoActivo(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    @UsuarioActual() _usuarioId: string | null,
+  ) {
+    return this.appService.obtenerTurnoActivo();
   }
 
   @Get('turnos/activo/resumen')
-  obtenerResumenTurnoActivo(@UsuarioActual() usuarioId: string | null) {
-    return this.appService.obtenerResumenTurnoActivo(usuarioId);
+  obtenerResumenTurnoActivo(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    @UsuarioActual() _usuarioId: string | null,
+  ) {
+    return this.appService.obtenerResumenTurnoActivo();
   }
 
   @Get('turnos/:id/resumen')

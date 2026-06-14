@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
@@ -22,11 +23,13 @@ vi.mock('bcrypt', () => ({
   getRounds: vi.fn().mockReturnValue(12),
 }));
 
-function createMockPrismaService(overrides: Record<string, any> = {}) {
+import { PrismaService } from '../prisma/prisma.service';
+
+function createMockPrismaService(overrides: Record<string, unknown> = {}) {
   const mock = {
     $connect: vi.fn().mockResolvedValue(undefined),
     $disconnect: vi.fn().mockResolvedValue(undefined),
-    $transaction: vi.fn().mockImplementation((fn: (p: any) => Promise<any>) => fn(mock)),
+    $transaction: vi.fn().mockImplementation((fn: (p: unknown) => Promise<unknown>) => fn(mock)),
     // T-31: el lock de admins devuelve filas (no agregado) y se cuenta en aplicación
     $queryRaw: vi.fn().mockResolvedValue([{ id: 'u-001' }, { id: 'u-002' }]),
     usuario: {
@@ -49,7 +52,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       create: vi.fn().mockResolvedValue({}),
     },
     ...overrides,
-  } as any;
+  };
   return mock;
 }
 
@@ -59,7 +62,7 @@ function createMockJwtService() {
     verify: vi
       .fn()
       .mockReturnValue({ sub: 'u-001', email: 'admin@test.com', rol: 'ADMIN' }),
-  } as any;
+  };
 }
 
 function createMockPublisher() {
@@ -70,7 +73,6 @@ describe('AuthService — Identidad', () => {
   let service: AuthService;
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
   let mockJwt: ReturnType<typeof createMockJwtService>;
-  let mockPublisher: ReturnType<typeof createMockPublisher>;
 
   const usuarioBase = {
     id: 'u-001',
@@ -89,9 +91,8 @@ describe('AuthService — Identidad', () => {
     vi.clearAllMocks();
     mockPrisma = createMockPrismaService();
     mockJwt = createMockJwtService();
-    mockPublisher = createMockPublisher();
 
-    service = new AuthService(mockPrisma, mockJwt);
+    service = new AuthService(mockPrisma as unknown as PrismaService, mockJwt as unknown as JwtService);
   });
 
   describe('cambiarRol — T-04', () => {
@@ -110,6 +111,7 @@ describe('AuthService — Identidad', () => {
 
     it('debe lanzar NotFoundException si el usuario no existe', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(null);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
         service.cambiarRol('inexistente', { rol: RolUsuario.MESERO }, 'u-002'),
       ).rejects.toThrow(NotFoundException);
@@ -119,6 +121,7 @@ describe('AuthService — Identidad', () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
       mockPrisma.$queryRaw.mockResolvedValue([{ id: 'u-001' }]);
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
         service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-002'),
       ).rejects.toThrow(ConflictException);
@@ -127,6 +130,7 @@ describe('AuthService — Identidad', () => {
     it('rechaza siempre la auto-degradación — T-04', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
         service.cambiarRol('u-001', { rol: RolUsuario.MESERO }, 'u-001'),
       ).rejects.toThrow(ConflictException);
@@ -176,7 +180,7 @@ describe('AuthService — Identidad', () => {
       await expect(service.login({ email: 'admin@nachopps.com', password: 'mal' }))
         .rejects.toThrow(UnauthorizedException);
 
-      const updateCall = mockPrisma.usuario.update.mock.calls[0][0];
+      const updateCall = mockPrisma.usuario.update.mock.calls[0][0] as { data: { lockedUntil: Date } };
       expect(updateCall.data.lockedUntil).toBeInstanceOf(Date);
       expect(updateCall.data.lockedUntil.getTime()).toBeGreaterThan(Date.now());
     });
@@ -193,7 +197,7 @@ describe('AuthService — Identidad', () => {
       await service.login({ email: 'admin@nachopps.com', password: 'ok' });
 
       const resetCall = mockPrisma.usuario.update.mock.calls.find(
-        (c: any) => c[0].data.failedLoginAttempts === 0,
+        (c: [{ data: { failedLoginAttempts: number } }]) => c[0].data.failedLoginAttempts === 0,
       );
       expect(resetCall[0].data).toMatchObject({ failedLoginAttempts: 0, lockedUntil: null });
     });
@@ -248,7 +252,7 @@ describe('AuthService — Identidad', () => {
       // el hash dejaría una credencial que ya no coincide con la contraseña.
       expect(bcrypt.hash).toHaveBeenCalledWith('ok', 12);
       const rehashCall = mockPrisma.usuario.update.mock.calls.find(
-        (c: any) => c[0].data.password === 'hash-costo-12',
+        (c: [{ data: { password: string } }]) => c[0].data.password === 'hash-costo-12',
       );
       expect(rehashCall).toBeTruthy();
     });
@@ -306,6 +310,7 @@ describe('AuthService — Identidad', () => {
 
     it('debe lanzar ConflictException si el email ya existe', async () => {
       mockPrisma.usuario.findUnique.mockResolvedValue(usuarioBase);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(
         service.crearUsuario({
           nombre: 'Duplicado',
@@ -337,7 +342,7 @@ describe('AuthService — Identidad', () => {
       const r = await service.issueRefreshToken('u-001');
       expect(typeof r.token).toBe('string');
       expect(r.token.length).toBeGreaterThan(20);
-      const arg = mockPrisma.refreshToken.create.mock.calls[0][0];
+      const arg = mockPrisma.refreshToken.create.mock.calls[0][0] as { data: { userId: string, tokenHash: string, expiresAt: Date } };
       expect(arg.data.userId).toBe('u-001');
       expect(arg.data.tokenHash).toMatch(/^[a-f0-9]{64}$/);
       expect(arg.data.tokenHash).not.toBe(r.token);
@@ -397,13 +402,13 @@ describe('AuthService — Identidad', () => {
         service.rotateRefreshToken('raw-token'),
       ]);
 
-      const exitosos = resultados.filter((r) => r.status === 'fulfilled');
-      const rechazados = resultados.filter((r) => r.status === 'rejected');
+      const exitosos = resultados.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof service.rotateRefreshToken>>> => r.status === 'fulfilled');
+      const rechazados = resultados.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
       expect(exitosos).toHaveLength(1);
       expect(rechazados).toHaveLength(1);
-      expect((rechazados[0] as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedException);
+      expect(rechazados[0].reason).toBeInstanceOf(UnauthorizedException);
 
-      const refreshGanador = (exitosos[0] as PromiseFulfilledResult<Awaited<ReturnType<typeof service.rotateRefreshToken>>>).value.refresh;
+      const refreshGanador = exitosos[0].value.refresh;
       mockPrisma.refreshToken.findUnique.mockResolvedValueOnce({
         id: 'rt-2',
         userId: 'u-001',
@@ -413,10 +418,13 @@ describe('AuthService — Identidad', () => {
       mockPrisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-3' });
       mockPrisma.refreshToken.updateMany.mockResolvedValueOnce({ count: 1 });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       await expect(service.rotateRefreshToken(refreshGanador.token)).resolves.toEqual(
         expect.objectContaining({
           access_token: 'fake-access-token',
-          refresh: expect.objectContaining({ token: expect.any(String) }),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          refresh: expect.objectContaining({ token: expect.any(String) as unknown }),
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           usuario: expect.objectContaining({ id: 'u-001' }),
         }),
       );

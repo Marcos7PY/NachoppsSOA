@@ -62,7 +62,7 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
           };
         },
       );
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: USUARIOS_QUERY_KEY,
         exact: false,
         refetchType: 'active',
@@ -76,7 +76,7 @@ export function useUsuariosQuery(filters: UsuariosFilters = {}) {
       return mapUsuario(dto);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: USUARIOS_QUERY_KEY,
         exact: false,
         refetchType: 'active',

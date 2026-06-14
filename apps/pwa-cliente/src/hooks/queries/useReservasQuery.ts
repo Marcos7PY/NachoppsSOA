@@ -63,7 +63,7 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
           };
         },
       );
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: RESERVAS_QUERY_KEY,
         exact: false,
         refetchType: 'active',
@@ -77,7 +77,7 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
       return mapReserva(dto);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: RESERVAS_QUERY_KEY,
         exact: false,
         refetchType: 'active',
@@ -91,7 +91,7 @@ export function useReservasQuery(filters: ReservasFilters = {}) {
       return mapReserva(dto);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: RESERVAS_QUERY_KEY,
         exact: false,
         refetchType: 'active',

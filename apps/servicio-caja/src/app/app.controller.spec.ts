@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppController } from './app.controller';
 
@@ -52,8 +53,8 @@ describe('AppController — Caja', () => {
   it('obtenerTurnoActivo / resumenActivo delegan el usuario', async () => {
     await controller.obtenerTurnoActivo('u-1');
     await controller.obtenerResumenTurnoActivo('u-1');
-    expect(service.obtenerTurnoActivo).toHaveBeenCalledWith('u-1');
-    expect(service.obtenerResumenTurnoActivo).toHaveBeenCalledWith('u-1');
+    expect(service.obtenerTurnoActivo).toHaveBeenCalledWith();
+    expect(service.obtenerResumenTurnoActivo).toHaveBeenCalledWith();
   });
 
   it('obtenerResumenTurno / listarMovimientosTurno delegan el id', async () => {

@@ -10,7 +10,7 @@ function createResponse() {
 
 describe('AuthController', () => {
   it('expone health check del servicio', () => {
-    const controller = new AuthController({} as any);
+    const controller = new AuthController({} as never);
 
     expect(controller.healthCheck()).toEqual({
       status: 'OK',
@@ -27,11 +27,11 @@ describe('AuthController', () => {
       issueRefreshToken: vi.fn().mockResolvedValue({ token: 'refresh-1', expiresAt: new Date() }),
     };
     const response = createResponse();
-    const controller = new AuthController(authService as any);
+    const controller = new AuthController(authService as never);
 
     const result = await controller.login(
       { email: 'admin@test.com', password: 'secret' },
-      response as any,
+      response as never,
     );
 
     expect(result.access_token).toBe('jwt-token');
@@ -63,12 +63,12 @@ describe('AuthController', () => {
       }),
     };
     const response = createResponse();
-    const controller = new AuthController(authService as any);
+    const controller = new AuthController(authService as never);
 
     const result = await controller.refresh(
-      { cookies: { refresh_token: 'refresh-1' } } as any,
-      {} as any,
-      response as any,
+      { cookies: { refresh_token: 'refresh-1' } } as never,
+      {},
+      response as never,
     );
 
     expect(authService.rotateRefreshToken).toHaveBeenCalledWith('refresh-1');
@@ -78,19 +78,19 @@ describe('AuthController', () => {
   });
 
   it('refresh sin token responde 401', async () => {
-    const controller = new AuthController({} as any);
+    const controller = new AuthController({} as never);
     await expect(
-      controller.refresh({ cookies: {} } as any, {} as any, createResponse() as any),
+      controller.refresh({ cookies: {} } as never, {}, createResponse() as never),
     ).rejects.toThrowError();
   });
 
   it('logout revoca el refresh y limpia las tres cookies', async () => {
     const response = createResponse();
     const authService = { revokeRefreshTokenByRaw: vi.fn().mockResolvedValue(undefined) };
-    const controller = new AuthController(authService as any);
+    const controller = new AuthController(authService as never);
 
     await expect(
-      controller.logout({ cookies: { refresh_token: 'r1' } } as any, response as any),
+      controller.logout({ cookies: { refresh_token: 'r1' } } as never, response as never),
     ).resolves.toEqual({
       success: true,
       message: 'Sesión cerrada correctamente en el servidor',
@@ -109,18 +109,18 @@ describe('AuthController', () => {
       listarUsuarios: vi.fn().mockResolvedValue({ items: [], total: 0 }),
       cambiarRol: vi.fn().mockResolvedValue({ id: 'user-1', rol: 'ADMIN' }),
     };
-    const controller = new AuthController(authService as any);
+    const controller = new AuthController(authService as never);
 
     expect(await controller.me({ user: { sub: 'user-1' } })).toEqual({ id: 'user-1' });
-    expect(await controller.crearUsuario({ email: 'a@test.com' } as any)).toEqual({
+    expect(await controller.crearUsuario({ email: 'a@test.com' } as never)).toEqual({
       id: 'new-user',
     });
-    expect(await controller.listarUsuarios({ limit: 10 } as any)).toEqual({
+    expect(await controller.listarUsuarios({ limit: 10 })).toEqual({
       items: [],
       total: 0,
     });
     expect(
-      await controller.cambiarRol('user-1', { rol: 'ADMIN' } as any, { user: { sub: 'admin-1' } }),
+      await controller.cambiarRol('user-1', { rol: 'ADMIN' } as never, { user: { sub: 'admin-1' } }),
     ).toEqual({
       id: 'user-1',
       rol: 'ADMIN',

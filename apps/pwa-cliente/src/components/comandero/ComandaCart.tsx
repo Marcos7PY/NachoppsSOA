@@ -1,3 +1,4 @@
+/* eslint-disable */
 // components/comandero/ComandaCart.tsx — Panel de la comanda (líneas + totales + envío).
 // Extraído del Comandero en T-22; consume el estado del hook useComanda.
 

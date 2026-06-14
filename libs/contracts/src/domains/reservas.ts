@@ -89,7 +89,7 @@ export class CrearReservaCommand {
 
   @IsOptional()
   @IsString()
-  @Transform(({ obj, value }) => value ?? obj.nombreCliente)
+  @Transform(({ obj, value }) => (value as string | undefined) ?? (obj as { nombreCliente?: string }).nombreCliente)
   clienteNombre?: string;
 
   @IsOptional()
@@ -110,7 +110,7 @@ export class CrearReservaCommand {
 
   @IsOptional()
   @IsNumber()
-  @Transform(({ obj, value }) => value ?? obj.personas)
+  @Transform(({ obj, value }) => (value as number | undefined) ?? (obj as { personas?: number }).personas)
   numComensales?: number;
 }
 

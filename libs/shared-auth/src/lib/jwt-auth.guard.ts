@@ -13,7 +13,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   override async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request & { cookies?: Record<string, string> }>();
     if (
       request.path === '/api/telemetry/metrics' ||
       request.path === '/telemetry/metrics'
@@ -28,15 +28,14 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return authenticated;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
+  override handleRequest<TUser = any>(err: unknown, user: unknown): TUser {
     if (err || !user) {
       throw new UnauthorizedException('Token inválido o expirado');
     }
-    return user;
+    return user as TUser;
   }
 
-  private assertCsrfToken(request: Request) {
+  private assertCsrfToken(request: Request & { cookies?: Record<string, string> }) {
     if (SAFE_METHODS.has(String(request.method).toUpperCase())) return;
 
     const authorization = request.headers?.authorization;
@@ -46,7 +45,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     )
       return;
 
-    const cookieToken = request.cookies?.['nachopps.csrf_token'];
+    const cookieToken = request.cookies?.['nachopps.csrf_token'] as string | undefined;
     const headerToken = request.headers?.['x-csrf-token'];
     const normalizedHeader = Array.isArray(headerToken)
       ? headerToken[0]

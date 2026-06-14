@@ -1,16 +1,30 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
 import { CuentaEstado, PedidoEstado } from '@org/contracts';
 
-function createMockPrismaService(overrides: Record<string, any> = {}) {
+import { PrismaService } from '../prisma/prisma.service';
+
+function createMockPrismaService() {
   const mock = {
-    $connect: async () => {},
-    $disconnect: async () => {},
-    $transaction: vi.fn(async (cb: any) => cb(mock)),
-    checkAndRecordIdempotencyKey: async (_key: string) => true,
-    ...overrides,
+    $connect: () => Promise.resolve(),
+    $disconnect: () => Promise.resolve(),
+    $transaction: vi.fn((cb: (m: unknown) => unknown) => cb(mock)),
+    checkAndRecordIdempotencyKey: () => Promise.resolve(true),
+    cuenta: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    outboxEvent: {
+      create: vi.fn(),
+      createMany: vi.fn(),
+    },
+    $executeRaw: vi.fn(),
   };
-  return mock as any;
+  return mock;
 }
 
 describe('AppService — Cuentas', () => {
@@ -18,22 +32,9 @@ describe('AppService — Cuentas', () => {
   let mockPrisma: ReturnType<typeof createMockPrismaService>;
 
   beforeEach(() => {
-    mockPrisma = createMockPrismaService({
-      cuenta: {
-        findUnique: vi.fn(),
-        findFirst: vi.fn(),
-        create: vi.fn(),
-        update: vi.fn(),
-        updateMany: vi.fn(),
-      },
-      outboxEvent: {
-        create: vi.fn(),
-        createMany: vi.fn(),
-      },
-      $executeRaw: vi.fn(),
-    });
+    mockPrisma = createMockPrismaService();
 
-    service = new AppService(mockPrisma as any);
+    service = new AppService(mockPrisma as unknown as PrismaService);
   });
 
   describe('abrirCuenta', () => {
@@ -102,11 +103,11 @@ describe('AppService — Cuentas', () => {
         mesaId: 'm-001',
         total: 150,
         pedidos: [
-          { id: 'p-1', total: 150, items: [{ precioUnitario: 50, cantidad: 3 }] } as any
+          { id: 'p-1', total: 150, items: [{ precioUnitario: 50, cantidad: 3 }] } as unknown as PedidoEstado
         ],
         createdAt: new Date(),
         updatedAt: new Date(),
-      } as any);
+      } as unknown as CuentaEstado);
 
       const result = await service.dividirCuenta('c-001', { metodo: 'IGUALES', numPartes: 3 });
 
@@ -146,6 +147,7 @@ describe('AppService — Cuentas', () => {
       expect(result.ticket.total).toBe(50);
       expect(mockPrisma.cuenta.updateMany).toHaveBeenCalledWith({
         where: { id: 'c-001', estado: CuentaEstado.Abierta },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           estado: CuentaEstado.Cerrada,
           total: expect.anything(),
@@ -175,8 +177,8 @@ describe('AppService — Cuentas', () => {
 
       await service.cerrarCuenta('c-001', {});
 
-      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data;
-      const cuentaCerrada = eventos.find((e: any) => e.routingKey === 'cuenta.cerrada');
+      const eventos = mockPrisma.outboxEvent.createMany.mock.calls.at(-1)[0].data as { routingKey: string, payload: string }[];
+      const cuentaCerrada = eventos.find((e: { routingKey: string }) => e.routingKey === 'cuenta.cerrada');
       const payload = JSON.parse(cuentaCerrada.payload);
       expect(payload).toEqual(expect.objectContaining({
         meseroId: 'u-mesero-1',
@@ -219,6 +221,7 @@ describe('AppService — Cuentas', () => {
 
       expect(mockPrisma.cuenta.update).toHaveBeenCalledWith({
         where: { id: 'c-001' },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           pedidos: [pedido],
           total: expect.anything(),
@@ -241,6 +244,7 @@ describe('AppService — Cuentas', () => {
 
       expect(mockPrisma.cuenta.update).toHaveBeenCalledWith({
         where: { id: 'c-001' },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           pedidos: [pedidoActualizado],
           total: expect.anything(),
@@ -261,7 +265,7 @@ describe('AppService — Cuentas', () => {
 
       await service.procesarPedidoActualizado({ pedido: pedidoCancelado });
 
-      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data as { pedidos: unknown[], total: { toNumber: () => number } };
       expect(data.pedidos).toEqual([{ ...pedido, total: 50 }, pedidoCancelado]);
       expect(data.total.toNumber()).toBe(50);
     });
@@ -279,7 +283,7 @@ describe('AppService — Cuentas', () => {
 
       await service.procesarPedidoActualizado({ pedido: pedidoRechazado });
 
-      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data as { total: { toNumber: () => number } };
       expect(data.total.toNumber()).toBe(0);
     });
 
@@ -296,7 +300,7 @@ describe('AppService — Cuentas', () => {
 
       await service.procesarPedidoActualizado({ pedido: pedidoParcial });
 
-      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data;
+      const data = mockPrisma.cuenta.update.mock.calls.at(-1)[0].data as { total: { toNumber: () => number } };
       expect(data.total.toNumber()).toBe(30);
     });
 
@@ -316,7 +320,7 @@ describe('AppService — Cuentas', () => {
         pedidos: [pedido],
         total: 50,
       });
-      const cerrarCuenta = vi.spyOn(service, 'cerrarCuenta').mockResolvedValue({ message: 'ok', ticket: {} as any });
+      const cerrarCuenta = vi.spyOn(service, 'cerrarCuenta').mockResolvedValue({ message: 'ok', ticket: {} as unknown } as never);
 
       await service.procesarPagoRegistrado({
         transaccionId: 'tx-001',

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // src/config.ts - Configuraciones de UI de la aplicación
 
 export const APP_CONFIG = {

@@ -1,4 +1,6 @@
-﻿import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+/* eslint-disable */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 
 // T-33: neutralizar el breaker en los specs del servicio (igual que en caja);
@@ -18,12 +20,13 @@ import { PedidosSagaService } from './pedidos-saga.service';
 import { PedidoEstado } from '@org/contracts';
 
 function createMockPrismaService(overrides: Record<string, any> = {}) {
-  return {
+  const mock = {
     $connect: async () => {},
     $disconnect: async () => {},
     checkAndRecordIdempotencyKey: async (_key: string) => true,
     ...overrides,
-  } as any;
+  };
+  return mock;
 }
 
 function createMockPublisher() {
@@ -91,11 +94,11 @@ describe('AppService — Pedidos', () => {
       outboxEvent: {
         createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
-      $transaction: vi.fn(async (cb: any) => cb(mockPrisma)),
+      $transaction: vi.fn(async (cb: (m: unknown) => unknown) => cb(mockPrisma)),
     });
     mockPublisher = createMockPublisher();
 
-    service = createService(mockPrisma as any, mockPublisher as any);
+    service = createService(mockPrisma as never, mockPublisher as never);
   });
 
   afterEach(() => {
@@ -108,7 +111,7 @@ describe('AppService — Pedidos', () => {
       mockPrisma.mesaLocal.findUnique.mockResolvedValue(mesaLocal);
       const getSpy = vi.spyOn(axios, 'get');
 
-      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      await expect((service as never).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(getSpy).not.toHaveBeenCalled();
     });
 
@@ -118,7 +121,7 @@ describe('AppService — Pedidos', () => {
       mockPrisma.mesaLocal.upsert.mockResolvedValue(mesaLocal);
       vi.spyOn(axios, 'get').mockResolvedValue({ data: { id: 'mesa-1', numero: 1 } });
 
-      await expect((service as any).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
+      await expect((service as never).validarMesa('mesa-1')).resolves.toBe(mesaLocal);
       expect(axios.get).toHaveBeenCalledWith(
         expect.stringContaining('/mesas/mesa-1'),
         expect.objectContaining({
@@ -196,7 +199,7 @@ describe('AppService — Pedidos', () => {
         { ...basePedido, id: 'p-001' },
         { ...basePedido, id: 'p-002' },
         { ...basePedido, id: 'p-003' },
-      ] as any);
+      ] as never);
 
       const result = await service.listarPedidos({ limit: 2 });
 

@@ -152,9 +152,9 @@ export class OutboxProcessor {
           continue;
         }
         try {
-          const payload = JSON.parse(event.payload);
+          const payload = JSON.parse(event.payload) as Record<string, unknown> | null;
           if (this.injectEventId && payload && typeof payload === 'object' && !Array.isArray(payload)) {
-            payload.eventId ??= event.id;
+            payload['eventId'] ??= event.id;
           }
           await this.rabbitmq.publish(routingKey, payload, this.producer);
           await this.prisma.outboxEvent.update({

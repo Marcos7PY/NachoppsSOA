@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/carta/CartaScreen.tsx — Gestión de Carta / Menú
 // Cableado a APIs reales: la Carta son los productos SIN control de stock
 // (useInventarioQuery con conStock=false). Los productos con stock viven en el

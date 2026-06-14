@@ -36,28 +36,28 @@ const cases = [
     routingKey: RoutingKeys.PedidoCreado,
     Payload: PedidoCreadoPayload,
     sample: { pedido: pedidoDto },
-    breakPath: (s: any) => { delete s.pedido.id; },
+    breakPath: (s: { pedido?: { id?: string } }) => { if (s.pedido) delete s.pedido.id; },
   },
   {
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.ProductoActualizado,
     Payload: ProductoActualizadoPayload,
     sample: { id: 'pr1', nombre: 'Hamburguesa', precio: 50, disponible: true, stockActual: 10 },
-    breakPath: (s: any) => { delete s.id; },
+    breakPath: (s: { id?: string }) => { delete s.id; },
   },
   {
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.StockInsuficiente,
     Payload: StockInsuficientePayload,
     sample: { pedidoId: 'p1', productoId: 'pr1', solicitado: 5, disponible: 1 },
-    breakPath: (s: any) => { delete s.pedidoId; },
+    breakPath: (s: { pedidoId?: string }) => { delete s.pedidoId; },
   },
   {
     consumer: 'servicio-pedidos',
     routingKey: RoutingKeys.PagoRegistrado,
     Payload: PagoRegistradoPayload,
     sample: { transaccionId: 't1', cuentaId: 'c1', mesaId: 'm1', monto: 100, metodo: 'EFECTIVO' },
-    breakPath: (s: any) => { delete s.monto; },
+    breakPath: (s: { monto?: number }) => { delete s.monto; },
   },
   {
     // El consumidor lee payload.mesa como MesaDto, así que validamos ese contrato.
@@ -65,7 +65,7 @@ const cases = [
     routingKey: RoutingKeys.MesaCreada,
     Payload: MesaDto,
     sample: { id: 'm1', numero: 1, capacidad: 4, ubicacion: 'SALON', estado: 'LIBRE' },
-    breakPath: (s: any) => { delete s.numero; },
+    breakPath: (s: { numero?: number }) => { delete s.numero; },
   },
 ] as const;
 
@@ -73,7 +73,8 @@ describe('Contract tests — @EventPattern ↔ @org/contracts', () => {
   for (const c of cases) {
     describe(`${c.consumer} consume ${c.routingKey}`, () => {
       it('el golden sample valida contra el contrato', () => {
-        const instance = plainToInstance(c.Payload as any, structuredClone(c.sample), {
+        const PayloadClass = c.Payload as new () => unknown;
+        const instance = plainToInstance(PayloadClass, structuredClone(c.sample), {
           enableImplicitConversion: false,
         });
         const errors = validateSync(instance as object, { whitelist: false });
@@ -81,9 +82,10 @@ describe('Contract tests — @EventPattern ↔ @org/contracts', () => {
       });
 
       it('un payload que rompe el contrato falla la validación', () => {
-        const bad = structuredClone(c.sample) as any;
+        const bad = structuredClone(c.sample);
         c.breakPath(bad);
-        const instance = plainToInstance(c.Payload as any, bad);
+        const PayloadClass = c.Payload as new () => unknown;
+        const instance = plainToInstance(PayloadClass, bad);
         const errors = validateSync(instance as object);
         expect(errors.length).toBeGreaterThan(0);
       });

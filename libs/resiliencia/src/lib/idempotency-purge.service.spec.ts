@@ -10,13 +10,14 @@ function createService(config?: { retencionDias?: number }) {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
   };
-  return { db, service: new IdempotencyPurgeService(db as any, config) };
+  return { db, service: new IdempotencyPurgeService(db, config) };
 }
 
 describe('IdempotencyPurgeService', () => {
   it('purgarIdempotencyKeys corre cada hora', () => {
-    const meta = (Reflect as any).getMetadata(
+    const meta = (Reflect as { getMetadata?: (k: string, t: unknown) => unknown }).getMetadata?.(
       CRON_OPTIONS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       IdempotencyPurgeService.prototype.purgarIdempotencyKeys,
     );
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_HOUR });
@@ -29,7 +30,7 @@ describe('IdempotencyPurgeService', () => {
     await service.purgarIdempotencyKeys();
 
     expect(db.idempotencyKey.deleteMany).toHaveBeenCalledTimes(1);
-    const cutoff: Date = db.idempotencyKey.deleteMany.mock.calls[0][0].where.createdAt.lt;
+    const cutoff: Date = (db.idempotencyKey.deleteMany.mock.calls[0][0] as { where: { createdAt: { lt: Date } } }).where.createdAt.lt;
     // El cutoff debe situarse ~7 días atrás (tolerancia de unos segundos).
     expect(Math.abs(cutoff.getTime() - antes)).toBeLessThan(5000);
   });
@@ -40,7 +41,7 @@ describe('IdempotencyPurgeService', () => {
 
     await service.purgarIdempotencyKeys();
 
-    const cutoff: Date = db.idempotencyKey.deleteMany.mock.calls[0][0].where.createdAt.lt;
+    const cutoff: Date = (db.idempotencyKey.deleteMany.mock.calls[0][0] as { where: { createdAt: { lt: Date } } }).where.createdAt.lt;
     expect(Math.abs(cutoff.getTime() - antes)).toBeLessThan(5000);
   });
 

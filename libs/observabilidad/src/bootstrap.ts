@@ -20,7 +20,7 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { buildHelmetOptions } from '@org/shared-auth';
 import { GlobalExceptionFilter } from './lib/global-exception.filter';
-import cookieParser = require('cookie-parser');
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 export interface BootstrapSwaggerConfig {

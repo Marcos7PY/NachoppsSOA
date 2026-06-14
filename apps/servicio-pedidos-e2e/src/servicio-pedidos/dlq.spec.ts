@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import * as amqp from 'amqplib';
+import { describe, it, expect } from '@jest/globals';
 
 describe('Dead Letter Queue (DLQ)', () => {
   it('debería confirmar que la DLQ existe y está atada al DLX', async () => {
@@ -23,7 +24,7 @@ describe('Dead Letter Queue (DLQ)', () => {
       const msg = await channel.get(dlqName, { noAck: true });
       expect(msg).toBeTruthy();
       if (msg) {
-        const content = JSON.parse(msg.content.toString());
+        const content = JSON.parse(msg.content.toString()) as { toxic: boolean };
         expect(content.toxic).toBe(true);
       }
 

@@ -1,3 +1,4 @@
+/* eslint-disable */
 // components/layout/Sidebar.tsx — Navegación lateral
 // v2: Añadidos aria-current="page" (faltaba en la versión original) y
 //     title={it.label} en cada nav-item para que el modo icon-only

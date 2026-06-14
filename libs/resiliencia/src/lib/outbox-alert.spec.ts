@@ -15,7 +15,7 @@ afterEach(() => {
 describe('notifyOutboxFailed — sin SLACK_WEBHOOK_URL', () => {
   it('no lanza y no llama fetch cuando SLACK_WEBHOOK_URL no está definida', async () => {
     delete process.env.SLACK_WEBHOOK_URL;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response);
 
     await expect(notifyOutboxFailed('servicio-pedidos', 'evt-1', 'pedido.creado', 5)).resolves.toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -27,7 +27,7 @@ describe('notifyOutboxFailed — sin SLACK_WEBHOOK_URL', () => {
 describe('notifyOutboxFailed — con SLACK_WEBHOOK_URL', () => {
   it('llama fetch con la URL del webhook', async () => {
     process.env.SLACK_WEBHOOK_URL = WEBHOOK_URL;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response);
 
     await notifyOutboxFailed('servicio-pedidos', 'evt-1', 'pedido.creado', 5);
 
@@ -39,7 +39,7 @@ describe('notifyOutboxFailed — con SLACK_WEBHOOK_URL', () => {
 
   it('envía Content-Type application/json', async () => {
     process.env.SLACK_WEBHOOK_URL = WEBHOOK_URL;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response);
 
     await notifyOutboxFailed('servicio-pedidos', 'evt-1', 'pedido.creado', 5);
 
@@ -49,12 +49,12 @@ describe('notifyOutboxFailed — con SLACK_WEBHOOK_URL', () => {
 
   it('el body contiene el producer, eventId, routingKey y attempts', async () => {
     process.env.SLACK_WEBHOOK_URL = WEBHOOK_URL;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response);
 
     await notifyOutboxFailed('servicio-pedidos', 'evt-abc', 'pedido.creado', 3);
 
     const [, init] = fetchSpy.mock.calls[0];
-    const body = JSON.parse((init as RequestInit).body as string);
+    const body = JSON.parse((init as RequestInit).body as string) as { text?: string };
     expect(body.text).toContain('servicio-pedidos');
     expect(body.text).toContain('evt-abc');
     expect(body.text).toContain('pedido.creado');
@@ -63,12 +63,12 @@ describe('notifyOutboxFailed — con SLACK_WEBHOOK_URL', () => {
 
   it('el body incluye la URL de retry del endpoint', async () => {
     process.env.SLACK_WEBHOOK_URL = WEBHOOK_URL;
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as unknown as Response);
 
     await notifyOutboxFailed('servicio-pedidos', 'evt-retry', 'pedido.creado', 5);
 
     const [, init] = fetchSpy.mock.calls[0];
-    const body = JSON.parse((init as RequestInit).body as string);
+    const body = JSON.parse((init as RequestInit).body as string) as { text?: string };
     // El endpoint de retry reemplaza 'servicio-' por '' para el path
     expect(body.text).toContain('pedidos/outbox/evt-retry/retry');
   });
@@ -84,7 +84,7 @@ describe('notifyOutboxFailed — con SLACK_WEBHOOK_URL', () => {
 
   it('retorna undefined (fire-and-forget, sin valor de retorno)', async () => {
     process.env.SLACK_WEBHOOK_URL = WEBHOOK_URL;
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as any);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as Response);
 
     const result = await notifyOutboxFailed('servicio-mesas', 'evt-2', 'mesa.liberada', 2);
     expect(result).toBeUndefined();

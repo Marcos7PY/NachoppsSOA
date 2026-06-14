@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 // utils/theme.ts — sincroniza la <meta name="theme-color"> con el tema activo,
 // para que la barra del navegador / status bar móvil coincida con la app.
 

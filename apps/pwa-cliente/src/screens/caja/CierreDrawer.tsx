@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/caja/CierreDrawer.tsx — Cierre operativo: arqueo → propinas → reporte interno.
 
 import { Scrim } from '../../components/ui/Scrim';

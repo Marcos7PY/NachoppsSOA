@@ -2,8 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReservasService } from './reservas.service';
 import { ReservaEstado, RoutingKeys } from '@org/contracts';
 
-function createMockPrismaService(overrides: Record<string, any> = {}) {
-  return { ...overrides } as any;
+import { PrismaService } from '../prisma/prisma.service';
+
+type MockPrismaService = {
+  reserva: {
+    findMany: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
+  };
+  outboxEvent: {
+    create: ReturnType<typeof vi.fn>;
+  };
+  $transaction: ReturnType<typeof vi.fn>;
+};
+
+function createMockPrismaService(overrides: Record<string, unknown> = {}) {
+  return { ...overrides } as unknown as MockPrismaService;
 }
 
 describe('ReservasService — Reservas', () => {
@@ -37,8 +53,8 @@ describe('ReservasService — Reservas', () => {
         create: vi.fn(),
       },
     });
-    mockPrisma.$transaction = vi.fn(async (callback) => callback(mockPrisma));
-    service = new ReservasService(mockPrisma);
+    mockPrisma.$transaction = vi.fn((callback: unknown) => Promise.resolve((callback as (arg: unknown) => unknown)(mockPrisma)));
+    service = new ReservasService(mockPrisma as unknown as PrismaService);
   });
 
   describe('listar', () => {
@@ -119,7 +135,7 @@ describe('ReservasService — Reservas', () => {
         data: expect.objectContaining({
           routingKey: RoutingKeys.ReservaCreada,
           status: 'PENDING',
-        }),
+        }) as unknown,
       });
     });
 
@@ -249,7 +265,7 @@ describe('ReservasService — Reservas', () => {
           routingKey: RoutingKeys.ReservaCancelada,
           payload: JSON.stringify({ reservaId: 'r-001', motivo: 'Cliente cancelo' }),
           status: 'PENDING',
-        }),
+        }) as unknown,
       });
     });
 

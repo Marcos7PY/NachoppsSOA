@@ -49,13 +49,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') return next.handle();
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<{ method: string; url: string; headers: Record<string, string | string[] | undefined>; route?: { path: string }; body?: unknown }>();
     if (req.method !== 'POST') return next.handle();
 
     const headerKey = req.headers['idempotency-key'];
     if (!headerKey || typeof headerKey !== 'string') return next.handle();
 
-    const res = context.switchToHttp().getResponse();
+    const res = context.switchToHttp().getResponse<{ statusCode?: number; status: (code: number) => unknown }>();
     const routePath = req.route?.path ?? req.url;
     const key = `http:${req.method}:${routePath}:${headerKey}`;
     const requestHash = createHash('sha256')
@@ -100,7 +100,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     res: { statusCode?: number; status: (code: number) => unknown },
   ): Promise<unknown> {
     try {
-      const result = await lastValueFrom(next.handle());
+      const result = (await lastValueFrom(next.handle())) as unknown;
       // En POST el status real (201) lo fija Nest tras el interceptor; aquí solo
       // está el 200 por defecto, así que normalizamos a 201 para el replay.
       const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 201;

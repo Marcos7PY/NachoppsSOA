@@ -57,10 +57,10 @@ export class NotificationsGateway
       if (!token) throw new Error('missing token');
 
       const user = (await this.verifyToken(token)) as { rol?: string };
-      client.data.user = user;
+      (client.data as Record<string, unknown>).user = user;
       // T-19: unir al room por rol para emisión dirigida en vez de broadcast global.
       if (user?.rol) {
-        client.join(wsRoomForRole(user.rol));
+        await client.join(wsRoomForRole(user.rol));
       }
       this.logger.log(`Cliente KDS conectado: ${client.id} (rol:${user?.rol ?? '?'})`);
     } catch {
@@ -115,12 +115,12 @@ export class NotificationsGateway
 
   private readAlg(token: string): string | undefined {
     const headerB64 = token.split('.')[0];
-    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
-    return header?.alg;
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8')) as Record<string, unknown>;
+    return header?.['alg'] as string | undefined;
   }
 
   private extractToken(client: Socket): string | undefined {
-    const authToken = client.handshake.auth?.token;
+    const authToken = client.handshake.auth?.['token'] as unknown;
     if (typeof authToken === 'string' && authToken.length > 0) return authToken;
 
     const cookieHeader = client.handshake.headers.cookie ?? '';

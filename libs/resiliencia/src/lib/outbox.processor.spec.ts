@@ -12,6 +12,10 @@ vi.mock('./outbox-alert', () => ({
   notifyOutboxFailed: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('@org/contracts', () => ({
+  isRoutingKey: (k: string) => k !== 'evento.inexistente',
+}));
+
 import { OutboxProcessor, OutboxProcessorConfig } from './outbox.processor';
 import { notifyOutboxFailed } from './outbox-alert';
 
@@ -45,7 +49,7 @@ function createProcessor(config: Partial<OutboxProcessorConfig> = {}) {
   return {
     prisma,
     rabbitmq,
-    processor: new OutboxProcessor(prisma as any, rabbitmq as any, { producer: PRODUCER, ...config }),
+    processor: new OutboxProcessor(prisma as import('./outbox.processor').OutboxProcessorDb, rabbitmq as unknown as import('@org/shared-rabbitmq').RabbitMQPublisherService, { producer: PRODUCER, ...config }),
   };
 }
 
@@ -53,22 +57,26 @@ function createProcessor(config: Partial<OutboxProcessorConfig> = {}) {
 
 describe('OutboxProcessor — metadatos de cron', () => {
   it('processOutboxEvents corre cada segundo', () => {
-    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.processOutboxEvents);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const meta = (Reflect as { getMetadata?: (k: string, t: unknown) => unknown }).getMetadata?.(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.processOutboxEvents);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_SECOND });
   });
 
   it('refreshOutboxMetrics corre cada 10 segundos', () => {
-    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.refreshOutboxMetrics);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const meta = (Reflect as { getMetadata?: (k: string, t: unknown) => unknown }).getMetadata?.(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.refreshOutboxMetrics);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_10_SECONDS });
   });
 
   it('purgarOutbox corre cada hora', () => {
-    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.purgarOutbox);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const meta = (Reflect as { getMetadata?: (k: string, t: unknown) => unknown }).getMetadata?.(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.purgarOutbox);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_HOUR });
   });
 
   it('rescatarPublishing corre cada minuto', () => {
-    const meta = (Reflect as any).getMetadata(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.rescatarPublishing);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const meta = (Reflect as { getMetadata?: (k: string, t: unknown) => unknown }).getMetadata?.(CRON_OPTIONS_METADATA, OutboxProcessor.prototype.rescatarPublishing);
     expect(meta).toMatchObject({ cronTime: CronExpression.EVERY_MINUTE });
   });
 });
@@ -117,7 +125,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
     await processor.processOutboxEvents();
 
     expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
-    const sql: string = prisma.$queryRawUnsafe.mock.calls[0][0];
+    const sql = String(prisma.$queryRawUnsafe.mock.calls[0][0]);
     expect(sql).toContain('FOR UPDATE SKIP LOCKED');
     expect(sql).toContain("SET status = 'PUBLISHING'");
     expect(sql).toContain('LIMIT 50');
@@ -127,7 +135,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
   it('batchSize configurable cambia el LIMIT del claim', async () => {
     const { prisma, processor } = createProcessor({ batchSize: 10 });
     await processor.processOutboxEvents();
-    expect(prisma.$queryRawUnsafe.mock.calls[0][0]).toContain('LIMIT 10');
+    expect(String(prisma.$queryRawUnsafe.mock.calls[0][0])).toContain('LIMIT 10');
   });
 
   it('publica el evento reclamado y lo marca PROCESSED', async () => {
@@ -224,7 +232,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
   it('bloqueo concurrente: segunda llamada vuelve sin reclamar', async () => {
     const { prisma, processor } = createProcessor();
-    (processor as any).isProcessing = true;
+    (processor as unknown as { isProcessing: boolean }).isProcessing = true;
 
     await processor.processOutboxEvents();
 
@@ -244,7 +252,7 @@ describe('OutboxProcessor — processOutboxEvents', () => {
 
     await processor.processOutboxEvents();
 
-    expect((processor as any).isProcessing).toBe(false);
+    expect((processor as unknown as { isProcessing: boolean }).isProcessing).toBe(false);
   });
 });
 
@@ -258,7 +266,7 @@ describe('OutboxProcessor — rescatarPublishing', () => {
     await processor.rescatarPublishing();
 
     expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-    const sql: string = prisma.$executeRawUnsafe.mock.calls[0][0];
+    const sql = String(prisma.$executeRawUnsafe.mock.calls[0][0]);
     expect(sql).toContain("status = 'PUBLISHING'");
     expect(sql).toContain("SET status = 'PENDING'");
     expect(sql).toContain("interval '60 seconds'");
@@ -282,9 +290,11 @@ describe('OutboxProcessor — purgarOutbox', () => {
     await processor.purgarOutbox();
 
     expect(prisma.outboxEvent.deleteMany).toHaveBeenCalledTimes(2);
-    const calls = prisma.outboxEvent.deleteMany.mock.calls;
+    const calls = prisma.outboxEvent.deleteMany.mock.calls as [{ where: { createdAt: { lt: Date } } }][];
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     expect(calls[0][0]).toMatchObject({ where: { status: 'PROCESSED', createdAt: { lt: expect.any(Date) } } });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     expect(calls[1][0]).toMatchObject({ where: { status: 'FAILED', createdAt: { lt: expect.any(Date) } } });
 
     // La retención FAILED (168h) debe ser mayor que la de PROCESSED (24h)

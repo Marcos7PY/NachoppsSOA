@@ -14,8 +14,9 @@ interface NotificacionEvento {
   data?: unknown;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
-const WS_PATH = import.meta.env.VITE_WS_PATH ?? '/notificaciones/socket.io';
+const env = (import.meta as unknown as { env: Record<string, string> }).env;
+const BASE_URL = env['VITE_API_BASE_URL'] ?? 'http://localhost:8000';
+const WS_PATH = env['VITE_WS_PATH'] ?? '/notificaciones/socket.io';
 
 let socket: Socket | null = null;
 const pendingInvalidations = new Set<string>();
@@ -51,28 +52,28 @@ function storesForPattern(pattern?: string) {
 
 function invalidateStores(stores: Set<StoreKey>) {
   if (stores.has('pedidos')) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: PEDIDOS_QUERY_KEY,
       exact: false,
       refetchType: 'active',
     });
   }
   if (stores.has('mesas')) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: MESAS_QUERY_KEY,
       exact: false,
       refetchType: 'active',
     });
   }
   if (stores.has('cuentas')) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: CUENTAS_QUERY_KEY,
       exact: false,
       refetchType: 'active',
     });
   }
   if (stores.has('caja')) {
-    queryClient.invalidateQueries({
+    void queryClient.invalidateQueries({
       queryKey: CAJA_QUERY_KEY,
       exact: false,
       refetchType: 'active',

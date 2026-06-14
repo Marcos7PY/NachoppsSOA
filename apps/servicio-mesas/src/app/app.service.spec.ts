@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/require-await, @typescript-eslint/no-unused-vars, @typescript-eslint/no-unnecessary-type-assertion */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppService } from './app.service';
 import { MesaEstado } from '@org/contracts';
@@ -16,7 +17,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       create: vi.fn(),
       createMany: vi.fn(),
     },
-    $transaction: vi.fn((cb: any) => cb(mock)),
+    $transaction: vi.fn((cb: (m: unknown) => unknown) => cb(mock)),
     ...overrides,
   };
   return mock as any;
@@ -77,7 +78,7 @@ describe('AppService — Mesas', () => {
       const mesaOcupada = { ...mesaBase, estado: MesaEstado.Ocupada };
       mockPrisma.mesa.findUnique.mockResolvedValueOnce(mesaBase);
       // $transaction callback
-      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+      mockPrisma.$transaction.mockImplementation(async (cb: (m: unknown) => unknown) => {
         const txMock = {
           ...mockPrisma,
           mesa: {
@@ -109,7 +110,7 @@ describe('AppService — Mesas', () => {
 
     it('lanza ConflictException cuando updateMany devuelve count=0 (escritura concurrente)', async () => {
       mockPrisma.mesa.findUnique.mockResolvedValue(mesaBase);
-      mockPrisma.$transaction.mockImplementation(async (cb: any) => {
+      mockPrisma.$transaction.mockImplementation(async (cb: (m: unknown) => unknown) => {
         const txMock = {
           ...mockPrisma,
           mesa: {
