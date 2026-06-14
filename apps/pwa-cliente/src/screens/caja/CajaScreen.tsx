@@ -155,20 +155,32 @@ export function CajaScreen() {
             <span className="spacer" />
             <span className="pill-soft">{movs.length} registros</span>
           </div>
-          <div className="table-wrap table-wrap-flat">
+          <div className="mov-table-wrap table-wrap table-wrap-flat">
             <table className="dt">
               <thead>
-                <tr><th>Hora</th><th>Detalle</th><th>TX</th><th>Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
+                <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th>Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
               </thead>
               <tbody>
                 {movs.map((m) => <MovRow key={m.id} m={m} />)}
               </tbody>
             </table>
           </div>
+          <div className="mov-list panel">
+            {movs.map((m) => (
+              <div className="mov-card" key={m.id}>
+                <span className="mc-hora">{horaOf(m.createdAt)}</span>
+                <span className="mc-tipo">{m.tipo} {m.donde}</span>
+                <span className="mc-monto">{fmt(Math.abs(m.monto))}</span>
+                <div className="mc-meta">
+                  <span className="badge badge-muted">{METODO_META[m.metodo]?.label ?? m.metodo}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         {/* Lateral */}
-        <aside className="module-side">
+        <aside className="module-side caja-aside">
           {/* Desglose por método */}
           <section className="panel">
             <div className="panel-h"><h3>Ingresos por método</h3></div>
@@ -307,7 +319,7 @@ function MovRow({ m }: Readonly<{ m: MovimientoCajaDto }>) {
           {m.descuento ? <span className="muted" style={{ fontSize: 12 }}>· Desc. {fmt(m.descuento)}</span> : null}
         </div>
       </td>
-      <td>
+      <td className="col-mobile-hidden">
         {m.transaccionId ? <span className="mono muted">{m.transaccionId.slice(0, 8)}</span> : <span className="muted">—</span>}
       </td>
       <td>{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>

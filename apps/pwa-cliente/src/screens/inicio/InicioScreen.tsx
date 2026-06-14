@@ -78,7 +78,7 @@ export function InicioScreen() {
 
           <section className="panel">
             <div className="panel-h"><h3>Top productos del día</h3></div>
-            <div className="table-wrap table-wrap-flat">
+            <div className="top-prod-table table-wrap table-wrap-flat">
               <table className="dt">
                 <thead><tr><th>Producto</th><th>Vendidos</th><th style={{ textAlign: 'right' }}>Ingresos</th></tr></thead>
                 <tbody>
@@ -93,6 +93,18 @@ export function InicioScreen() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            <div className="top-prod-list">
+              {topProductos.length === 0 ? (
+                <div className="muted" style={{ textAlign: 'center', padding: 20 }}>Aún no hay ventas en el turno.</div>
+              ) : topProductos.map((p, i) => (
+                <div className="top-prod-item" key={p.productoId ?? p.nombre}>
+                  <span className="tp-rank">{i + 1}</span>
+                  <span className="tp-nombre">{p.nombre}</span>
+                  <span className="tp-qty">{p.cantidad}</span>
+                  <span className="tp-amt">{fmt(p.ingresos ?? 0)}</span>
+                </div>
+              ))}
             </div>
           </section>
 
