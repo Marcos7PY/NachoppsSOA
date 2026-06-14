@@ -159,7 +159,7 @@ export function CajaScreen() {
           <div className="mov-table-wrap table-wrap table-wrap-flat">
             <table className="dt">
               <thead>
-                <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th>Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
+                <tr><th>Hora</th><th>Detalle</th><th className="col-mobile-hidden">TX</th><th className="col-mobile-hidden">Método</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
               </thead>
               <tbody>
                 {movs.map((m) => <MovRow key={m.id} m={m} />)}
@@ -323,7 +323,7 @@ function MovRow({ m }: Readonly<{ m: MovimientoCajaDto }>) {
       <td className="col-mobile-hidden">
         {m.transaccionId ? <span className="mono muted">{m.transaccionId.slice(0, 8)}</span> : <span className="muted">—</span>}
       </td>
-      <td>{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
+      <td className="col-mobile-hidden">{apertura ? <span className="muted">—</span> : <span className="row" style={{ gap: 7 }}><span className={`pay-ic ${meta.cls}`} style={{ width: 20, height: 20, fontSize: 10 }}>{meta.abbr}</span>{meta.label}</span>}</td>
       <td className="num">
         <span className="monto" style={montoStyle}>{signo}{fmt(Math.abs(m.monto))}</span>
         {m.descuento ? <div className="muted" style={{ fontSize: 11 }}>Subtotal {fmt(Math.abs(m.monto) + m.descuento)}</div> : null}

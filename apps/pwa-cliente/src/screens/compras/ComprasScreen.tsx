@@ -86,7 +86,7 @@ export function ComprasScreen() {
         <MiniStat icon="Alert" color={kpis.bajos ? 'var(--danger)' : 'var(--ok)'} soft={kpis.bajos ? 'var(--danger-soft)' : 'var(--ok-soft)'} k="Insumos bajo mínimo" v={kpis.bajos} d="requieren reposición" />
       </div>
 
-      <div className="seg sm" style={{ marginBottom: 14, width: 'fit-content' }}>
+      <div className="seg sm compras-tabs" style={{ marginBottom: 14, width: 'fit-content' }}>
         <button className={tab === 'ordenes' ? 'on' : ''} onClick={() => setTab('ordenes')}>Órdenes de compra</button>
         <button className={tab === 'insumos' ? 'on' : ''} onClick={() => setTab('insumos')}>Insumos</button>
         <button className={tab === 'proveedores' ? 'on' : ''} onClick={() => setTab('proveedores')}>Proveedores</button>
@@ -97,9 +97,9 @@ export function ComprasScreen() {
           <table className="dt">
             <thead>
               <tr>
-                <th>OC</th><th>Proveedor</th><th>Ítems</th>
+                <th>OC</th><th>Proveedor</th><th className="col-mobile-hidden">Ítems</th>
                 <th style={{ textAlign: 'right' }}>Total</th>
-                <th>Emisión</th><th>Entrega</th><th>Estado</th>
+                <th className="col-mobile-hidden">Emisión</th><th className="col-mobile-hidden">Entrega</th><th>Estado</th>
                 <th style={{ textAlign: 'right' }}>Acción</th>
               </tr>
             </thead>
@@ -108,10 +108,10 @@ export function ComprasScreen() {
                 <tr key={oc.id}>
                   <td className="mono"><strong>{oc.id}</strong></td>
                   <td><strong>{oc.prov}</strong></td>
-                  <td><span className="muted">{oc.items.length} líneas · {oc.items.reduce((s, it) => s + it.q, 0)} und</span></td>
+                  <td className="col-mobile-hidden"><span className="muted">{oc.items.length} líneas · {oc.items.reduce((s, it) => s + it.q, 0)} und</span></td>
                   <td style={{ textAlign: 'right' }}><strong className="mono">{fmt(ocTotal(oc))}</strong></td>
-                  <td><span className="muted">{oc.fecha}</span></td>
-                  <td><span className="muted">{oc.entrega}</span></td>
+                  <td className="col-mobile-hidden"><span className="muted">{oc.fecha}</span></td>
+                  <td className="col-mobile-hidden"><span className="muted">{oc.entrega}</span></td>
                   <td><span className={`badge dot ${OC_META[oc.estado].cls}`}>{OC_META[oc.estado].label}</span></td>
                   <td style={{ textAlign: 'right' }}>
                     <OcAccion oc={oc} onRecepcionar={() => setRecibir(oc)} onEnviar={() => enviarOc(oc.id)} />
@@ -128,9 +128,9 @@ export function ComprasScreen() {
           <table className="dt">
             <thead>
               <tr>
-                <th>Insumo</th><th>Proveedor</th>
+                <th>Insumo</th><th className="col-mobile-hidden">Proveedor</th>
                 <th style={{ textAlign: 'right' }}>Stock</th>
-                <th style={{ textAlign: 'right' }}>Mínimo</th>
+                <th style={{ textAlign: 'right' }} className="col-mobile-hidden">Mínimo</th>
                 <th style={{ textAlign: 'right' }}>Costo unit.</th>
                 <th>Estado</th>
               </tr>
@@ -141,9 +141,9 @@ export function ComprasScreen() {
                 return (
                   <tr key={i.id}>
                     <td><strong>{i.n}</strong></td>
-                    <td><span className="muted">{i.prov}</span></td>
+                    <td className="col-mobile-hidden"><span className="muted">{i.prov}</span></td>
                     <td style={{ textAlign: 'right' }}><strong className="mono" style={bajo ? { color: 'var(--danger-text)' } : undefined}>{i.stock} {i.uni}</strong></td>
-                    <td style={{ textAlign: 'right' }}><span className="mono muted">{i.min} {i.uni}</span></td>
+                    <td style={{ textAlign: 'right' }} className="col-mobile-hidden"><span className="mono muted">{i.min} {i.uni}</span></td>
                     <td style={{ textAlign: 'right' }}><span className="mono">{fmt(i.costo)}</span></td>
                     <td>{bajo ? <span className="badge badge-danger dot">Reponer</span> : <span className="badge badge-ok dot">OK</span>}</td>
                   </tr>

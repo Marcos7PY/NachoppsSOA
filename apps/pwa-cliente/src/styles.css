@@ -1994,3 +1994,269 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (orientation: landscape) and (max-height: 500px) {
   .offline-banner { position: sticky; top: 0; z-index: 100; padding: 4px 12px; font-size: 12px; }
 }
+
+
+/* ============================================================
+   === GRUPO_A RESPONSIVE PATCH ===
+   ============================================================ */
+
+/* ── LoginScreen Bug 1 ──────────────────────────────────────────
+   .login-form-side { overflow: hidden } bloquea el scroll cuando
+   el teclado virtual sube (viewport se reduce a ~330px en portrait).
+   El card centrado (~450px) queda recortado por abajo; el usuario
+   no puede llegar al botón "Ingresar".
+   Fix: overflow-y: auto + align-items: start para que el card
+   empiece arriba y el contenedor sea scrollable. justify-items: center
+   se hereda del place-items:center base → centrado horizontal intacto. */
+@media (max-width: 920px) {
+  .login-form-side {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    align-items: start;
+    padding-top: max(32px, env(safe-area-inset-top));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── LoginScreen Bug 2 ──────────────────────────────────────────
+   En landscape + max-height 500px el viewport es ~360px alto.
+   El card (~450px) no cabe; overflow: hidden lo recorta y el
+   botón Ingresar queda inaccesible.
+   Fix: bloque landscape-mob dedicado para login (la pantalla no
+   usa .content ni .bottom-nav, por lo que el bloque global no
+   la cubre). padding lateral incluye safe-area. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .login-form-side {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    align-items: start;
+    padding: max(12px, env(safe-area-inset-top))
+             max(12px, env(safe-area-inset-right))
+             max(12px, env(safe-area-inset-bottom))
+             max(12px, env(safe-area-inset-left));
+  }
+  .login-card { padding: 24px 20px; }
+}
+
+/* ── PedidosScreen Bug 3 ────────────────────────────────────────
+   Wrapper que saca el botón Refrescar del contenedor de scroll
+   horizontal. .canal-tabs conserva overflow-x: auto y flex-wrap:
+   nowrap (reglas existentes en ≤920px); el btn queda siempre
+   visible a la derecha del row. */
+.canal-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  min-width: 0;
+}
+.canal-tabs-row > .canal-tabs {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* ── PedidosScreen Bug 4 ────────────────────────────────────────
+   En page-h con spacer 100% (≤560px), .seg.sm + .btn-primary
+   compiten en el mismo row. En ≤380px el total (~304px) supera
+   el ancho disponible (~280-300px).
+   ≤380px: seg puede contraerse y sus botones reducen padding.
+   ≤320px: seg ocupa fila completa, btn en fila propia. */
+@media (max-width: 380px) {
+  .page-h .seg {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .page-h .seg button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 320px) {
+  .page-h .seg {
+    width: 100%;
+    flex: none;
+  }
+  .page-h .seg button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* ── InventarioScreen Bug 5 / ReportesScreen Bug 6 ──────────────
+   Sin CSS adicional necesario:
+   • .content.has-form ya definido en @media (max-width: 920px)
+     → padding-bottom: calc(114px + env(safe-area-inset-bottom))
+   • .col-mobile-hidden { display: none !important } ya definido
+     en @media (max-width: 920px)
+   Ambos fixes se activan con los cambios JSX de PATCH_CHANGELOG. */
+
+
+/* ============================================================
+   === GRUPO_B RESPONSIVE PATCH ===
+   ============================================================ */
+
+/* ── CartaScreen Bug 1 ──────────────────────────────────────────
+   .input.toolbar-input (buscador) dentro de .canal-tabs queda
+   oculto en el scroll horizontal ≤920px. Se extrae al wrapper
+   .canal-tabs-row (definido en GRUPO_A patch). En ≤768px el
+   input pasa a segunda fila a ancho completo. */
+@media (max-width: 768px) {
+  .canal-tabs-row {
+    flex-wrap: wrap;
+  }
+  .canal-tabs-row > .input {
+    width: 100%;
+  }
+}
+
+/* ── CartaScreen Bug 2 ──────────────────────────────────────────
+   Sin CSS adicional. .col-mobile-hidden { display: none !important }
+   ya definido en @media (max-width: 920px). Solo requiere
+   atributo className en JSX. */
+
+/* ── CocinaScreen Bug 3 ─────────────────────────────────────────
+   .kds-fs { padding: 18px 22px } carece de env(safe-area-inset-bottom).
+   En iPhones con home indicator (~34px safe-area) el último
+   ticket queda inaccesible. Override con max() — en desktop
+   env() = 0 por lo que el valor visual no cambia. */
+.kds-fs {
+  padding: max(18px, env(safe-area-inset-top))
+           max(22px, env(safe-area-inset-right))
+           max(18px, env(safe-area-inset-bottom))
+           max(22px, env(safe-area-inset-left));
+}
+
+/* ── CocinaScreen Bug 4 ─────────────────────────────────────────
+   Header de .kds-fs usa .row sin flex-wrap. En ≤560px el total
+   h1(~130px) + .station-tabs(~230px) + btn-salir(~55px) = ~420px
+   desborda el content (~316px); .kds-fs{overflow:hidden} lo clipea.
+   Fix: .kds-fs-tabs con order:3 pasa a segunda fila en ≤560px;
+   h1 + spacer + btn-salir quedan limpios en la primera. */
+@media (max-width: 560px) {
+  .kds-fs-head {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .kds-fs-tabs {
+    order: 3;
+    width: 100%;
+    margin-left: 0 !important;
+  }
+}
+
+/* ── AperturaCajaModal ──────────────────────────────────────────
+   OK — sin CSS adicional. */
+
+/* ── MovimientoModal Bug 5 ──────────────────────────────────────
+   Sin CSS adicional. .modal-scroll ya definido:
+     base:    max-height: 74vh; overflow-y: auto; overscroll-behavior: contain
+     ≤640px:  max-height: 78dvh
+     tablet:  max-height: 70dvh
+   El fix se activa añadiendo className="modal-scroll" en JSX. */
+
+
+/* ============================================================
+   === GRUPO_C RESPONSIVE PATCH ===
+   ============================================================ */
+
+/* ── ComprasScreen Bug 1 & 2 ────────────────────────────────────
+   .col-mobile-hidden ya definido en @media (max-width: 920px).
+   Sin CSS adicional — solo JSX. */
+
+/* ── ComprasScreen Bug 3 ────────────────────────────────────────
+   .seg.sm con 3 botones largos (~327px) desborda en ≤320px
+   (content ~300px). A ≤380px la clase .compras-tabs (añadida
+   en JSX) pasa a ancho completo; botones se distribuyen en flex:1.
+   En desktop el width:fit-content del inline style prevalece. */
+@media (max-width: 380px) {
+  .compras-tabs {
+    width: 100% !important;
+  }
+  .compras-tabs button {
+    flex: 1;
+    justify-content: center;
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+}
+
+/* ── ReservasScreen Bug 4 ────────────────────────────────────────
+   .col-mobile-hidden ya definido — solo JSX. */
+
+/* ── ReservasScreen Bug 5 ────────────────────────────────────────
+   .content.has-form ya definido en @media (max-width: 920px):
+   padding-bottom: calc(114px + env(safe-area-inset-bottom)) !important
+   Sin CSS adicional — useEffect en JSX activa la clase. */
+
+/* ── UsuariosScreen Bug 6 ────────────────────────────────────────
+   .col-mobile-hidden ya definido — solo JSX. */
+
+/* ── UsuariosScreen Bug 7 ────────────────────────────────────────
+   td.cell-action .input { min-width: 150px } base causa overflow
+   en ≤920px para ADMIN: Usuario(~120px) + Rol(~65px) + Estado(~55px)
+   + CambiarRol(150px) = ~390px > 340px disponibles.
+   Override a 100px: las 4 cols encajan exactas en ~340px. */
+@media (max-width: 920px) {
+  td.cell-action .input {
+    min-width: 100px;
+    padding: 4px 7px;
+  }
+}
+
+
+/* ============================================================
+   === GRUPO_D + GRUPO_E RESPONSIVE PATCH ===
+   ============================================================ */
+
+/* ── MesasScreen Bug 1 ──────────────────────────────────────────
+   Span "· ubicacion · N pers" en panel-h del MesaDrawer sin
+   truncación. En bottom-sheet (≤920px, width 100%) nombres
+   largos desbordan el header y empujan el btn de cierre fuera
+   del viewport. Fix: clase mesa-drawer-meta con truncación. */
+@media (max-width: 920px) {
+  .mesa-drawer-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+}
+
+/* ── CajaScreen Bug 2 ───────────────────────────────────────────
+   .col-mobile-hidden ya definido en @media (max-width: 920px).
+   Sin CSS adicional — solo JSX en <th>TX</th>, <th>Método</th>
+   y sus <td> correspondientes en MovRow. */
+
+/* ── CierreDrawer Bug 3 ─────────────────────────────────────────
+   .steps (flex sin wrap) contiene 3 pasos etiquetados (~433px)
+   que desbordan el bottom-sheet en ≤640px (~316px de content).
+   CSS-only: font-size:0 en .step oculta el text-node del label;
+   .si tiene font-size:12px propio definido en base → prevalece.
+   step-sep: min-width reducido para caber en el espacio libre. */
+@media (max-width: 640px) {
+  .steps .step {
+    font-size: 0;
+    gap: 0;
+  }
+  .step-sep {
+    min-width: 14px;
+  }
+}
+
+/* ── CierreDrawer + CobroMesaDrawer Bug 4 ───────────────────────
+   En tablet portrait (769-920px) los modales miden 520px pero
+   la regla @media (max-width:720px) responde al VIEWPORT (>720px):
+   .arqueo-grid y .two-up no colapsan.
+   - CierreDrawer: denom-stepper queda a ~43px (invisible).
+   - CobroMesaDrawer: keypad buttons a ~28px, fuente 19px desborda.
+   Fix: forzar 1 columna en .modal en el rango 721-920px.
+   A ≤720px la regla existente ya maneja bottom-sheet. */
+@media (min-width: 721px) and (max-width: 920px) {
+  .modal .two-up,
+  .modal .arqueo-grid,
+  .modal .cobro-keypad-layout {
+    grid-template-columns: 1fr;
+  }
+}

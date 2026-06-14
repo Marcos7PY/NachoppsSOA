@@ -93,7 +93,8 @@ export function PedidosScreen() {
         <button className="btn btn-primary" onClick={() => setComandero(true)}><Icons.Plus s={16} /> Nuevo pedido</button>
       </div>
 
-      <div className="canal-tabs">
+      <div className="canal-tabs-row">
+        <div className="canal-tabs">
         {CANAL_TABS.map((c) => {
           const Ic = Icons[CANAL_ICON_TAB[c]];
           return (
@@ -103,6 +104,7 @@ export function PedidosScreen() {
             </button>
           );
         })}
+        </div>
         <span className="spacer" />
         <button className="btn btn-ghost btn-sm" onClick={() => fetch()} title="Refrescar"><Icons.Refresh s={15} /></button>
       </div>

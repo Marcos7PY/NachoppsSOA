@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises, @typescript-eslint/no-floating-promises */
 // screens/reservas/ReservasScreen.tsx - Agenda del día y acciones de reservas
 
-import { useMemo, useState, type SubmitEvent } from 'react';
+import { useMemo, useState, useEffect, type SubmitEvent } from 'react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { useReservasQuery } from '../../hooks/queries/useReservasQuery';
 import { useMesasQuery } from '../../hooks/queries/useMesasQuery';
@@ -20,6 +20,14 @@ export function ReservasScreen() {
   const online = useOnlineStatus();
   const [fecha, setFecha] = useState(INITIAL_FORM.fecha);
   const [form, setForm] = useState<CrearReservaPayload>(INITIAL_FORM);
+
+  useEffect(() => {
+    const el = document.querySelector('.content');
+    if (el) el.classList.add('has-form');
+    return () => {
+      if (el) el.classList.remove('has-form');
+    };
+  }, []);
   const { mesas, loading: loadingMesas } = useMesasQuery();
   const {
     reservas,
@@ -110,8 +118,8 @@ export function ReservasScreen() {
                   <tr>
                     <th>Hora</th>
                     <th>Cliente</th>
-                    <th>Mesa</th>
-                    <th>Personas</th>
+                    <th className="col-mobile-hidden">Mesa</th>
+                    <th className="col-mobile-hidden">Personas</th>
                     <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
@@ -124,8 +132,8 @@ export function ReservasScreen() {
                         <strong>{reserva.clienteNombre}</strong>
                         {reserva.clienteTelefono && <div className="muted">{reserva.clienteTelefono}</div>}
                       </td>
-                      <td>{reserva.mesaPreferida ? mesaLabelById.get(reserva.mesaPreferida) ?? reserva.mesaPreferida : 'Sin mesa'}</td>
-                      <td>{reserva.numComensales}</td>
+                      <td className="col-mobile-hidden">{reserva.mesaPreferida ? mesaLabelById.get(reserva.mesaPreferida) ?? reserva.mesaPreferida : 'Sin mesa'}</td>
+                      <td className="col-mobile-hidden">{reserva.numComensales}</td>
                       <td><span className={`badge dot ${reserva.estadoClass}`}>{reserva.estadoLabel}</span></td>
                       <td>
                         <div className="row wrap">

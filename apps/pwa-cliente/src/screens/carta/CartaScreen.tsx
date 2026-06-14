@@ -99,8 +99,9 @@ export function CartaScreen() {
         <MiniStat icon="Check" color="var(--ok)" soft="var(--ok-soft)" k="Disponibles" v={kpis.activos} d="visibles en comandero" />
       </div>
 
-      <div className="canal-tabs" style={{ marginBottom: 14 }}>
-        <button className={`canal-tab ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todas <span className="ct-count">{productos.length}</span></button>
+      <div className="canal-tabs-row" style={{ marginBottom: 14 }}>
+        <div className="canal-tabs">
+          <button className={`canal-tab ${cat === 'TODAS' ? 'on' : ''}`} onClick={() => setCat('TODAS')}>Todas <span className="ct-count">{productos.length}</span></button>
         {categorias.map((c) => (
           <button key={c.id} className={`canal-tab ${cat === c.id ? 'on' : ''}`} onClick={() => setCat(c.id)}>
             {c.nombre} <span className="ct-count">{productos.filter((p) => p.categoriaId === c.id).length}</span>
@@ -117,9 +118,9 @@ export function CartaScreen() {
         <table className="dt">
           <thead>
             <tr>
-              <th>Plato</th><th>Categoría</th>
+              <th>Plato</th><th className="col-mobile-hidden">Categoría</th>
               <th style={{ textAlign: 'right' }}>Precio</th>
-              <th>Disponible</th><th></th>
+              <th>Disponible</th><th className="col-mobile-hidden"></th>
             </tr>
           </thead>
           <tbody>
@@ -132,12 +133,12 @@ export function CartaScreen() {
             {filtrados.map((p) => (
               <tr key={p.id} style={{ cursor: 'pointer', opacity: p.disponible ? 1 : 0.55 }} onClick={() => setEdit(p)}>
                 <td><strong>{p.nombre}</strong>{p.descripcion && <div className="muted" style={{ fontSize: 12 }}>{p.descripcion}</div>}</td>
-                <td><span className="pill-soft">{p.categoriaNombre ?? '—'}</span></td>
+                <td className="col-mobile-hidden"><span className="pill-soft">{p.categoriaNombre ?? '—'}</span></td>
                 <td style={{ textAlign: 'right' }}><strong className="mono">{p.precioLabel}</strong></td>
                 <td onClick={(e) => e.stopPropagation()}>
                   <button className={`toggle ${p.disponible ? 'on' : ''}`} disabled={saving || !online} onClick={() => toggleDisp(p)} title={p.disponible ? 'Disponible' : 'Agotado (86)'}><span className="knob" /></button>
                 </td>
-                <td style={{ textAlign: 'right' }}><span className="muted" style={{ fontSize: 12 }}>Editar</span></td>
+                <td style={{ textAlign: 'right' }} className="col-mobile-hidden"><span className="muted" style={{ fontSize: 12 }}>Editar</span></td>
               </tr>
             ))}
           </tbody>

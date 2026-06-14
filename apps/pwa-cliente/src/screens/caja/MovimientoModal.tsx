@@ -62,7 +62,7 @@ export function MovimientoModal({ tipoInicial, onClose, onSave }: Readonly<Props
           <button className="icon-btn" onClick={onClose}><Icons.Close s={17} /></button>
         </div>
 
-        <div style={{ padding: 20, display: 'grid', gap: 16 }}>
+        <div className="modal-scroll" style={{ padding: 20, display: 'grid', gap: 16 }}>
           <div className="seg" style={{ width: '100%' }}>
             <button className={esEgreso ? 'on' : ''} style={{ flex: 1 }} onClick={() => switchTipo('EGRESO')}>Egreso (sale)</button>
             <button className={esEgreso ? '' : 'on'} style={{ flex: 1 }} onClick={() => switchTipo('INGRESO')}>Ingreso (entra)</button>
