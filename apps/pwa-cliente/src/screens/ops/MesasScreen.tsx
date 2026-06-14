@@ -123,7 +123,16 @@ export function MesasScreen() {
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div 
+      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      ref={(el) => {
+        const content = el?.closest('.content');
+        if (content) {
+          if (puedeCrearMesa) content.classList.add('has-form');
+          else content.classList.remove('has-form');
+        }
+      }}
+    >
       <div className="page-h">
         <div>
           <h1>Mesas</h1>

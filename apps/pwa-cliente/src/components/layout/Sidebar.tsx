@@ -1,4 +1,8 @@
-// components/layout/Sidebar.tsx — Navegación lateral (estructura del prototipo)
+// components/layout/Sidebar.tsx — Navegación lateral
+// v2: Añadidos aria-current="page" (faltaba en la versión original) y
+//     title={it.label} en cada nav-item para que el modo icon-only
+//     (sidebar 62px en 921–1099px) sea accesible via tooltip nativo
+//     y tecnologías asistivas. Sin cambios en props ni arquitectura.
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../../config';
@@ -24,8 +28,8 @@ export function Sidebar() {
     .filter((g) => g.items.length > 0);
 
   return (
-    <nav className="sidebar">
-      <div className="brand">
+    <nav className="sidebar" aria-label="Navegación principal">
+      <div className="brand" aria-hidden="true">
         <div className="brand-logo">{APP_CONFIG.nombreLocal.charAt(0)}</div>
         <div>
           <b>{APP_CONFIG.nombreLocal}</b>
@@ -33,10 +37,10 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="nav">
+      <div className="nav" role="list">
         {navVisible.map((g) => (
-          <div key={g.group}>
-            <div className="nav-lbl">{g.group}</div>
+          <div key={g.group} role="group" aria-label={g.group}>
+            <div className="nav-lbl" aria-hidden="true">{g.group}</div>
             {g.items.map((it) => {
               const Ic = Icons[it.icon];
               const on = activeKey === it.key;
@@ -45,9 +49,18 @@ export function Sidebar() {
                   key={it.key}
                   className={`nav-item ${on ? 'on' : ''}`}
                   onClick={() => go(it.key)}
+                  // aria-current="page" → requerido por WCAG 2.1 SC 1.3.1
+                  // Ausente en la versión original — añadido en v2.
+                  aria-current={on ? 'page' : undefined}
+                  // title → tooltip nativo para el modo icon-only (921–1099px)
+                  // donde el span de texto está oculto por CSS.
+                  title={it.label}
+                  type="button"
+                  role="listitem"
                 >
-                  <Ic s={18} />
+                  <Ic s={18} className="ic" aria-hidden="true" />
                   <span>{it.label}</span>
+                  {/* Los contadores (.cnt) se ocultan en icon-only por CSS */}
                 </button>
               );
             })}
@@ -55,7 +68,7 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="nav-foot">
+      <div className="nav-foot" aria-hidden="true">
         <div className="hint" style={{ padding: '4px 8px', lineHeight: 1.5 }}>
           {APP_CONFIG.nombreLocal} · Operación
         </div>

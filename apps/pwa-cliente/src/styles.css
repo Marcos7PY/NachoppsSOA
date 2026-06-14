@@ -101,7 +101,7 @@ body {
 #root { height: 100vh; height: 100dvh; }
 .num, .mono { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--mono); }
-button { font-family: inherit; cursor: pointer; }
+button { font-family: inherit; cursor: pointer; touch-action: manipulation; }
 img, video, canvas { max-width: 100%; height: auto; }
 input, select, textarea { font-family: inherit; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -165,7 +165,7 @@ input, select, textarea { font-family: inherit; }
 .user-chip b { font-size: 13px; font-weight: 700; display: block; line-height: 1.2; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-chip small { font-size: 11px; color: var(--muted); font-weight: 600; }
 
-.content { flex: 1; overflow-y: auto; overflow-x: hidden; overflow-x: clip; padding: 26px max(30px, env(safe-area-inset-right)) 64px max(30px, env(safe-area-inset-left)); position: relative; }
+.content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 26px max(30px, env(safe-area-inset-right)) 64px max(30px, env(safe-area-inset-left)); position: relative; }
 .page-h { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
 .page-h h1 { font-size: 23px; font-weight: 800; margin: 0; letter-spacing: -.02em; white-space: nowrap; }
 .page-h > div:first-child { min-width: 0; }
@@ -272,7 +272,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 @keyframes slidein { to { transform: translateX(0); } }
 .drawer-h { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--border); flex: none; }
 .drawer-h h2 { margin: 0; font-size: 18px; font-weight: 800; }
-.drawer-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+.drawer-body { flex: 1; overflow-y: auto; padding: 18px 20px; overscroll-behavior: contain; }
 .drawer-foot { padding: 14px 18px; border-top: 1px solid var(--border); display: flex; gap: 10px; flex: none; }
 
 .modal-wrap { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 20px; }
@@ -371,8 +371,9 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .center { display: grid; place-items: center; }
 .divider { height: 1px; background: var(--border); margin: 14px 0; }
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 14px; }
-.kv .k { color: var(--text-2); font-weight: 600; }
-.kv .v { font-weight: 700; }
+.kv .k { color: var(--text-2); font-weight: 600; flex: none; }
+.kv .v { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; max-width: 58%; }
+.kv .v.no-trunc, .kv .v:has(.badge) { overflow: visible; white-space: normal; max-width: none; }
 .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 13px; }
 .caja-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
 .module-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
@@ -653,10 +654,13 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   .bn-item.on { color: var(--accent-text); background: var(--accent-soft); }
   .bn-more-wrap { flex: 1; min-width: 0; position: relative; display: flex; }
   .bn-more-wrap > .bn-item { width: 100%; }
+  .bn-more-panel { position: absolute; right: 0; bottom: calc(100% + 10px); min-width: min(240px, calc(100vw - 20px)); max-height: min(360px, calc(100vh - 112px)); overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px; }
+  .bn-more-item { width: 100%; min-height: 42px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: var(--r); background: none; color: var(--text-2); font-size: 13.5px; font-weight: 700; text-align: left; padding: 9px 10px; }
   .bn-more-panel {
     position: absolute; right: 0; bottom: calc(100% + 10px);
     min-width: min(240px, calc(100vw - 20px));
     max-height: min(360px, calc(100vh - 112px));
+    overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border: 1px solid var(--border);
     overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 6px;
   }
@@ -1017,7 +1021,7 @@ fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 /* wide modal */
 .modal.wide { width: 720px; }
 .modal.xwide { width: 860px; }
-.modal-scroll { max-height: 74vh; overflow-y: auto; }
+.modal-scroll { max-height: 74vh; overflow-y: auto; overscroll-behavior: contain; }
 
 /* generic two-up */
 .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -1383,16 +1387,7 @@ tr:hover .btn-anular, .btn-anular:focus-visible { opacity: 1; }
 .settings-pop .sp-row:last-child { border-bottom: 0; }
 .settings-pop .sp-lbl { font-size: 12.5px; font-weight: 700; margin-bottom: 8px; display: block; }
 
-@media (max-width: 920px) {
-  .settings-pop, .notif-popover {
-    position: fixed;
-    top: 62px;
-    right: 10px;
-    left: 10px;
-    width: auto;
-    max-width: none;
-  }
-}
+/* settings-pop/notif-popover mobile override — see RESPONSIVE block */
 
 /* --- Microinteracción de éxito (check animado en toasts ok) --- */
 .toast.ok .t-ic { animation: checkpop .4s cubic-bezier(.2,.9,.3,1.4); }
@@ -1560,10 +1555,10 @@ table.dt tbody tr.row-out:hover td { filter: brightness(.99); }
 .cobro-items-list { max-height: 140px; overflow-y: auto; }
 .cobro-keypad-layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .modal-wrap { padding: 0; display: flex; align-items: flex-end; }
   .modal { opacity: 1 !important; width: 100% !important; max-width: 100% !important; border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); animation: sheetup .24s cubic-bezier(.2,.8,.2,1) forwards; max-height: 92vh; max-height: 92dvh; border: 0; border-top: 1px solid var(--border); }
-  .modal-scroll { max-height: 78vh; max-height: 78dvh; }
+  .modal-scroll { max-height: 78vh; max-height: 78dvh; overscroll-behavior: contain; }
 }
 
 /* Premium focus rings — refuerza los :focus-visible globales para
@@ -1610,4 +1605,392 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   body { font-size: 15px; }
   .stat .v, .stat .vbig { font-size: 30px; }
   .page-h h1 { font-size: 26px; }
+}
+
+
+/* ============================================================
+   RESPONSIVE SYSTEM v2 — BREAKPOINTS, BUGS, TABLET, A11Y
+   ============================================================
+
+   Breakpoint Map (desktop-first):
+   ─────────────────────────────────────────────────────────
+   ≥1920px      4K/2K         max-width 1600px containment
+   ≥1280px      Desktop LG    full sidebar 244px
+   1100–1279px  Desktop SM    full sidebar 216px
+   921–1099px   Tablet Land   icon-only sidebar 62px  ← NEW
+   769–920px    Tablet Port   BottomNav + tablet grids ← NEW
+   ≤920px       Phone/Tablet  BottomNav (existing pivot)
+   ≤768px       Phone LG      improved tablet→phone transition
+   ≤640px       Phone MD      modales → bottom sheets
+   ≤560px       Phone SM      Android gama media
+   ≤480px       Phone XS      turno-bar column, header 52px ← NEW
+   ≤380px       Phone XXS     límite inferior estándar
+   ≤320px       Phone Min     iPhone SE — BottomNav íconos
+   ≤280px       Fold          Galaxy Fold cerrado
+   ─────────────────────────────────────────────────────────
+   Orientación: landscape + max-height 500px → barra lateral
+   ============================================================ */
+
+/* ── ICON-ONLY SIDEBAR: Tablet landscape (921–1099px) ──────────
+   Decisión: colapsar a 62px da ~130px más de ancho al contenido
+   sin obligar a cambiar de nav paradigma. El sidebar permanece
+   accesible por teclado (Tab + aria-label/title en cada ítem). */
+@media (min-width: 921px) and (max-width: 1099px) {
+  :root { --sidebar-w: 62px; }
+  .sidebar { width: 62px; overflow: hidden; transition: width .18s ease; }
+  .brand { justify-content: center; padding: 16px 0 14px; border-bottom: 1px solid var(--border); }
+  .brand b, .brand small { display: none; }
+  .nav-lbl { display: none; }
+  .nav-item { justify-content: center; padding: 11px 0; gap: 0; }
+  .nav-item span:not(.cnt) { display: none; }
+  .nav-item .cnt { display: none; }
+  .nav-foot .hint { display: none; }
+  .nav-foot { padding: 10px 8px; }
+  /* Tooltip nativo via title — visible en hover de desktop/teclado */
+  .nav-item.on::before { top: 10px; bottom: 10px; }
+  /* Contenido lateral sigue usando el grid de 2 columnas */
+  .content { padding-left: 16px; padding-right: 16px; }
+  .module-grid { grid-template-columns: minmax(0,1fr) 300px; }
+  .caja-grid   { grid-template-columns: minmax(0,1fr) 300px; }
+  /* KDS y tablero: 2 columnas aprovechan el espacio */
+  .kds       { grid-template-columns: repeat(2,1fr); }
+  .ped-board { grid-template-columns: repeat(2,1fr); }
+  /* Mesa floor: 3 columnas cómodas */
+  .mesa-floor { grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); }
+  /* Comandero en tablet landscape: modal acoplado (no full-screen) */
+  .cmd-overlay { padding: 12px; }
+  .cmd {
+    width: 95vw; height: 88dvh;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+  }
+}
+
+/* ── TABLET PORTRAIT (769–920px): grids y drawers mejorados ────
+   En este rango ya rige el BottomNav (≤920px). Aquí ajustamos
+   el contenido para aprovechar los ~768–900px disponibles. */
+@media (min-width: 769px) and (max-width: 920px) {
+  .content {
+    padding: 20px max(20px, env(safe-area-inset-right))
+             calc(90px + env(safe-area-inset-bottom))
+             max(20px, env(safe-area-inset-left));
+  }
+  .grid-stats  { grid-template-columns: repeat(auto-fit, minmax(185px,1fr)); }
+  .module-grid { grid-template-columns: minmax(0,1fr) 300px; }
+  .caja-grid   { grid-template-columns: minmax(0,1fr) 300px; }
+  .kds         { grid-template-columns: repeat(2,1fr); }
+  .ped-board   { grid-template-columns: repeat(2,1fr); }
+  .mesa-floor  { grid-template-columns: repeat(auto-fill, minmax(175px,1fr)); }
+  /* Drawer en tablet portrait: lateral 55% (no bottom sheet) */
+  .drawer {
+    top: 0; height: 100%; max-width: 55vw; width: 55vw;
+    border-left: 1px solid var(--border);
+    border-top-left-radius: 0; border-top-right-radius: 0;
+    transform: translateX(100%);
+    animation: slidein .22s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .drawer-wrap > .drawer {
+    top: 0; max-width: 55vw; width: 55vw; height: 100%;
+    border-left: 1px solid var(--border);
+    border-top-left-radius: 0; border-top-right-radius: 0;
+    transform: translateX(100%);
+    animation: slidein .22s ease both;
+  }
+  /* Modales centrados en tablet portrait — no bottom sheet */
+  .modal-wrap { padding: 24px; display: grid; place-items: center; }
+  .modal {
+    width: 520px !important; max-width: 100% !important;
+    border-radius: var(--r-xl) !important;
+    border: 1px solid var(--border) !important;
+    transform: scale(.96);
+    animation: pop .16s forwards !important;
+    max-height: 88vh; max-height: 88dvh;
+    border-top: 1px solid var(--border) !important;
+  }
+  .modal-scroll { max-height: 70vh; max-height: 70dvh; }
+  /* Settings y notif popovers: anclados a la derecha, ancho fijo */
+  .settings-pop, .notif-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    width: 320px;
+    max-width: calc(100vw - 24px);
+  }
+  /* Comandero en tablet portrait: modal de 90% (no full-screen) */
+  .cmd-overlay { padding: 16px; }
+  .cmd {
+    width: 90vw; height: 90dvh;
+    border-radius: var(--r-xl);
+    border: 1px solid var(--border);
+  }
+}
+
+/* ── MOBILE (≤920px): ajustes settings/notif popovers ──────────
+   Override directo sobre el elemento relativo del topbar. */
+@media (max-width: 768px) {
+  .settings-pop, .notif-popover {
+    position: fixed;
+    top: 62px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* ── HEADER: altura reducida en móvil ≤480px ────────────────────
+   Gana 8px de espacio vertical en pantallas pequeñas. */
+@media (max-width: 480px) {
+  :root { --top-h: 52px; }
+  .topbar { height: 52px; }
+}
+
+/* ── LANDSCAPE MÓVIL: barra lateral compacta ────────────────────
+   Detecta landscape + bajo (teléfono en horizontal).
+   El BottomNav se convierte en barra lateral izquierda de 52px. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .bottom-nav {
+    position: fixed;
+    left: 0; top: 0; bottom: 0; right: auto;
+    width: 52px; height: auto;
+    flex-direction: column;
+    border-top: 0;
+    border-right: 1px solid var(--border);
+    padding: calc(8px + env(safe-area-inset-top)) 4px
+             calc(8px + env(safe-area-inset-bottom))
+             calc(4px + env(safe-area-inset-left));
+    box-shadow: 4px 0 14px rgba(24,24,27,.06);
+    gap: 2px;
+  }
+  .bn-item {
+    flex: 0 0 auto; width: 100%; min-height: 44px;
+    padding: 8px 0;
+  }
+  .bn-item span { font-size: 0; } /* Sólo íconos */
+  .bn-more-wrap { flex: 0 0 auto; width: 100%; }
+  .bn-more-wrap > .bn-item { width: 100%; }
+  .bn-more-panel {
+    position: fixed;
+    left: 60px; bottom: auto; right: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    min-width: 200px;
+  }
+  /* Content: padding-left compensa la barra */
+  .content {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-left: calc(52px + max(8px, env(safe-area-inset-left)));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  /* Toast por encima de la barra lateral */
+  .toast-host {
+    bottom: 12px; right: 12px;
+    left: calc(52px + 12px);
+    align-items: flex-end;
+  }
+  /* Header más compacto */
+  :root { --top-h: 50px; }
+  .topbar { height: 50px; }
+}
+
+/* ── BUG 1: Tabla movimientos → tarjetas en ≤920px ─────────────
+   Decisión: 5 cols no caben en ~380–920px. Alternativa tarjeta
+   preserva toda la información reordenada en 3 líneas. */
+@media (max-width: 920px) {
+  .mov-table-wrap { display: none !important; }
+  .mov-list { display: flex !important; flex-direction: column; gap: 0; }
+}
+@media (min-width: 921px) {
+  .mov-list { display: none !important; }
+  .mov-table-wrap { display: block !important; }
+}
+.mov-card {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 2px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.mov-card:last-child { border-bottom: 0; }
+.mov-card:hover { background: var(--surface-2); }
+.mov-card .mc-hora {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  color: var(--muted); grid-column: 1; grid-row: 1;
+  align-self: center;
+}
+.mov-card .mc-tipo {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  grid-column: 2; grid-row: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mov-card .mc-monto {
+  font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;
+  grid-column: 3; grid-row: 1 / 3; align-self: center;
+  text-align: right; white-space: nowrap;
+}
+.mov-card .mc-meta {
+  grid-column: 1 / 3; grid-row: 2;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text-2); flex-wrap: wrap;
+}
+
+/* ── BUG 2: Top productos → lista en ≤920px ────────────────────
+   3 cols no caben con nombres de producto largos. Lista con grid
+   4 cols (rank · nombre · qty · monto) resuelve sin scroll. */
+@media (max-width: 920px) {
+  .top-prod-table { display: none !important; }
+  .top-prod-list  { display: flex !important; flex-direction: column; }
+}
+@media (min-width: 921px) {
+  .top-prod-list  { display: none !important; }
+  .top-prod-table { display: block !important; }
+}
+.top-prod-item {
+  display: grid;
+  grid-template-columns: 22px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.top-prod-item:last-child { border-bottom: 0; }
+.top-prod-item:hover { background: var(--surface-2); }
+.top-prod-item .tp-rank {
+  font-size: 12px; font-weight: 800; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.top-prod-item .tp-nombre {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 700; font-size: 13.5px; min-width: 0;
+}
+.top-prod-item .tp-qty  { color: var(--text-2); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.top-prod-item .tp-amt  { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 14px; white-space: nowrap; }
+
+/* ── BUG 3B: caja aside en primer lugar en móvil ────────────────
+   El aside "Tickets internos" → aparece antes de la tabla larga. */
+@media (max-width: 920px) {
+  .caja-aside { order: -1; }
+  /* Asegurar que el grid de caja siga colapsado en 1 col */
+  .caja-grid { display: grid; grid-template-columns: 1fr; }
+}
+
+/* ── BUG 4: Formulario Nueva mesa tapado por BottomNav ──────────
+   .mesas-layout pierde min-height: 0 que colapsaba el aside.
+   :has() con fallback de clase .has-form para compatibilidad. */
+@media (max-width: 1180px) {
+  .mesas-layout { display: grid; }
+}
+@media (max-width: 920px) {
+  .mesas-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: auto !important;
+    height: auto !important;
+  }
+  .mesas-main, .mesas-side {
+    flex: none !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+  /* padding-bottom extra cuando hay formulario visible */
+  .content:has(.mesas-side),
+  .content.has-form {
+    padding-bottom: calc(114px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* ── BUG 5: turno-bar desborda en móvil ─────────────────────────
+   flex-wrap en ≤920px; flex-direction: column en ≤480px. */
+@media (max-width: 920px) {
+  .turno-bar  { flex-wrap: wrap; gap: 10px; }
+  .turno-meta { flex-wrap: wrap; gap: 10px 18px; }
+}
+@media (max-width: 480px) {
+  .turno-bar  { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .turno-meta { flex-direction: column; gap: 6px; }
+  .turno-mi .v { font-size: 13px; }
+}
+
+/* ── BUG 6: Columnas prescindibles en tablas admin ──────────────
+   Aplicar .col-mobile-hidden a <th>/<td> de: TX hash, ID interno,
+   "última actualización" cuando ya hay columna de fecha visible. */
+@media (max-width: 920px) {
+  .col-mobile-hidden { display: none !important; }
+  /* Sin scroll horizontal en ninguna tabla ≤920px.
+     Si la tabla aún desborda, usar representación de tarjetas. */
+  .table-wrap { overflow: hidden; }
+}
+
+/* ── A11Y: Windows High Contrast Mode ──────────────────────────
+   Overrides básicos para que la app sea usable en HCM. */
+@media (forced-colors: active) {
+  .btn, .chip, .card, .panel, .stat, .modal, .drawer,
+  .nav-item, .bn-item, .icon-btn {
+    forced-color-adjust: none;
+    border: 1px solid ButtonText;
+  }
+  .btn-primary { background: ButtonText; color: ButtonFace; border: 2px solid ButtonText; }
+  :focus-visible { outline: 3px solid Highlight; outline-offset: 3px; }
+  .nav-item.on { background: Highlight; color: HighlightText; }
+  .nav-item.on::before { background: Highlight; }
+  .bn-item.on { background: Highlight; color: HighlightText; }
+  /* Estado de mesa: patrón de borde diferenciador (no solo color) */
+  .mesa-tile.libre    { border-top: 4px solid ButtonText; }
+  .mesa-tile.ocupada  { border-top: 4px dashed ButtonText; }
+  .mesa-tile.reservada{ border-top: 4px dotted ButtonText; }
+  .mesa-tile.limpieza { border-top: 4px double ButtonText; }
+  /* Skip link siempre visible */
+  .skip-link { transform: none !important; }
+  /* Badges: borde visible en lugar de solo fondo */
+  .badge { border: 1px solid ButtonText; }
+}
+
+/* ── A11Y: overscroll containment adicional ─────────────────── */
+.kds-list    { overscroll-behavior: contain; }
+.ped-col-body{ overscroll-behavior: contain; }
+.nav         { overscroll-behavior: contain; }
+.notif-list  { overscroll-behavior: contain; }
+
+/* ── BottomNav: touch target explícito en todos los breakpoints ─
+   (hoy min-height: 48px solo dentro de @media ≤920px) */
+.bn-item { touch-action: manipulation; }
+
+/* ── BottomNav: backdrop del "Más" panel no bloquea scroll ─────
+   El panel usa position:absolute dentro del wrapper, no fixed,
+   así que el scrim de fondo no es necesario. */
+
+/* ── Tablet KDS: al menos 3 columnas en landscape ancho ────────*/
+@media (min-width: 1100px) {
+  .kds { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Scrollbars: ocultar en touch, mostrar en pointer:fine ─────*/
+@media (pointer: coarse) {
+  ::-webkit-scrollbar { width: 0; height: 0; }
+}
+
+/* ── Contenido lateral de cobro: keypad al lado en tablet ───────*/
+@media (min-width: 769px) {
+  .cobro-keypad-layout { grid-template-columns: 1.2fr 1fr; }
+}
+@media (max-width: 768px) {
+  .cobro-keypad-layout { grid-template-columns: 1fr; }
+}
+
+/* ── grid-stats: 2 cols mínimo en tablet ────────────────────── */
+@media (min-width: 560px) and (max-width: 920px) {
+  .grid-stats, .loading-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+}
+
+/* ── OFFLINE BANNER: no empujar el topbar en landscape ──────── */
+@media (orientation: landscape) and (max-height: 500px) {
+  .offline-banner { position: sticky; top: 0; z-index: 100; padding: 4px 12px; font-size: 12px; }
 }
