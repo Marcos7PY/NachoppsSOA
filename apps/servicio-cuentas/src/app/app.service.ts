@@ -66,18 +66,17 @@ export class AppService {
   }
 
   async abrirCuenta(command: AbrirCuentaCommand, origen: 'manual' | 'fallback' = 'manual'): Promise<{ message: string; cuenta: CuentaDto }> {
-    const cuentaExistente = await this.prisma.cuenta.findFirst({
-      where: { mesaId: command.mesaId, estado: CuentaEstado.Abierta }
-    });
-
-    if (cuentaExistente) {
-      if (origen === 'fallback') {
-        return { message: 'Cuenta ya existe.', cuenta: this.mapToDto(cuentaExistente) };
-      }
-      throw new BadRequestException('La mesa ya tiene una cuenta abierta.');
-    }
-
     const cuenta = await this.prisma.$transaction(async (prisma) => {
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${command.mesaId}), 1, 8))::bit(32)::int)`;
+      const cuentaExistente = await prisma.cuenta.findFirst({
+        where: { mesaId: command.mesaId, estado: CuentaEstado.Abierta }
+      });
+
+      if (cuentaExistente) {
+        if (origen === 'fallback') return cuentaExistente;
+        throw new BadRequestException('La mesa ya tiene una cuenta abierta.');
+      }
+
       const c = await prisma.cuenta.create({
         data: {
           mesaId: command.mesaId,
@@ -114,7 +113,9 @@ export class AppService {
       return;
     }
 
-    await this.prisma.$transaction(async (prisma) => {
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: `pedido.creado:${pedidoDto.id}` } });
       // M5: advisory lock por mesa (serializa pedidos concurrentes a la misma cuenta)
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
@@ -164,7 +165,14 @@ export class AppService {
         where: { id: cuenta.id },
         data: { total, pedidos: snapshot },
       });
-    });
+      });
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
+        this.logger.warn(`PedidoCreado ${pedidoDto.id} ya procesado — idempotente`);
+        return;
+      }
+      throw e;
+    }
 
     this.logger.log(`Pedido ${pedidoDto.id} consolidado en cuenta de mesa ${pedidoDto.mesaId}`);
   }
@@ -174,8 +182,10 @@ export class AppService {
     const pedidoDto = payload.pedido;
     if (!pedidoDto?.mesaId) return;
 
-    await this.prisma.$transaction(async (prisma) => {
-      // M5: advisory lock por mesa
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: `pedido.actualizado:${pedidoDto.id}:${pedidoDto.estado}` } });
+        // M5: advisory lock por mesa
       // classid 1234 compartido entre servicios A PROPOSITO: cada servicio tiene su propia BD (database-per-service), el espacio de locks no se cruza.
       await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${pedidoDto.mesaId}), 1, 8))::bit(32)::int)`;
 
@@ -205,7 +215,14 @@ export class AppService {
         where: { id: cuenta.id },
         data: { total, pedidos: snapshot },
       });
-    });
+      });
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
+        this.logger.warn(`PedidoActualizado ${pedidoDto.id} ya procesado — idempotente`);
+        return;
+      }
+      throw e;
+    }
 
     this.logger.log(`Snapshot de pedido ${pedidoDto.id} actualizado en cuenta de mesa ${pedidoDto.mesaId}`);
   }
@@ -254,6 +271,10 @@ export class AppService {
 
   async cerrarCuenta(id: string, command: CerrarCuentaCommand): Promise<{ message: string; ticket: TicketDto }> {
     const cierre = await this.prisma.$transaction(async (prisma) => {
+      const cuentaBase = await prisma.cuenta.findUnique({ where: { id } });
+      if (!cuentaBase) throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${cuentaBase.mesaId}), 1, 8))::bit(32)::int)`;
+      
       const cuenta = await prisma.cuenta.findUnique({ where: { id } });
       if (!cuenta) {
         throw new NotFoundException(`Cuenta con ID ${id} no encontrada`);

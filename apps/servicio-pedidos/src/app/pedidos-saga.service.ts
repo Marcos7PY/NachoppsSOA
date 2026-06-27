@@ -103,11 +103,20 @@ export class PedidosSagaService {
       }
       this.validarTransicion(actual.estado, command.estado);
 
-      const p = await prisma.pedido.update({
+      const updateResult = await prisma.pedido.updateMany({
+        where: { id, estado: actual.estado },
+        data: { estado: command.estado }
+      });
+
+      if (updateResult.count === 0) {
+        throw new BadRequestException('El estado del pedido cambió concurrentemente.');
+      }
+
+      const p = await prisma.pedido.findUnique({
         where: { id },
-        data: { estado: command.estado },
         include: { items: true }
       });
+      if (!p) throw new NotFoundException('Pedido no encontrado tras actualización');
 
       const pedidoDto = mapPedidoToDto(p);
       const outboxData: Array<{ routingKey: string; payload: string; status: string }> = [];

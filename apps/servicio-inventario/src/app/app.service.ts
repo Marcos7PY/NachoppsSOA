@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   CategoriaDto, 
@@ -272,6 +272,8 @@ export class AppService {
     cantidad: number,
     pedidoId?: string,
   ): Promise<void> {
+    if (cantidad <= 0) throw new BadRequestException('Cantidad debe ser mayor a 0');
+    await prisma.$executeRaw`SELECT pg_advisory_xact_lock(1234, ('x' || substr(md5(${id}), 1, 8))::bit(32)::int)`;
     const producto = await prisma.producto.findUnique({ where: { id }, include: { categoria: true } });
 
     if (!producto) {
@@ -360,11 +362,13 @@ export class AppService {
       await this.prisma.$transaction(async (prisma) => {
         await prisma.idempotencyKey.create({ data: { key } });
 
-        for (const item of pedido.items) {
-          if (item.productoId && item.cantidad) {
-            await this.reducirStockAutomaticoConPrisma(prisma, item.productoId, item.cantidad, pedido.id);
-          }
-        }
+        await Promise.all(
+          pedido.items.map(async (item) => {
+            if (item.productoId && item.cantidad) {
+              await this.reducirStockAutomaticoConPrisma(prisma, item.productoId, item.cantidad, pedido.id);
+            }
+          })
+        );
       });
     } catch (e: unknown) {
       if ((e as { code?: string })?.code === 'P2002') {

@@ -78,16 +78,31 @@ export function MesasScreen() {
     ));
   }, [siguienteNumero]);
 
+  useEffect(() => {
+    const el = document.querySelector('.content');
+    if (el) {
+      if (puedeCrearMesa) el.classList.add('has-form');
+      else el.classList.remove('has-form');
+    }
+    return () => {
+      if (el) el.classList.remove('has-form');
+    };
+  }, [puedeCrearMesa]);
+
   const handleCrearMesa = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online || !puedeCrearMesa) return;
 
-    await crearMesa({
-      numero: Number(mesaForm.numero),
-      capacidad: Number(mesaForm.capacidad),
-      ubicacion: mesaForm.ubicacion?.trim() || 'Salon Principal',
-    });
-    setMesaForm({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1 });
+    try {
+      await crearMesa({
+        numero: Number(mesaForm.numero),
+        capacidad: Number(mesaForm.capacidad),
+        ubicacion: mesaForm.ubicacion?.trim() || 'Salon Principal',
+      });
+      setMesaForm({ ...INITIAL_MESA_FORM, numero: siguienteNumero + 1 });
+    } catch (e) {
+      console.error('Error al crear mesa', e);
+    }
   };
 
   const updateMesaForm = (key: keyof CrearMesaPayload, value: string | number) => {
@@ -126,13 +141,6 @@ export function MesasScreen() {
   return (
     <div 
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-      ref={(el) => {
-        const content = el?.closest('.content');
-        if (content) {
-          if (puedeCrearMesa) content.classList.add('has-form');
-          else content.classList.remove('has-form');
-        }
-      }}
     >
       <div className="page-h">
         <div>

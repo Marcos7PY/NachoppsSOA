@@ -108,8 +108,8 @@ export class AppService {
       this.logger.warn(`Cold-start: ${faltantes.length} productos no están en proyección local, cargando desde inventario`);
       // T-33: la llamada remota vive en InventarioHttpClient (breaker incluido).
       const productos = await this.inventarioHttp.obtenerProductosLote(faltantes);
-      for (const p of productos) {
-        await this.prisma.productoLocal.upsert({
+      await Promise.all(productos.map(p =>
+        this.prisma.productoLocal.upsert({
           where: { id: p.id },
           create: {
             id: p.id,
@@ -126,8 +126,8 @@ export class AppService {
             categoriaNombre: p.categoria?.nombre ?? 'COCINA',
             disponible: p.disponible ?? true,
           },
-        });
-      }
+        })
+      ));
     }
   }
 
@@ -200,7 +200,9 @@ export class AppService {
         return acc;
       }, new Map<string, number>());
 
-      for (const [productoId, cantidad] of cantidadesPorProducto) {
+      const productoIds = Array.from(cantidadesPorProducto.keys()).sort();
+      for (const productoId of productoIds) {
+        const cantidad = cantidadesPorProducto.get(productoId)!;
         await prisma.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${productoId}))`);
         const reservado = await prisma.$queryRaw<{ stockActual: number }[]>(Prisma.sql`
           UPDATE productos_locales
@@ -456,18 +458,29 @@ export class AppService {
   async procesarPagoRecibido(payload: PagoRegistradoPayload): Promise<void> {
     this.logger.log(`Procesando pago recibido para cuenta ${payload.cuentaId} y mesa ${payload.mesaId}`);
 
-    await this.prisma.pedido.updateMany({
-      where: {
-        mesaId: payload.mesaId,
-        estado: {
-          notIn: [
-            PedidoEstado.Pagado,
-            PedidoEstado.Cancelado,
-            PedidoEstado.RechazadoSinStock,
-          ],
-        },
-      },
-      data: { estado: PedidoEstado.Pagado },
-    });
+    try {
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.idempotencyKey.create({ data: { key: `pago:${payload.cuentaId}` } });
+        await prisma.pedido.updateMany({
+          where: {
+            mesaId: payload.mesaId,
+            estado: {
+              notIn: [
+                PedidoEstado.Pagado,
+                PedidoEstado.Cancelado,
+                PedidoEstado.RechazadoSinStock,
+              ],
+            },
+          },
+          data: { estado: PedidoEstado.Pagado },
+        });
+      });
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === 'P2002') {
+         this.logger.warn(`Pago ${payload.cuentaId} ya procesado — idempotente`);
+         return;
+      }
+      throw e;
+    }
   }
 }
