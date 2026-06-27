@@ -14,7 +14,7 @@ describe('JwtStrategy de identidad', () => {
     process.env.SERVICE_JWT_SECRET = prevSvc;
   });
 
-  it('expone los campos de identidad esperados del payload', async () => {
+  it('expone los campos de identidad esperados del payload', () => {
     const prevPub = process.env.JWT_PUBLIC_KEY;
     const prevSvc = process.env.SERVICE_JWT_SECRET;
     process.env.JWT_PUBLIC_KEY = 'dummy-public-key';

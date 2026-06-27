@@ -14,7 +14,7 @@ describe('JwtStrategy (shared-auth)', () => {
     process.env.SERVICE_JWT_SECRET = svc;
   });
 
-  it('valida y proyecta los campos de identidad del payload', async () => {
+  it('valida y proyecta los campos de identidad del payload', () => {
     const pub = process.env.JWT_PUBLIC_KEY;
     const svc = process.env.SERVICE_JWT_SECRET;
     process.env.JWT_PUBLIC_KEY = 'dummy-public';
@@ -31,16 +31,16 @@ describe('JwtStrategy (shared-auth)', () => {
   });
 
   describe('T-17: audiencia de tokens S2S (rol SISTEMA)', () => {
-    const withEnv = async (env: Record<string, string | undefined>, fn: () => Promise<void>) => {
+    const withEnv = (env: Record<string, string | undefined>, fn: () => void) => {
       const prev: Record<string, string | undefined> = {};
       for (const k of Object.keys(env)) { prev[k] = process.env[k]; if (env[k] === undefined) delete process.env[k]; else process.env[k] = env[k]; }
-      try { await fn(); } finally {
+      try { fn(); } finally {
         for (const k of Object.keys(prev)) { if (prev[k] === undefined) delete process.env[k]; else process.env[k] = prev[k]; }
       }
     };
 
-    it('acepta un token de servicio con aud === SERVICE_NAME', async () => {
-      await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-inventario', SERVICE_AUD_ENFORCE: 'true' }, async () => {
+    it('acepta un token de servicio con aud === SERVICE_NAME', () => {
+      withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-inventario', SERVICE_AUD_ENFORCE: 'true' }, () => {
         const strategy = new JwtStrategy();
         expect(
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
@@ -48,8 +48,8 @@ describe('JwtStrategy (shared-auth)', () => {
       });
     });
 
-    it('rechaza (estricto) un token de servicio con aud incorrecta', async () => {
-      await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, async () => {
+    it('rechaza (estricto) un token de servicio con aud incorrecta', () => {
+      withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, () => {
         const strategy = new JwtStrategy();
         expect(() =>
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
@@ -57,8 +57,8 @@ describe('JwtStrategy (shared-auth)', () => {
       });
     });
 
-    it('rechaza aud incorrecta aunque SERVICE_AUD_ENFORCE no este definida', async () => {
-      await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: undefined }, async () => {
+    it('rechaza aud incorrecta aunque SERVICE_AUD_ENFORCE no este definida', () => {
+      withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: undefined }, () => {
         const strategy = new JwtStrategy();
         expect(() =>
           strategy.validate({ sub: 'servicio-pedidos', rol: 'SISTEMA', aud: 'servicio-inventario' }),
@@ -66,8 +66,8 @@ describe('JwtStrategy (shared-auth)', () => {
       });
     });
 
-    it('un token de USUARIO (RS256, sin aud) pasa aunque haya enforce', async () => {
-      await withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, async () => {
+    it('un token de USUARIO (RS256, sin aud) pasa aunque haya enforce', () => {
+      withEnv({ JWT_PUBLIC_KEY: 'x', SERVICE_JWT_SECRET: 'y', SERVICE_NAME: 'servicio-cuentas', SERVICE_AUD_ENFORCE: 'true' }, () => {
         const strategy = new JwtStrategy();
         expect(
           strategy.validate({ sub: 'u1', email: 'a@b.com', rol: 'MESERO', nombre: 'Ana' }),

@@ -28,7 +28,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return authenticated;
   }
 
-  override handleRequest<TUser = any>(err: unknown, user: unknown): TUser {
+  override handleRequest<TUser = unknown>(err: unknown, user: unknown): TUser {
     if (err || !user) {
       throw new UnauthorizedException('Token inválido o expirado');
     }

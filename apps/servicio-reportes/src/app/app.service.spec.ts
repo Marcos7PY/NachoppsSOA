@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppService } from './app.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { CuentaCerradaPayload } from '@org/contracts';
 
 describe('AppService — Reportes', () => {
   const prisma = {

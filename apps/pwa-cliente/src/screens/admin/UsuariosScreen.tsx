@@ -230,7 +230,7 @@ export function UsuariosScreen() {
                                 value={usuario.rol}
                                 disabled={saving || !online}
                                 aria-label={`Cambiar rol de ${usuario.nombre}`}
-                                onChange={(event) => cambiarRol(usuario.id, event.target.value as RolUsuario)}
+                                onChange={(event) => void cambiarRol(usuario.id, event.target.value as RolUsuario)}
                               >
                                 {ROLES.map((role) => (
                                   <option key={role.value} value={role.value}>{role.label}</option>
@@ -246,7 +246,7 @@ export function UsuariosScreen() {
               </div>
               {nextCursor && (
                 <div className="row center" style={{ padding: '12px' }}>
-                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={fetchMore}>
+                  <button className="btn btn-ghost btn-sm" disabled={loadingMore} onClick={() => void fetchMore()}>
                     {loadingMore ? <span className="spinner" /> : null}
                     Cargar más
                   </button>
@@ -263,7 +263,7 @@ export function UsuariosScreen() {
                 <Icons.Plus s={16} />
                 <h3>Nuevo usuario</h3>
               </div>
-              <form className="form-stack" onSubmit={handleCrear}>
+              <form className="form-stack" onSubmit={(e) => void handleCrear(e)}>
                 <div className="field">
                   <label htmlFor="nu-nombre">Nombre</label>
                   <div className="input">
