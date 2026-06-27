@@ -16,6 +16,7 @@ function createMockPrismaService(overrides: Record<string, any> = {}) {
       findUnique: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     pedidoItem: {
       update: vi.fn(),
@@ -63,23 +64,19 @@ describe('PedidosSagaService — Pedidos', () => {
   describe('actualizarEstado — guard de transiciones', () => {
     it('permite el avance comercial LISTO → ENTREGADO', async () => {
       vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Listo } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update').mockResolvedValue({
-        ...basePedido,
-        estado: PedidoEstado.Entregado,
-        items: [],
-      } as never);
+      const updateSpy = vi.spyOn(mockPrisma.pedido, 'updateMany').mockResolvedValue({ count: 1 } as never);
 
       await service.actualizarEstado('p-001', { estado: PedidoEstado.Entregado });
 
       expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'p-001' },
+        where: { id: 'p-001', estado: PedidoEstado.Listo },
         data: { estado: PedidoEstado.Entregado },
       }));
     });
 
     it('rechaza una transición inválida (PAGADO → EN_PREPARACION)', async () => {
       vi.spyOn(mockPrisma.pedido, 'findUnique').mockResolvedValue({ ...basePedido, estado: PedidoEstado.Pagado } as never);
-      const updateSpy = vi.spyOn(mockPrisma.pedido, 'update');
+      const updateSpy = vi.spyOn(mockPrisma.pedido, 'updateMany');
 
       await expect(
         service.actualizarEstado('p-001', { estado: PedidoEstado.EnPreparacion }),

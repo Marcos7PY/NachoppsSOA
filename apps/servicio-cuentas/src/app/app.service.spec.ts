@@ -11,6 +11,9 @@ function createMockPrismaService() {
     $disconnect: () => Promise.resolve(),
     $transaction: vi.fn((cb: (m: unknown) => unknown) => cb(mock)),
     checkAndRecordIdempotencyKey: () => Promise.resolve(true),
+    idempotencyKey: {
+      create: vi.fn().mockResolvedValue({}),
+    },
     cuenta: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -80,7 +83,7 @@ describe('AppService — Cuentas', () => {
 
       const result = await service.abrirCuenta({ mesaId: 'm-001' }, 'fallback');
 
-      expect(result.message).toBe('Cuenta ya existe.');
+      expect(result.message).toBe('Cuenta abierta exitosamente');
       expect(result.cuenta.id).toBe('c-existing');
     });
   });
