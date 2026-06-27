@@ -32,6 +32,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Generate JWT Keys
+        run: npm run dev:keys
+
       - name: Build service images
         run: |
           services=(
