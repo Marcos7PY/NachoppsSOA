@@ -66,9 +66,13 @@ export function CobroMesaDrawer({ mesaId, mesaNumero, onClose, onPaid }: Readonl
 
   const handlePagar = async () => {
     if (!cuentaActiva || !online) return;
-    await registrarPago({ cuentaId: cuentaActiva.id, montoRecibido: totalBase, metodo, descuento: desc, propina: tip, mesaNumero });
-    onPaid?.();
-    onClose();
+    try {
+      await registrarPago({ cuentaId: cuentaActiva.id, montoRecibido: totalBase, metodo, descuento: desc, propina: tip, mesaNumero });
+      onPaid?.();
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

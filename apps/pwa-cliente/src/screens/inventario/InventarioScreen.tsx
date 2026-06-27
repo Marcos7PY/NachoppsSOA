@@ -43,15 +43,19 @@ export function InventarioScreen() {
   const handleCrear = async (e: SubmitEvent) => {
     e.preventDefault();
     if (!online) return;
-    await crearProducto({
-      ...productoForm,
-      categoriaId: productoForm.categoriaId || categorias[0]?.id,
-      nombre: productoForm.nombre.trim(),
-      descripcion: productoForm.descripcion?.trim() || undefined,
-      precio: Number(productoForm.precio) || 0,
-      stockActual: Number(productoForm.stockActual) || 0,
-    });
-    setProductoForm(INITIAL_PRODUCT);
+    try {
+      await crearProducto({
+        ...productoForm,
+        categoriaId: productoForm.categoriaId || categorias[0]?.id,
+        nombre: productoForm.nombre.trim(),
+        descripcion: productoForm.descripcion?.trim() || undefined,
+        precio: Number(productoForm.precio) || 0,
+        stockActual: Number(productoForm.stockActual) || 0,
+      });
+      setProductoForm(INITIAL_PRODUCT);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const updateForm = (key: keyof CrearProductoPayload, value: string | number | boolean) =>
@@ -60,8 +64,12 @@ export function InventarioScreen() {
   const handleReponer = async (productoId: string) => {
     const cantidad = Number(stockInputs[productoId]) || 0;
     if (cantidad <= 0 || !online) return;
-    await reponerStock(productoId, cantidad);
-    setStockInputs((prev) => ({ ...prev, [productoId]: '' }));
+    try {
+      await reponerStock(productoId, cantidad);
+      setStockInputs((prev) => ({ ...prev, [productoId]: '' }));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -134,9 +142,9 @@ export function InventarioScreen() {
             onStockInput={(id, val) => setStockInputs((prev) => ({ ...prev, [id]: val }))}
             saving={saving}
             online={online}
-            onToggleDisponible={(p) => { if (!saving) actualizarProducto(p.id, { disponible: !p.disponible }); }}
+            onToggleDisponible={(p) => { if (!saving) { actualizarProducto(p.id, { disponible: !p.disponible }).catch(e => console.error(e)); } }}
             onReponer={handleReponer}
-            onReponerQuick={(id, cant) => { if (online) reponerStock(id, cant); }}
+            onReponerQuick={(id, cant) => { if (online) { reponerStock(id, cant).catch(e => console.error(e)); } }}
             nextCursor={nextCursor}
             loadingMore={loadingMore}
             onLoadMore={fetchMore}

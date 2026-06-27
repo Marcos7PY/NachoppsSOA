@@ -94,9 +94,13 @@ export function CajaScreen() {
   };
 
   const abrirCaja = async (fondoInicial: number) => {
-    await abrirTurno({ fondoInicial, cajeroNombre });
-    setModal(null);
-    toast({ title: 'Caja abierta', msg: `Fondo inicial ${fmt(fondoInicial)}`, icon: 'Cash', kind: 'ok' });
+    try {
+      await abrirTurno({ fondoInicial, cajeroNombre });
+      setModal(null);
+      toast({ title: 'Caja abierta', msg: `Fondo inicial ${fmt(fondoInicial)}`, icon: 'Cash', kind: 'ok' });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -267,10 +271,14 @@ export function CajaScreen() {
           onClose={() => setModal(null)}
           onSave={(...args) => { void (async (mov) => {
             if (!turno) return;
-            await crearMovimiento(turno.id, mov);
-            setModal(null);
-            const esEgreso = mov.tipo === 'EGRESO';
-            toast({ title: esEgreso ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: esEgreso ? 'ArrowDown' : 'ArrowUp', kind: esEgreso ? 'info' : 'ok' });
+            try {
+              await crearMovimiento(turno.id, mov);
+              setModal(null);
+              const esEgreso = mov.tipo === 'EGRESO';
+              toast({ title: esEgreso ? 'Egreso registrado' : 'Ingreso registrado', msg: `${mov.donde} · ${fmt(Math.abs(mov.monto))}`, icon: esEgreso ? 'ArrowDown' : 'ArrowUp', kind: esEgreso ? 'info' : 'ok' });
+            } catch (err) {
+              console.error(err);
+            }
           })(...args); }}
         />
       )}
@@ -281,9 +289,13 @@ export function CajaScreen() {
           cajeroNombre={cajeroNombre}
           onClose={() => setModal(null)}
           onDone={(...args) => { void (async (denominaciones) => {
-            await cerrarTurno(turno.id, { denominaciones });
-            setModal(null);
-            toast({ title: 'Caja cerrada', msg: 'Turno cerrado y arqueo guardado', icon: 'Lock' });
+            try {
+              await cerrarTurno(turno.id, { denominaciones });
+              setModal(null);
+              toast({ title: 'Caja cerrada', msg: 'Turno cerrado y arqueo guardado', icon: 'Lock' });
+            } catch (err) {
+              console.error(err);
+            }
           })(...args); }}
         />
       )}

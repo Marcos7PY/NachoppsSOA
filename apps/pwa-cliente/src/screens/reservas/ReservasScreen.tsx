@@ -62,13 +62,17 @@ export function ReservasScreen() {
   const handleCrear = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!online) return;
-    await crear({
-      ...form,
-      clienteNombre: form.clienteNombre.trim(),
-      clienteTelefono: form.clienteTelefono?.trim(),
-      mesaPreferida: form.mesaPreferida.trim(),
-      numComensales: Number(form.numComensales) || 1,
-    });
+    try {
+      await crear({
+        ...form,
+        clienteNombre: form.clienteNombre.trim(),
+        clienteTelefono: form.clienteTelefono?.trim(),
+        mesaPreferida: form.mesaPreferida.trim(),
+        numComensales: Number(form.numComensales) || 1,
+      });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
