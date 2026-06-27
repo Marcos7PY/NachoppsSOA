@@ -93,10 +93,14 @@
   ],
   "overrides": {
     "@hono/node-server": "1.19.13",
-    "ws": "8.20.1",
     "sockjs": {
       "uuid": "11.1.1"
-    }
+    },
+    "ws": "^8.20.3",
+    "multer": "^1.4.5-lts.1",
+    "form-data": "^4.0.6",
+    "js-yaml": "^4.1.2",
+    "@opentelemetry/core": "^1.26.0"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
